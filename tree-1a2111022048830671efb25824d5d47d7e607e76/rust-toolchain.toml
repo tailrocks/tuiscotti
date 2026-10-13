@@ -1,0 +1,5 @@
+# Tuiscotti rust-toolchain.toml (G7 appendix, verbatim). Target: <repo-root>/rust-toolchain.toml
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["clippy", "rustfmt"]

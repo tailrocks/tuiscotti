@@ -1,0 +1,104 @@
+# Qualification fork: schema 3
+
+Canonical schema 3 adds `Mods.hidden` and `Mods.blink`; version-2 imports fail
+instead of guessing lost attributes. Blink presence survives, but blink phase
+is frozen visible and slow/rapid rates remain combined. HIDDEN suppresses
+PNG/SVG glyph paint, while canonical JSON retains the original symbol: hidden
+text is not redacted. Never capture real secrets.
+
+`python3 tools/migrate_fixture_v3.py --out DIR` exports only the audited
+schema-2 approvals read directly from Git revision
+`5036cf87e621e6beb66deffe3224abdbefc955cb`, tied to the exact fixture source hash.
+Run from a checkout containing that revision; current schema-3 approvals and
+actual captures are never read. `--continuation-styles` additionally repairs old continuation
+colors/modifiers from each original wide lead; its ledger lists these changes
+separately. Outputs require review before replacing approved files. This is
+not a general migration of arbitrary schema-2 snapshots: unknown hidden/blink
+state cannot be recovered from that format.
+
+# Engine swap: vt100 → termpane (schema 3 unchanged)
+
+Schema v3 is unchanged: blink stays frozen-visible with slow/rapid combined,
+hidden is conceal, overline/underline-styles stay dropped. MSRV is now 1.97
+(termpane floor) — a breaking change for consumers.
+
+The PTY engine and raw-ANSI replay now run on `termpane` v0.7.0 (pinned git
+tag via termlens) instead of the vendored vt100 0.16.2 fork. Attr mapping:
+hidden=conceal, blink=slow||rapid, all others 1:1; colors Default/Idx/Rgb 1:1;
+DECAWM, bell events, `?12`, serialization round-trips, DEC 2026 and DECRQM
+coverage per termpane CHANGELOG 0.7.0. The pending-wrap phantom column
+(`cursor_position` == cols) is clamped to `cols-1` in `ansi::replay_raw`,
+matching the prior fork behavior; `validate()` still rejects out-of-grid
+cursors loudly. The `termlens` shadow parser is deleted (attributes are native
+now). `pub use termlens` re-export and consumer type-identity stay intact.
+
+Historical note: the vendored vt100 0.16.2 fork (independent bold/DIM,
+DECAWM, wide continuation attributes, hidden/blink/strike) is removed. Its
+archive hashes were in `vendor/UPSTREAM.json` (deleted). termlens 0.9 remains
+vendored; its engine dependency is now the termpane git tag. Upstream source
+hashes and licenses are retained in `vendor/TERMLENS-UPSTREAM.json` and
+`vendor/termlens`.
+Code using `frame_from_screen` should construct its screen through the
+`tuisnap::termlens` re-export so the engine's Rust type identity matches.
+Qualify ordinary consumption with `cargo run --locked --manifest-path
+tests/fixtures/consumer/Cargo.toml` and inspect `cargo tree -i termpane` (one
+version) and `cargo tree -i vt100` (empty) in that
+consumer.
+
+`Session::paste` retains termlens's simulated terminal behavior (LF→CR plus
+paste-marker sanitization). `Session::paste_literal` preserves literal line
+breaks, requires bracketed-paste mode, and rejects embedded delimiters so
+payload text cannot escape into ordinary input. This separates deterministic
+payload testing from simulated terminal behavior.
+
+Raw-ANSI replay still cannot observe cursor appearance; its block/steady
+cursor is a limitation, not equivalence to the PTY path. Use PTY captures for
+cursor shape/blinking assertions. Raster output remains a pinned approximation
+of terminal font rendering, not pixel identity with a terminal emulator.
+
+---
+
+# Migration: v0.1 → v0.2
+
+v0.2 is a redesign implementing `RESEARCH.md`. Breaking changes are
+intentional; the old APIs are gone, not deprecated.
+
+## Removed (no shims)
+
+| v0.1 | v0.2 |
+|---|---|
+| `tuisnap::ratatui_shot::{widget_frame, draw_frame}` | `tuisnap::ratatui::{widget_frame, draw_frame, capture}` — new signatures take `Provenance`; `widget_frame` hides the cursor, `draw_frame` preserves it |
+| `tuisnap::Baseline` + `BLESS=1` / `UPDATE_SNAPSHOT=1` | `tuisnap::snapshot::Store` + explicit `tuisnap accept`. **Rationale:** ambient approval violates "CI must never auto-bless" (a test proves no env var accepts) |
+| `digest` CLI subcommand | `check` / `report` subcommands |
+| `render --input *.ansi` | `render` reads canonical `frame.json` only; raw streams replay via `ansi::replay_raw` (feature `pty`) |
+| `tuisnap::render::write_format`, `to_png_bytes`, block-glyph PNG | `render_png` (real fontdue glyphs), `render_svg`, `ansi_dump`; formats via CLI `--format` |
+| Hand-rolled SGR replay parser | Deleted; `termpane` is the established emulator |
+| `PtySession` / `run_once(argv, opts, sends)` | `pty::Session` (termlens engine) / `run_once(argv, opts, sends, settle)`; waits now fail on timeout instead of returning `false` |
+
+## Schema
+
+- `Frame` is now versioned (`version: 2`), with positioned cells, explicit
+  widths/continuations, `Default|Indexed|Rgb` colors, six modifiers,
+  cursor state, and provenance. v0.1 JSON does not import — re-capture.
+- `Frame::digest` now mixes the schema version and the cursor. Old digests
+  are incomparable by design.
+
+## Workflow
+
+```text
+# v0.1
+UPDATE_BASELINE=1 cargo test   # ambient bless
+
+# v0.2
+cargo test                     # writes actuals, fails missing/changed
+cargo run -q -- accept --store <dir> --all   # explicit, after review
+cargo test                     # green
+```
+
+## Dependencies
+
+- Added (all latest, pure-cargo): `fontdue`, `image-compare`, `base64`,
+  `sha2`, `termlens` (optional via `pty` feature), `termpane` (optional).
+- Removed direct use of `portable-pty` (termlens owns PTY lifetime now).
+- Pure view tests: `cargo build/test --no-default-features` excludes
+  `termlens` + `termpane` entirely.
