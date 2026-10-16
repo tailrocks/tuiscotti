@@ -69,6 +69,76 @@ Timings are local Apple-silicon numbers; see
 [PERFORMANCE.md](PERFORMANCE.md). The 120 s CI fast-lane budget must
 be re-proven with CI timings, not local ones.
 
+## Clock and Time Control in PTY Subprocesses
+
+`tui::Tui` launches a real OS child process attached to a kernel PTY.
+Because the child executes in its own address space and schedules its
+own timers, the test harness cannot inject a virtual Rust clock into
+an arbitrary child binary over a PTY, and `Session::wait_stable_quiet`
+measures real wall-clock PTY byte silence on the reader thread.
+
+Use this two-part pattern for deterministic animations, spinners,
+blinking cursors, and wall-clock timestamps in binaries under test:
+
+1. **App-side deterministic clock / tick env convention**: pass an
+   environment variable via
+   `Tui::new(cmd).env("TUISCOTTI_FIXED_TIME", "2026-01-01T00:00:00Z")`
+   or `Tui::new(cmd).env("APP_TICK_MS", "0")` (or a key-driven step
+   mode) so blinking cursors, spinners, and wall-clock timestamps
+   freeze during visual baseline runs.
+2. **Wait-side semantic readiness + short quiet window**: wait on a
+   semantic readiness condition first
+   (`session.get_by_text("Ready").any().expect_visible()?` or
+   `wait_predicate`), then pair it with a short quiet window
+   (`session.wait_stable_quiet(deadline, Duration::from_millis(50), &cancel)?`)
+   instead of relying on a large `wait_stable_quiet(400ms)` as a
+   substitute for readiness.
+
+```rust,no_run
+use std::path::Path;
+use std::time::{Duration, Instant};
+use tuiscotti::grouped::{ArtifactSet, GroupedStore};
+use tuiscotti::tui::{CancelToken, MouseButton, MouseMods, Tui};
+use tuiscotti::{Profile, VENDORED_FACES, render};
+
+fn pty_to_grouped_files() -> Result<(), Box<dyn std::error::Error>> {
+    let session = Tui::new(["./target/debug/my-tui"])
+        .size(120, 40)
+        .env_clear(true)
+        .env("TERM", "xterm-256color")
+        .env("TUISCOTTI_FIXED_TIME", "2026-01-01T00:00:00Z")
+        .env("APP_TICK_MS", "0")
+        .spawn()?;
+
+    session.get_by_text("Ready").any().expect_visible()?;
+    let cancel = CancelToken::new();
+    session.wait_stable_quiet(
+        Instant::now() + Duration::from_secs(2),
+        Duration::from_millis(50),
+        &cancel,
+    )?;
+
+    // Hover via mouse_move (requires DEC 1003 + 1006) and press-and-hold:
+    session.mouse_move(10, 5, MouseMods::NONE)?;
+    session.mouse_down(MouseButton::Left, 10, 5, MouseMods::NONE)?;
+    session.mouse_up(MouseButton::Left, 10, 5, MouseMods::NONE)?;
+
+    let frame = render::frame_from_screen(&session.snapshot()?, "tuiscotti-default");
+    let store = GroupedStore::new(Path::new("snapshots/visual"))
+        .with_artifacts(ArtifactSet::AnsiCursor)
+        .with_actual_root(Path::new("target/tuiscotti/actual"))
+        .with_expected_root(Path::new("target/tuiscotti/expected"))
+        .with_diff_root(Path::new("target/tuiscotti/diff"));
+    let profile = Profile::default_profile();
+    store
+        .check("dashboard/hover_120x40", &frame, &profile, &VENDORED_FACES, 1.0)?
+        .ensure_matched()?;
+
+    session.close()?;
+    Ok(())
+}
+```
+
 ## CI wiring
 
 Gates run everywhere; approval happens only on a human workstation.
@@ -85,6 +155,9 @@ this rule is to run `accept` in CI. Don't.
   with:
     name: visual-evidence
     path: |
+      target/tuiscotti/actual/
+      target/tuiscotti/expected/
+      target/tuiscotti/diff/
       crates/tuiscotti-fixtures/tests/visual/actual/
       crates/tuiscotti-fixtures/tests/visual/diff/
       crates/tuiscotti-fixtures/tests/visual/report.html
@@ -96,13 +169,14 @@ Notes:
   bytes = byte-identical PNGs (tested). Runners need no system fonts.
 - Review flow for a red run: download `visual-evidence`, open
   `report.html`, reproduce locally if needed, then
-  `tuiscotti accept --store <dir> <name>` locally and push the updated
-  `approved/` tree.
+  `tuiscotti accept --store <dir> <name>` (or a prefix/glob filter
+  such as `tuiscotti accept --store snapshots/visual --actual target/tuiscotti/actual "dashboard/*"`)
+  locally and push the updated approved tree.
 - Parallel jobs are safe: per-name files + atomic renames.
   Concurrent jobs sharing one store directory only race on
   `report.html` (best-effort index); gate data never clobbers.
-- Do not cache `actual/`, `diff/`, or `report.html` between runs —
-  they are per-run evidence.
+- Do not cache `actual/`, `expected/`, `diff/`, or `report.html`
+  between runs — they are per-run evidence.
 
 ## Link and doc checks
 

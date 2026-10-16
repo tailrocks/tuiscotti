@@ -338,3 +338,58 @@ fn cli_accept_rejects_frozen() {
         before
     );
 }
+
+#[test]
+fn cli_accept_grouped_and_ansi_cursor_plus_render_from_ansi() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let approved = tmp.path().join("snapshots");
+    let actual = tmp.path().join("target/tuiscotti/actual");
+    let st = tuiscotti::grouped::GroupedStore::new(&approved)
+        .with_artifacts(tuiscotti::grouped::ArtifactSet::AnsiCursor)
+        .with_actual_root(&actual);
+    let profile = tuiscotti::Profile::default_profile();
+    let frame = accept_frame();
+    for n in ["suite/a", "suite/b"] {
+        let o = st
+            .check(n, &frame, &profile, &tuiscotti::VENDORED_FACES, 1.0)
+            .expect("check");
+        assert!(!o.matched());
+    }
+    let act_s = actual.to_str().expect("utf8");
+    let rev = run_cli(
+        &["review", "--dir", act_s, "--filter", "suite/a"],
+        &[],
+        None,
+    )
+    .expect("rev");
+    assert_eq!(code(&rev), Some(tuiscotti::proto::EXIT_VERIFY_FAIL));
+    assert!(stdout(&rev).contains("FAIL suite/a") && !stdout(&rev).contains("suite/b"));
+
+    let app_s = approved.to_str().expect("utf8");
+    let acc = run_cli(&["accept", "--store", app_s, "suite/*"], &[], None).expect("accept");
+    assert_eq!(code(&acc), Some(0));
+    assert!(approved.join("suite/a.ansi").is_file() && approved.join("suite/b.ansi").is_file());
+    assert!(!approved.join("suite/a.png").exists());
+
+    let in_ansi = approved.join("suite/a.ansi");
+    let out_prefix = tmp.path().join("rendered/a");
+    let ren = run_cli(
+        &[
+            "render",
+            "--input",
+            in_ansi.to_str().expect("utf8"),
+            "--format",
+            "png",
+            "--format",
+            "html",
+            "--out",
+            out_prefix.to_str().expect("utf8"),
+        ],
+        &[],
+        None,
+    )
+    .expect("render from ansi");
+    assert_eq!(code(&ren), Some(0));
+    assert!(tmp.path().join("rendered/a.png").is_file());
+    assert!(tmp.path().join("rendered/a.html").is_file());
+}

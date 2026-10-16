@@ -308,6 +308,47 @@ docs churn outside this fix's scope). Steady-state floor (nothing dirty):
   are not comparable to this suite. This file is now the only performance
   report; raw history lives in `benches/results/`.
 
+### P6 review rendering and mismatch-path optimization study
+
+Measured on populated `80x24`, `120x40`, and `160x50` frames (styled ASCII, box-drawing borders, CJK wide cells, and a 1-cell mismatch between expected and actual) across the full mismatch review path (`2× Renderer::render_artifacts` + `diff::compare_png(&expected.png, &actual.png)`):
+
+- **Strict gate preserved**: decoded-pixel comparison (`pixels_equal_under`) runs at full resolution over `as_chunks::<4>()` slices, and `Renderer::render` keeps byte-identical PNG/HTML output (`crates/tuiscotti-fixtures/tests/SHA256SUMS` unchanged).
+- **Optimizations**:
+  1. `diff::compare_png`: separated `hybrid_score` from `encode_diff_png` (so `perceptual_score` never encodes a throwaway PNG); downsampled large images (`w * h > 320 * 240`) to a `~160×100` diagnostic grid using max-L1-delta tile selection with `memcmp` row-slice skipping (preserving single-pixel differences at full contrast while cutting floating-point 8×8 SSIM + Sobel work by ~64×); encoded `diff_png` in a single slice pass with `PngEncoder::new_with_quality(..., CompressionType::Fast, FilterType::Sub)` instead of `FilterType::Adaptive`.
+  2. `render::glyph` / `render::draw`: replaced per-pixel `get_pixel_mut` / `put_pixel` bounds-checked calls in `blend` and `fill_rect` with direct row-slice access (`as_chunks_mut::<3>()`), added an opaque `cov == 255` fast path, and iterated glyph bitmaps row-by-row (`chunks_exact(m.width)`) instead of per-pixel integer division/modulo.
+  3. `render::fonts`: cached SHA-256 verification of the static `VENDORED_FALLBACK_FACES` bytes in a `OnceLock` (cutting warm `Renderer::new` from `5.85 ms` to `0.27 ms` in `opt-level = 0`).
+  4. `render::svg`: avoided `Frame::clone()` in `html_document` via `Cow::Borrowed` when `provenance.created_unix == 0` and pre-sized the HTML output buffer.
+
+| Frame size | Profile | Before `2× render_artifacts` (ms) | After `2× render_artifacts` (ms) | Before `compare_png` (ms) | After `compare_png` (ms) | Before total (ms) | After total (ms) | Speedup |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| `80x24` | `dev`/`test` (`opt-level = 0`) | 807.75 | 783.92 | 1620.23 | 306.11 | 2427.71 | 1086.23 | 2.23× (`compare_png` 5.29×) |
+| `120x40` | `dev`/`test` (`opt-level = 0`) | 2040.28 | 2019.73 | 5718.90 | 724.03 | 7759.18 | 2735.60 | 2.84× (`compare_png` 7.90×) |
+| `160x50` | `dev`/`test` (`opt-level = 0`) | 3491.82 | 3300.38 | 6693.93 | 1183.91 | 10185.75 | 4491.02 | 2.27× (`compare_png` 5.65×) |
+| `80x24` | `release` (`opt-level = 3`) | 22.33 | 12.73 | 44.20 | 14.81 | 66.53 | 27.55 | 2.41× (88× vs before `opt-0`) |
+| `120x40` | `release` (`opt-level = 3`) | 57.20 | 31.48 | 97.10 | 35.87 | 154.30 | 67.31 | 2.29× (115× vs before `opt-0`) |
+| `160x50` | `release` (`opt-level = 3`) | 95.87 | 52.97 | 174.96 | 59.63 | 270.83 | 112.61 | 2.40× (90× vs before `opt-0`) |
+
+#### Recommended consumer profile overrides for `cargo test`
+
+In `opt-level = 0`, PNG deflate/inflate (`png`, `miniz_oxide`, `flate2`) and glyph outlining (`swash`, `skrifa`) dominate `render_artifacts` and `decode_png`. Downstream workspaces running large visual-regression suites under `cargo test` can get the `opt-level = 3` timings above (`28–113 ms` per mismatch check) while keeping fast debug builds for their own crates by adding:
+
+```toml
+[profile.dev.package.tuiscotti-render]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.image-compare]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.swash]
+opt-level = 3
+```
+
 ## Findings for follow-up
 
 1. g7-view-edit — RESOLVED (study above): 5 test-profile units per touch
@@ -315,9 +356,13 @@ docs churn outside this fix's scope). Steady-state floor (nothing dirty):
    codegen on all five. Fix: `[profile.test] debug="line-tables-only"`.
    Contended-box misses were environmental (quiet HEAD already passes);
    re-prove on the quiet final-head rerun like every other number here.
-2. compare-changed cost (93 ms p50 at 200x60): the hybrid-diagnostic +
-   diff-PNG path dominates mismatch verdicts; stream or downscale the
-   diagnostic (never the strict verdict).
+2. compare-changed cost — RESOLVED (P6 study above): downscaled the
+   perceptual `rgb_hybrid_compare` diagnostic with max-L1-delta tile
+   selection (never the strict decoded-pixel verdict) and switched
+   `diff_png` to single-pass slice construction + fast PNG encoding
+   (`CompressionType::Fast`, `FilterType::Sub`), cutting `compare_png`
+   mismatch cost by 5.3–7.9× in `opt-level = 0` and 2.7–3.0× in
+   `opt-level = 3`.
 3. Cache-hit value is thin (~20–25% under a warm render): full-decode
    validation dominates; a cheaper integrity check would buy the hit path
    back (without weakening rejection of corrupt entries).

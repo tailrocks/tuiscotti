@@ -15,24 +15,26 @@ resolver = "3"
 [workspace.dependencies]
 # Centralize all actual dependencies here, including dev/build dependencies.
 # Use real compatible released versions; termpane must come from the official registry release.
-# Pins below are the exact resolved versions from the pre-split Cargo.lock.
-anyhow = "=1.0.104"
-base64 = "=0.23.1"
-clap = { version = "=4.6.6", features = ["derive"] }
-crossterm = "=0.28.1"
-fs2 = "=0.4.3"
-swash = "=0.2.10"
-image = { version = "=0.25.10", default-features = false, features = ["png", "gif"] }
-image-compare = "=0.5.0"
-insta = { version = "=1.48.0", default-features = false, features = ["json"] }
-serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.151"
-sha2 = "=0.11.0"
-ratatui = { version = "=0.29.0", default-features = false, features = ["crossterm", "underline-color"] }
-unicode-width = "=0.2.0"
+# Compatible SemVer ranges let downstream consumers unify dependencies without forced downgrades,
+# while Cargo.lock keeps workspace CI deterministic.
+anyhow = "1.0"
+base64 = "0.23"
+clap = { version = "4.5", features = ["derive"] }
+crossterm = "0.28"
+fs2 = "0.4"
+swash = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "gif"] }
+image-compare = "0.5"
+insta = { version = "1.42", default-features = false, features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.11"
+ratatui = { version = ">=0.29.0, <0.31.0", default-features = false, features = ["underline-color"] }
+unicode-segmentation = "1.12"
+unicode-width = "0.2"
 # PTY runtime backend: released termpane from crates.io (G1 swap landed, F01).
-termpane = { version = "=0.1.0", features = ["pty"] }
-tempfile = "=3.27.0"
+termpane = { version = "0.1", features = ["pty"] }
+tempfile = "3.15"
 
 [workspace.package]
 edition = "2024"

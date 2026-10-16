@@ -136,6 +136,66 @@ impl Locator {
         }
     }
 
+    /// Retry until the match count is at least `min`, or the ONE `timeout`
+    /// deadline. Usage/unsupported fail immediately.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LocateError::Timeout`] past the deadline, or an immediate
+    /// [`LocateError::Usage`]/[`LocateError::Unsupported`] without waiting.
+    pub fn expect_count_at_least<F>(
+        &self,
+        observe: &mut F,
+        min: usize,
+        timeout: Duration,
+    ) -> Result<Vec<Span>, LocateError>
+    where
+        F: FnMut() -> Observation,
+    {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let obs = observe();
+            match self.resolve_obs(&obs) {
+                Ok(spans) if spans.len() >= min => return Ok(spans),
+                Ok(spans) => {
+                    if Instant::now() >= deadline {
+                        return Err(LocateError::Timeout {
+                            waited: timeout,
+                            reason: format!("count {} < minimum {min}", spans.len()),
+                        });
+                    }
+                }
+                Err(e) if e.is_immediate() => return Err(e),
+                Err(e) => {
+                    if Instant::now() >= deadline {
+                        return Err(LocateError::Timeout {
+                            waited: timeout,
+                            reason: format!("still failing: {e}"),
+                        });
+                    }
+                }
+            }
+            std::thread::sleep(POLL_INTERVAL);
+        }
+    }
+
+    /// Alias for [`Locator::expect_count_at_least`].
+    ///
+    /// # Errors
+    ///
+    /// Same failures as [`Locator::expect_count_at_least`].
+    pub fn count_at_least<F>(
+        &self,
+        observe: &mut F,
+        min: usize,
+        timeout: Duration,
+    ) -> Result<Vec<Span>, LocateError>
+    where
+        F: FnMut() -> Observation,
+    {
+        self.expect_count_at_least(observe, min, timeout)
+    }
+
     /// Single-shot presence check against one observation (no retry).
     ///
     /// # Errors

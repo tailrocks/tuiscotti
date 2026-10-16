@@ -109,9 +109,22 @@ impl Session {
 
     /// Click: button down immediately followed by button up at `(x, y)`.
     ///
+    /// # Required DEC Mouse Modes
+    ///
+    /// Mouse input is gated against the live terminal modes enabled by the
+    /// application under test (prefer SGR encoding `DECSET 1006`, `\x1b[?1006h`,
+    /// for coordinates > 223 and distinct press/release markers):
+    ///
+    /// | Method | Tracking mode required | Encoding | Error when mode is off |
+    /// |---|---|---|---|
+    /// | [`Session::click`] / [`Session::mouse_down`] / [`Session::mouse_up`] / [`Session::mouse_wheel`] | `1000` (`\x1b[?1000h`), `1002` (`\x1b[?1002h`), or `1003` (`\x1b[?1003h`) | SGR `1006` (`\x1b[?1006h`, recommended), UTF-8 `1005`, or X10 | `TuiError::ModeNotEnabled("mouse reporting (DEC 1000/1002/1003) not enabled by the application")` |
+    /// | [`Session::mouse_drag`] | `1002` (button-event motion) or `1003` (any-event motion) | SGR `1006` (recommended), UTF-8 `1005`, or X10 | `TuiError::ModeNotEnabled("mouse drag reporting (DEC 1002/1003) not enabled by the application")` |
+    /// | [`Session::mouse_move`] (hover) | `1003` (`\x1b[?1003h`, any-event motion) | SGR `1006` (recommended), UTF-8 `1005`, or X10 | `TuiError::ModeNotEnabled("mouse motion reporting (DEC 1003) not enabled by the application")` |
+    ///
     /// # Errors
     ///
-    /// Returns `TuiError` if mouse reporting is off or input is refused.
+    /// Returns [`TuiError::ModeNotEnabled`] if mouse reporting (`1000`/`1002`/`1003`)
+    /// is off, or [`TuiError`] if coordinates are out of bounds or input is refused.
     pub fn click(
         &self,
         button: MouseButton,
@@ -154,11 +167,32 @@ impl Session {
         })?
     }
 
-    /// Button press at `(x, y)`.
+    /// Button press at `(x, y)` without automatic release.
+    ///
+    /// Requires mouse tracking (`DECSET 1000`, `1002`, or `1003`) and SGR
+    /// encoding (`DECSET 1006`, `\x1b[?1006h`, recommended); see the DEC mode
+    /// table on [`Session::click`]. Pair with [`Session::mouse_up`] for
+    /// press-and-hold assertions or [`Session::mouse_drag`] for drags.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use tuiscotti_runtime::tui::{MouseButton, MouseMods, Tui};
+    ///
+    /// let session = Tui::new(["./my-tui"]).size(80, 24).spawn()?;
+    /// // Hover without buttons (requires DEC 1003 + 1006):
+    /// session.mouse_move(10, 5, MouseMods::NONE)?;
+    /// // Press-and-hold at (10, 5), inspect held state, then release:
+    /// session.mouse_down(MouseButton::Left, 10, 5, MouseMods::NONE)?;
+    /// let _held_screen = session.snapshot()?;
+    /// session.mouse_up(MouseButton::Left, 10, 5, MouseMods::NONE)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     ///
     /// # Errors
     ///
-    /// Returns `TuiError` if mouse reporting is off or input is refused.
+    /// Returns [`TuiError::ModeNotEnabled`] if mouse reporting (`1000`/`1002`/`1003`)
+    /// is off, or [`TuiError`] if input is refused.
     pub fn mouse_down(
         &self,
         button: MouseButton,
@@ -176,9 +210,13 @@ impl Session {
 
     /// Button release at `(x, y)`.
     ///
+    /// Requires mouse tracking (`DECSET 1000`, `1002`, or `1003`) and SGR
+    /// encoding (`DECSET 1006`, recommended); see [`Session::click`].
+    ///
     /// # Errors
     ///
-    /// Returns `TuiError` if mouse reporting is off or input is refused.
+    /// Returns [`TuiError::ModeNotEnabled`] if mouse reporting (`1000`/`1002`/`1003`)
+    /// is off, or [`TuiError`] if input is refused.
     pub fn mouse_up(
         &self,
         button: MouseButton,
@@ -197,9 +235,17 @@ impl Session {
 
     /// Hover (motion with no button held) to `(x, y)`.
     ///
+    /// Requires any-event motion tracking (`DECSET 1003`, `\x1b[?1003h`) and
+    /// SGR encoding (`DECSET 1006`, `\x1b[?1006h`, recommended). Enabling only
+    /// `1000` or `1002` fails closed with
+    /// `TuiError::ModeNotEnabled("mouse motion reporting (DEC 1003) not enabled by the application")`.
+    /// See [`Session::click`] for the full DEC mode table and [`Session::mouse_down`]
+    /// for a hover + press-and-hold example.
+    ///
     /// # Errors
     ///
-    /// Returns `TuiError` if motion reporting is off or input is refused.
+    /// Returns [`TuiError::ModeNotEnabled`] if DEC `1003` any-motion reporting
+    /// is off, or [`TuiError`] if input is refused.
     pub fn mouse_move(&self, x: u16, y: u16, mods: MouseMods) -> Result<(), TuiError> {
         self.send_input(Input::Mouse {
             action: MouseAction::Move { held: None },
@@ -211,9 +257,15 @@ impl Session {
 
     /// Drag step: motion with `button` held, to `(x, y)`.
     ///
+    /// Requires button-event (`DECSET 1002`, `\x1b[?1002h`) or any-event
+    /// (`DECSET 1003`, `\x1b[?1003h`) motion tracking and SGR encoding
+    /// (`DECSET 1006`, recommended). Enabling only `1000` fails closed with
+    /// `TuiError::ModeNotEnabled("mouse drag reporting (DEC 1002/1003) not enabled by the application")`.
+    ///
     /// # Errors
     ///
-    /// Returns `TuiError` if drag reporting is off or input is refused.
+    /// Returns [`TuiError::ModeNotEnabled`] if DEC `1002`/`1003` drag reporting
+    /// is off, or [`TuiError`] if input is refused.
     pub fn mouse_drag(
         &self,
         button: MouseButton,
@@ -229,11 +281,15 @@ impl Session {
         })
     }
 
-    /// Wheel event at `(x, y)`.
+    /// Wheel scroll event at `(x, y)`.
+    ///
+    /// Requires mouse tracking (`DECSET 1000`, `1002`, or `1003`) and SGR
+    /// encoding (`DECSET 1006`, recommended); see [`Session::click`].
     ///
     /// # Errors
     ///
-    /// Returns `TuiError` if mouse reporting is off or input is refused.
+    /// Returns [`TuiError::ModeNotEnabled`] if mouse reporting (`1000`/`1002`/`1003`)
+    /// is off, or [`TuiError`] if input is refused.
     pub fn mouse_wheel(
         &self,
         wheel: Wheel,

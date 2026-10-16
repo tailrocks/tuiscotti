@@ -28,5 +28,6 @@ mod paths;
 mod report;
 mod types;
 
+pub(crate) use check::compare_cells;
 pub use report::*;
 pub use types::*;

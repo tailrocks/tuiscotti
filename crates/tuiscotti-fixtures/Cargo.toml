@@ -25,7 +25,7 @@ path = "tests/fixtures/apps/protocol.rs"
 [dependencies]
 anyhow.workspace = true
 crossterm.workspace = true
-ratatui.workspace = true
+ratatui = { workspace = true, features = ["crossterm"] }
 
 [dev-dependencies]
 tuiscotti = { version = "0.2.0", path = "../tuiscotti" }

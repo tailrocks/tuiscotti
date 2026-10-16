@@ -77,6 +77,29 @@ impl Locator {
         }
     }
 
+    /// Resolve requiring at least `min` viewport matches: fewer than `min`
+    /// fails with [`LocateError::NotFound`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LocateError::NotFound`] when fewer than `min` matches
+    /// resolve, plus [`Locator::resolve`] failures.
+    pub fn resolve_at_least(
+        &self,
+        min: usize,
+        screen: &Screen,
+        revision: u64,
+    ) -> Result<Vec<Span>, LocateError> {
+        let spans = self.resolve(screen, revision)?;
+        if spans.len() < min {
+            return Err(LocateError::not_found(format!(
+                "count {} < minimum {min}",
+                spans.len()
+            )));
+        }
+        Ok(spans)
+    }
+
     fn resolve_core(
         &self,
         screen: &Screen,

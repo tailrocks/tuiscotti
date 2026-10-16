@@ -30,7 +30,7 @@ pub mod pipe;
 pub mod png;
 pub mod txt;
 
-pub use ansi::{ansi_normalized, assert_normalized_sgr};
+pub use ansi::{ansi_dump_with_cursor, ansi_normalized, assert_normalized_sgr, frame_from_ansi};
 pub use ascii::{AsciiArtifact, AsciiSubstitution, ascii_projection, assert_seven_bit};
 pub use html::{assert_static_offline, html_static};
 pub use json::{CANONICAL_JSON_VERSION, canonical_json, parse_canonical};

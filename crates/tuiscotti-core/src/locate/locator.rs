@@ -186,23 +186,30 @@ impl Locator {
     /// The `index`-th match in resolution order (0-based). Out of range
     /// resolves to no matches.
     #[must_use]
-    pub fn nth(inner: Locator, index: usize) -> Self {
+    pub fn nth(self, index: usize) -> Self {
         Self::combinator(LocatorKind::Nth {
-            inner: Box::new(inner),
+            inner: Box::new(self),
             index,
         })
     }
 
     /// The first match in resolution order.
     #[must_use]
-    pub fn first(inner: Locator) -> Self {
-        Self::combinator(LocatorKind::First(Box::new(inner)))
+    pub fn first(self) -> Self {
+        Self::combinator(LocatorKind::First(Box::new(self)))
     }
 
     /// The last match in resolution order.
     #[must_use]
-    pub fn last(inner: Locator) -> Self {
-        Self::combinator(LocatorKind::Last(Box::new(inner)))
+    pub fn last(self) -> Self {
+        Self::combinator(LocatorKind::Last(Box::new(self)))
+    }
+
+    /// Any match (resolves to the first match in resolution order when 1+
+    /// matches exist, so unique-target callers succeed on multi-match screens).
+    #[must_use]
+    pub fn any(self) -> Self {
+        Self::first(self)
     }
 
     /// Matches of `a` overlapping some match of `b` (same line, column

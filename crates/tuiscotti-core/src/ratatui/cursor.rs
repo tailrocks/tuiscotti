@@ -29,7 +29,9 @@ pub const CURSOR_SENTINEL: Position = Position {
 ///
 /// Forwards backend I/O failures (unreachable on `TestBackend`).
 pub fn plant_cursor_sentinel(term: &mut ratatui::Terminal<TestBackend>) -> std::io::Result<()> {
-    term.backend_mut().set_cursor_position(CURSOR_SENTINEL)
+    term.backend_mut()
+        .set_cursor_position(CURSOR_SENTINEL)
+        .map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 /// Normalize a post-draw stored cursor position into `(position, visible)`

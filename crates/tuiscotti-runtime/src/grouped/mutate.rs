@@ -1,24 +1,63 @@
-use super::{GroupedStore, artifact_paths, validate_name};
+use super::{ArtifactSet, GroupedStore, artifact_paths, validate_name};
 use crate::snapshot::{
     CompareOutcome, SnapshotError, StoreReport, report_entry, write_atomic, write_report_at,
 };
-use tuiscotti_core::frame::Frame;
+use tuiscotti_core::frame::{Frame, Provenance};
+use tuiscotti_render::formats::ansi::frame_from_ansi;
 use tuiscotti_render::profile::Profile;
 use tuiscotti_render::render::Renderer;
 
 impl GroupedStore {
-    /// Explicitly approve one scenario: the four actual artifacts replace
-    /// the approved ones (atomic per file). Sidecars stay in the scratch
-    /// area — the approved tree holds the four artifacts and nothing else.
-    /// There is deliberately no environment-variable auto-accept.
+    /// Explicitly approve one scenario: actual artifacts replace the approved
+    /// ones (atomic per file). Sidecars stay in the scratch area.
+    ///
+    /// In [`ArtifactSet::AnsiCursor`] mode, only `<name>.ansi` is validated via
+    /// [`frame_from_ansi`] and written under `approved_root`, and any stale
+    /// `<name>.{txt,png,html}` under `approved_root` are removed.
     ///
     /// # Errors
     ///
-    /// Returns `SnapshotError` when actual artifacts are missing or writes fail.
+    /// Returns `SnapshotError` when actual artifacts are missing, invalid, or
+    /// writes fail.
     pub fn accept(&self, name: &str) -> Result<(), SnapshotError> {
         validate_name(name)?;
         let actual = artifact_paths(&self.actual_root, name);
         let approved = artifact_paths(&self.approved_root, name);
+        if self.artifacts == ArtifactSet::AnsiCursor {
+            let bytes = std::fs::read(&actual.ansi).map_err(|e| {
+                SnapshotError(format!(
+                    "nothing to accept for `{name}` (.ansi {}: {e})",
+                    actual.ansi.display()
+                ))
+            })?;
+            let text = std::str::from_utf8(&bytes).map_err(|e| {
+                SnapshotError(format!(
+                    "cannot accept `{name}` (.ansi {} is not valid UTF-8: {e})",
+                    actual.ansi.display()
+                ))
+            })?;
+            let prov = Provenance::now("tuiscotti", "accept", Vec::new());
+            frame_from_ansi(text, prov).map_err(|e| {
+                SnapshotError(format!(
+                    "cannot accept `{name}` (.ansi {} is not a valid frame: {e})",
+                    actual.ansi.display()
+                ))
+            })?;
+            write_atomic(&approved.ansi, &bytes)?;
+            for stale in [&approved.txt, &approved.png, &approved.html] {
+                match std::fs::remove_file(stale) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(e) => {
+                        return Err(SnapshotError(format!(
+                            "cannot remove stale approved artifact {}: {e}",
+                            stale.display()
+                        )));
+                    }
+                }
+            }
+            return Ok(());
+        }
         for (src, dst, label) in [
             (&actual.ansi, &approved.ansi, ".ansi"),
             (&actual.txt, &approved.txt, ".txt"),
@@ -48,6 +87,33 @@ impl GroupedStore {
             self.accept(name)?;
         }
         Ok(names)
+    }
+
+    /// Accept every scenario in [`Self::actual_names`] matching `filter` (exact
+    /// match, prefix match `filter` / `filter/...`, or `*` / `**` / `?` glob
+    /// pattern). Fails loudly when zero scenarios match `filter`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `SnapshotError` when listing actuals fails, no scenario matches
+    /// `filter`, or any accept fails.
+    pub fn accept_matching(&self, filter: &str) -> Result<Vec<String>, SnapshotError> {
+        let filter_norm = filter.replace("::", "/");
+        let names = self.actual_names()?;
+        let matched: Vec<String> = names
+            .into_iter()
+            .filter(|n| name_matches_filter(n, &filter_norm))
+            .collect();
+        if matched.is_empty() {
+            return Err(SnapshotError(format!(
+                "nothing to accept matching `{filter}` in {}",
+                self.actual_root.display()
+            )));
+        }
+        for name in &matched {
+            self.accept(name)?;
+        }
+        Ok(matched)
     }
 
     /// Rewrite the HTML review index from on-disk actual vs approved
@@ -108,18 +174,12 @@ impl GroupedStore {
         name: &str,
         pixel_threshold: f64,
     ) -> Result<CompareOutcome, SnapshotError> {
-        // C08-grouped: a missing manifest member is incomplete evidence, not
-        // a gate verdict. (Hash drift with all members present is NOT
-        // incomplete — it is stale, and falls through to recompute below.)
         if let Some(problem) = self.candidate_gap(name)? {
             return Ok(self.incomplete_outcome(name, &problem));
         }
-        // C05: fresh persisted verdict — reuse verbatim.
         if let Some(outcome) = self.fresh_verdict(name, pixel_threshold)? {
             return Ok(outcome);
         }
-        // Stale or absent verdict (accept/overwrite moved the bytes, or the
-        // threshold changed): recompute via check, never silently reuse.
         let frame_path = artifact_paths(&self.actual_root, name).frame_json;
         let text = std::fs::read_to_string(&frame_path)
             .map_err(|e| SnapshotError(format!("cannot read {}: {e}", frame_path.display())))?;
@@ -127,4 +187,55 @@ impl GroupedStore {
         let grouped = self.check_with(renderer, name, &frame, pixel_threshold)?;
         Ok(grouped.outcome)
     }
+}
+
+/// Match a scenario name against a filter: exact, prefix, or `*`/`**`/`?` glob.
+#[must_use]
+pub fn name_matches_filter(name: &str, filter: &str) -> bool {
+    if filter.is_empty() {
+        return false;
+    }
+    if name == filter {
+        return true;
+    }
+    let prefix = filter.strip_suffix('/').unwrap_or(filter);
+    if !filter.contains(['*', '?']) {
+        if name.starts_with(&format!("{prefix}/")) || name.starts_with(filter) {
+            return true;
+        }
+        return false;
+    }
+    glob_match(filter, name)
+}
+
+fn glob_match(pat: &str, text: &str) -> bool {
+    glob_bytes(pat.as_bytes(), text.as_bytes())
+}
+
+fn glob_bytes(pat: &[u8], text: &[u8]) -> bool {
+    let Some(&p) = pat.first() else {
+        return text.is_empty();
+    };
+    if p == b'*' {
+        let mut rest = &pat[1..];
+        while rest.first() == Some(&b'*') {
+            rest = &rest[1..];
+        }
+        if glob_bytes(rest, text) {
+            return true;
+        }
+        for i in 0..text.len() {
+            if glob_bytes(pat, &text[i + 1..]) {
+                return true;
+            }
+        }
+        return false;
+    }
+    let Some(&t) = text.first() else {
+        return false;
+    };
+    if p == b'?' {
+        return t != b'/' && glob_bytes(&pat[1..], &text[1..]);
+    }
+    p == t && glob_bytes(&pat[1..], &text[1..])
 }

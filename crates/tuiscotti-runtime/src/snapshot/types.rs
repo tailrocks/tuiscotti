@@ -32,6 +32,12 @@ impl From<tuiscotti_render::diff::DiffError> for SnapshotError {
     }
 }
 
+impl From<tuiscotti_render::formats::FormatError> for SnapshotError {
+    fn from(e: tuiscotti_render::formats::FormatError) -> Self {
+        SnapshotError(e.to_string())
+    }
+}
+
 /// Gate status for one named snapshot.
 #[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

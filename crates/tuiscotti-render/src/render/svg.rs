@@ -250,17 +250,28 @@ fn emit_span(
 /// determinism contract of the embedded frame JSON.
 pub(crate) fn html_document(frame: &Frame, profile: &Profile, title: &str, png: &[u8]) -> String {
     use base64::Engine;
+    use std::borrow::Cow;
     let b64 = base64::engine::general_purpose::STANDARD.encode(png);
     let (png_w, png_h) = profile.image_size(frame.cols, frame.rows);
     // SVG is a selectable overlay only: its fills are forced transparent so
     // viewer fonts cannot tofu-over the PNG. Copy/select still works.
     let svg = render_svg(frame, profile);
-    let mut embedded = frame.clone();
-    embedded.provenance.created_unix = 0;
-    format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>{}</title><style>body{{background:#141414;margin:24px}}.shot{{position:relative;display:inline-block;line-height:0}}.shot>img{{display:block;image-rendering:pixelated}}.shot>svg{{position:absolute;inset:0;width:100%;height:100%}}.shot>svg rect,.shot>svg text{{fill:transparent!important}}</style></head><body><div class=\"shot\"><img src=\"data:image/png;base64,{b64}\" alt=\"{}\" width=\"{png_w}\" height=\"{png_h}\">{svg}</div><script type=\"application/json\">{}</script></body></html>",
-        esc_attr(title),
-        esc_attr(title),
-        escape_json_for_script(&embedded.to_json())
+    let embedded: Cow<'_, Frame> = if frame.provenance.created_unix == 0 {
+        Cow::Borrowed(frame)
+    } else {
+        let mut copy = frame.clone();
+        copy.provenance.created_unix = 0;
+        Cow::Owned(copy)
+    };
+    let escaped_title = esc_attr(title);
+    let escaped_json = escape_json_for_script(&embedded.to_json());
+    let mut out = String::with_capacity(
+        b64.len() + svg.len() + escaped_json.len() + escaped_title.len() * 2 + 512,
+    );
+    write!(
+        out,
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>{escaped_title}</title><style>body{{background:#141414;margin:24px}}.shot{{position:relative;display:inline-block;line-height:0}}.shot>img{{display:block;image-rendering:pixelated}}.shot>svg{{position:absolute;inset:0;width:100%;height:100%}}.shot>svg rect,.shot>svg text{{fill:transparent!important}}</style></head><body><div class=\"shot\"><img src=\"data:image/png;base64,{b64}\" alt=\"{escaped_title}\" width=\"{png_w}\" height=\"{png_h}\">{svg}</div><script type=\"application/json\">{escaped_json}</script></body></html>"
     )
+    .unwrap_or_default();
+    out
 }

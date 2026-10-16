@@ -57,21 +57,20 @@ dep-graph owner to delete with the lockfile. The CLI reaches
 fixtures only through the facade — there is no direct CLI →
 fixtures edge.
 
-External dependency shape (workspace-pinned, `=x.y.z` in root
-`Cargo.toml`):
+External dependency shape (workspace-managed in root `Cargo.toml`):
 
 | Crate | External deps |
 |---|---|
 | tuiscotti-core | ratatui, serde, serde_json, unicode-width |
-| tuiscotti-render | + base64, swash, image, image-compare, serde, serde_json, sha2 |
+| tuiscotti-render | + base64, swash, image, image-compare, serde, serde_json, sha2, unicode-segmentation |
 | tuiscotti-insta | image, insta, serde_json, sha2 |
-| tuiscotti-runtime | + base64, serde, serde_json, sha2; pty-gated: portable-pty, alacritty_terminal, libc |
+| tuiscotti-runtime | + base64, fs2, serde, serde_json, sha2; pty-gated: termpane (`0.1`, PTY + shadow terminal surface, over `termpane-vt` `0.1` ECMA-48 / VT parser) |
 | tuiscotti-cli | clap, serde_json |
-| tuiscotti-fixtures | anyhow, crossterm, ratatui (+ tuiscotti/core/render as dev-deps) |
+| tuiscotti-fixtures | anyhow, crossterm, ratatui (+ tuiscotti/core/render and dev-only `vt100` differential oracle as dev-deps) |
 
 Feature flags (`pty`, default on): `tuiscotti-cli/pty` →
 `tuiscotti/pty` → `tuiscotti-runtime/pty` →
-`dep:portable-pty, dep:alacritty_terminal, dep:libc`.
+`dep:termpane` (`termpane` `0.1` with feature `pty`, plus `termpane-vt` `0.1`).
 `tuiscotti-fixtures` has the same default. The facade pins
 `tuiscotti-runtime` with `default-features = false` and re-adds the
 terminal runtime only via its own `pty` feature, so
@@ -107,9 +106,9 @@ PURE PATH (no subprocess):
     ─▶ approved frame.json + PNG (+ fidelity sidecar), diff PNG, report.html
 
 INTERACTIVE PATH (feature pty):
-  real executable ─▶ portable-pty ─▶ alacritty_terminal state
+  real executable ─▶ termpane (PTY + shadow terminal surface, termpane-vt parser)
     ─▶ tui::Session observations ─▶ Screen
-    ─▶ assert::frame_from_screen ─▶ Frame ─▶ same gates as above
+    ─▶ render::frame_from_screen / assert::frame_from_screen ─▶ Frame ─▶ same gates as above
 
 AGENT PATH (no PTY required):
   JSON ops ─▶ proto::execute / run_machine_line ─▶ envelopes
@@ -139,8 +138,10 @@ AGENT PATH (no PTY required):
 - `runtime::snapshot::Store` — classic store: `approved/` +
   `actual/` + `diff/` + `report.html` under one root.
 - `runtime::grouped::GroupedStore` — nested scenario names,
-  exactly four committed artifacts per scenario
-  (`.ansi`/`.txt`/`.png`/`.html`).
+  committed artifacts per scenario (`ArtifactSet::All`:
+  `.ansi`/`.txt`/`.png`/`.html`; `ArtifactSet::AnsiCursor`:
+  committed `.ansi` with cursor trailer, with `.png`/`.html`/diff
+  rendered on demand on mismatch).
 - `runtime::tui::Tui`/`Session` — owned PTY sessions: spawn, key
   chords, mouse, resize, waits that fail with evidence on timeout.
   The reader→worker op channel is bounded with PTY backpressure and
@@ -168,16 +169,15 @@ single-flight, stale takeover when the owner is dead). CLI surface:
 observe-poll + stdin-forward `attach`; the versioned machine protocol is
 deliberately untouched (CLI-only).
 
-Honest limits: the daemon holds `tui::Session`, not termpane (unreleased;
-no path/git import exists — the migration is a mechanical handle swap
-documented in `proto/daemon.rs`). PTY children inherit the daemon's
-environment. A dead owner orphans its children (they survive): orphans
-list `Exited` and die only through the validated pid path
-(absolute `/bin/kill`, no `PATH`) on prune/force/stop; a recorded owner
-that is alive but silent is never guessed about (error, state kept). A
-crash between spawn and endpoint publish leaks one child (no record
-exists yet). The daemon exits 60 s after its registry empties
-(`TUISCOTTI_DAEMON_IDLE_SECS` overrides for tests), or at once when its
-runtime dir vanishes (closing its orphaned sessions); exited entries
-keep it alive until pruned or stopped, so final-frame `observe` keeps
-working.
+Honest limits: the daemon holds `tui::Session` (backed by released
+`termpane` `0.1` + `termpane-vt` `0.1` from crates.io). PTY children
+inherit the daemon's environment. A dead owner orphans its children
+(they survive): orphans list `Exited` and die only through the
+validated pid path (absolute `/bin/kill`, no `PATH`) on
+prune/force/stop; a recorded owner that is alive but silent is never
+guessed about (error, state kept). A crash between spawn and endpoint
+publish leaks one child (no record exists yet). The daemon exits 60 s
+after its registry empties (`TUISCOTTI_DAEMON_IDLE_SECS` overrides for
+tests), or at once when its runtime dir vanishes (closing its orphaned
+sessions); exited entries keep it alive until pruned or stopped, so
+final-frame `observe` keeps working.

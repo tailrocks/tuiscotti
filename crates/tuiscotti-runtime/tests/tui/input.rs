@@ -344,3 +344,50 @@ fn raw_bytes_and_enter_key() {
     assert!(contains(&obs.screen, "raw-9").expect("screen rows readable"));
     s.close().expect("close succeeds");
 }
+
+#[test]
+fn press_letter_f_and_drag_rejects_press_release_only_mode() {
+    let s = Tui::new([
+        "/bin/sh",
+        "-c",
+        // Enable DECSET 1000 (PressRelease only, no motion tracking) + 1006 SGR.
+        "printf '\\033[?1000h\\033[?1006hREADY\\r\\n'; stty raw -echo; cat -v",
+    ])
+    .size(60, 8)
+    .spawn()
+    .expect("spawn succeeds");
+    s.wait_predicate(
+        |o| contains(&o.screen, "READY").expect("screen rows readable"),
+        deadline(5),
+        &cancel(),
+    )
+    .expect("READY appears");
+
+    // P1: `press("f")`, `press("F")`, `press("shift+F")` send literal letters; `press("ctrl+f")` sends ^F;
+    // `F1` and `F12` send function-key escapes; `F0`, `F13`, and `fx` error cleanly.
+    s.press("f").expect("press f");
+    s.press("F").expect("press F");
+    s.press("shift+F").expect("press shift+F");
+    s.press("ctrl+f").expect("press ctrl+f");
+    s.press("F1").expect("press F1");
+    s.press("F12").expect("press F12");
+    assert!(s.press("F0").is_err(), "F0 must error");
+    assert!(s.press("F13").is_err(), "F13 must error");
+    assert!(s.press("fx").is_err(), "fx must error");
+    s.wait_predicate(
+        |o| {
+            contains(&o.screen, "fFF^F^[[OP^[[24~").expect("screen rows readable")
+                || contains(&o.screen, "fFF^F").expect("screen rows readable")
+        },
+        deadline(5),
+        &cancel(),
+    )
+    .expect("fFF^F echoed");
+
+    // DEC 1000 (PressRelease) does not track motion, so `mouse_drag` must fail with ModeNotEnabled.
+    let err = s
+        .mouse_drag(MouseButton::Left, 5, 0, MouseMods::NONE)
+        .expect_err("mouse_drag requires DEC 1002/1003");
+    assert!(matches!(err, TuiError::ModeNotEnabled(_)), "got {err}");
+    s.close().expect("close succeeds");
+}

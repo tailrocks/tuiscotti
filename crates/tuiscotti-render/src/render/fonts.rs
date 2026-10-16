@@ -226,13 +226,7 @@ impl FontSet {
             )));
         }
         for f in fallbacks {
-            let actual = crate::profile::font_sha256(f.bytes);
-            if actual != f.sha256 {
-                return Err(RenderError(format!(
-                    "fallback face '{}' sha256 mismatch: pinned {}, got {actual} — refusing to render",
-                    f.desc, f.sha256
-                )));
-            }
+            verify_fallback_pin(f)?;
             let mut lf = load_font(f.bytes, px)
                 .map_err(|e| RenderError(format!("fallback face '{}': {e}", f.desc)))?;
             lf.desc = f.desc.to_string();
@@ -257,4 +251,38 @@ impl FontSet {
             (false, false) => &self.regular,
         }
     }
+}
+
+fn verify_fallback_pin(f: &crate::profile::FallbackFace<'_>) -> Result<(), RenderError> {
+    static FALLBACKS_VERIFIED: std::sync::OnceLock<Result<(), RenderError>> =
+        std::sync::OnceLock::new();
+    let is_vendored = crate::profile::VENDORED_FALLBACK_FACES.iter().any(|vf| {
+        std::ptr::eq(f.bytes.as_ptr(), vf.bytes.as_ptr())
+            && f.bytes.len() == vf.bytes.len()
+            && f.sha256 == vf.sha256
+    });
+    if is_vendored {
+        return FALLBACKS_VERIFIED
+            .get_or_init(|| {
+                for vf in crate::profile::VENDORED_FALLBACK_FACES {
+                    let actual = crate::profile::font_sha256(vf.bytes);
+                    if actual != vf.sha256 {
+                        return Err(RenderError(format!(
+                            "fallback face '{}' sha256 mismatch: pinned {}, got {actual} — refusing to render",
+                            vf.desc, vf.sha256
+                        )));
+                    }
+                }
+                Ok(())
+            })
+            .clone();
+    }
+    let actual = crate::profile::font_sha256(f.bytes);
+    if actual != f.sha256 {
+        return Err(RenderError(format!(
+            "fallback face '{}' sha256 mismatch: pinned {}, got {actual} — refusing to render",
+            f.desc, f.sha256
+        )));
+    }
+    Ok(())
 }

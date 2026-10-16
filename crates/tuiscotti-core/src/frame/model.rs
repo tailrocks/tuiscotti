@@ -96,23 +96,36 @@ impl Frame {
         Ok(frame)
     }
 
+    /// Return a copy of this frame with [`Provenance::sanitized`] applied so
+    /// no host-specific absolute path is carried in `provenance`.
+    #[must_use]
+    pub fn sanitized(&self) -> Self {
+        let mut out = self.clone();
+        out.provenance = out.provenance.sanitized();
+        out
+    }
+
     /// Compact canonical JSON: the stored/transmitted form. Pretty-printing
     /// is for humans only and must never be a gate input (whitespace is not
     /// significant; parsers accept both).
+    ///
+    /// Provenance is passed through [`Provenance::sanitized`] before
+    /// serialization so gated, sealed, and committed artifacts never contain
+    /// host-specific absolute paths.
     ///
     /// Serialization is total: the derived impl covers only infallible
     /// shapes (no string-keyed maps) and the `String` writer cannot fail.
     /// The empty-string fallback is unreachable; it fails loudly at parse.
     #[must_use]
     pub fn to_json(&self) -> String {
-        serde_json::to_string(self).unwrap_or_default()
+        serde_json::to_string(&self.sanitized()).unwrap_or_default()
     }
 
     /// Pretty JSON for human display (report `<pre>`, debugging).
     /// Total like [`Frame::to_json`]: the fallback is unreachable.
     #[must_use]
     pub fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(self).unwrap_or_default()
+        serde_json::to_string_pretty(&self.sanitized()).unwrap_or_default()
     }
 
     /// Plain text: rows joined with `\n`, trailing blanks trimmed per row.

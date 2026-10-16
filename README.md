@@ -118,12 +118,61 @@ fn live_menu() {
 }
 ```
 
-Timeouts fail WITH the last screen, never a bare deadline error.
+Timeouts fail WITH the last screen (including a bounded text dump in
+`WaitError`'s `Display` output), never a bare deadline error.
 Mouse input without app-enabled reporting fails closed
 (`ModeNotEnabled`), never silently drops.
 
 Runnable end to end: `cargo run -p tuiscotti --example 04-interactive-tui`
 (exit 0, prints `EXAMPLE-04-OK`).
+
+### Workflow 2 to files: live PTY + pointer actions + `GroupedStore` (`ArtifactSet::AnsiCursor`)
+
+```rust,no_run
+use std::path::Path;
+use std::time::{Duration, Instant};
+use tuiscotti::grouped::{ArtifactSet, GroupedStore};
+use tuiscotti::tui::{CancelToken, MouseButton, MouseMods, Tui};
+use tuiscotti::{Profile, VENDORED_FACES, render};
+
+fn workflow_2_to_files() -> Result<(), Box<dyn std::error::Error>> {
+    let session = Tui::new(["./target/debug/my-tui"])
+        .size(120, 40)
+        .env_clear(true)
+        .env("TERM", "xterm-256color")
+        .env("TUISCOTTI_FIXED_TIME", "2026-01-01T00:00:00Z")
+        .spawn()?;
+
+    // 1. Wait on semantic readiness, then a short PTY quiet window.
+    session.get_by_text("Ready").any().expect_visible()?;
+    let cancel = CancelToken::new();
+    session.wait_stable_quiet(
+        Instant::now() + Duration::from_secs(2),
+        Duration::from_millis(50),
+        &cancel,
+    )?;
+
+    // 2. Pointer hover (DEC 1003 + 1006) and press-and-hold (DEC 1000/1002/1003 + 1006).
+    session.mouse_move(10, 5, MouseMods::NONE)?;
+    session.mouse_down(MouseButton::Left, 10, 5, MouseMods::NONE)?;
+    session.mouse_up(MouseButton::Left, 10, 5, MouseMods::NONE)?;
+
+    // 3. Capture canonical Frame and check against an AnsiCursor grouped store.
+    let frame = render::frame_from_screen(&session.snapshot()?, "tuiscotti-default");
+    let store = GroupedStore::new(Path::new("snapshots/visual"))
+        .with_artifacts(ArtifactSet::AnsiCursor)
+        .with_actual_root(Path::new("target/tuiscotti/actual"))
+        .with_expected_root(Path::new("target/tuiscotti/expected"))
+        .with_diff_root(Path::new("target/tuiscotti/diff"));
+    let profile = Profile::default_profile();
+    store
+        .check("dashboard/hover_120x40", &frame, &profile, &VENDORED_FACES, 1.0)?
+        .ensure_matched()?;
+
+    session.close()?;
+    Ok(())
+}
+```
 
 ## Workflow 3: CLI capture + frozen review
 

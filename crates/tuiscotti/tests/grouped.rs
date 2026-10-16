@@ -8,6 +8,8 @@ use tuiscotti::{Profile, Provenance};
 
 #[path = "grouped/accept_report.rs"]
 mod accept_report;
+#[path = "grouped/ansi_cursor.rs"]
+mod ansi_cursor;
 #[path = "grouped/core.rs"]
 mod core;
 #[path = "grouped/gates.rs"]

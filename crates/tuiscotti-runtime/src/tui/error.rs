@@ -104,28 +104,111 @@ impl WaitError {
     }
 }
 
+/// Maximum rows included in a [`WaitError`] [`std::fmt::Display`] screen dump.
+const MAX_DUMP_ROWS: usize = 40;
+
+/// Maximum UTF-8 bytes of screen text included in a [`WaitError`] dump.
+const MAX_DUMP_BYTES: usize = 4096;
+
+fn bounded_screen_dump(screen: &tuiscotti_core::screen::Screen) -> String {
+    let mut rows: Vec<String> = (0..screen.rows())
+        .map(|y| {
+            let mut row = String::new();
+            for x in 0..screen.cols() {
+                if let Some(c) = screen.get(x, y)
+                    && !c.continuation
+                {
+                    row.push_str(&c.symbol);
+                }
+            }
+            row.trim_end().to_string()
+        })
+        .collect();
+    while rows.last().is_some_and(String::is_empty) {
+        rows.pop();
+    }
+    if rows.is_empty() {
+        return "<blank screen>".to_string();
+    }
+    let total_rows = rows.len();
+    let shown_rows = total_rows.min(MAX_DUMP_ROWS);
+    let mut out = String::new();
+    let mut byte_truncated = false;
+    for (idx, row) in rows.into_iter().take(shown_rows).enumerate() {
+        if idx > 0 {
+            if out.len() + 1 > MAX_DUMP_BYTES {
+                byte_truncated = true;
+                break;
+            }
+            out.push('\n');
+        }
+        if out.len() + row.len() > MAX_DUMP_BYTES {
+            let budget = MAX_DUMP_BYTES.saturating_sub(out.len());
+            let mut end = budget.min(row.len());
+            while end > 0 && !row.is_char_boundary(end) {
+                end -= 1;
+            }
+            out.push_str(&row[..end]);
+            byte_truncated = true;
+            break;
+        }
+        out.push_str(&row);
+    }
+    if byte_truncated {
+        out.push_str("\n... (truncated)");
+    } else if total_rows > shown_rows {
+        use std::fmt::Write as _;
+        write!(
+            out,
+            "\n... ({} more row(s) omitted)",
+            total_rows - shown_rows
+        )
+        .ok();
+    }
+    out
+}
+
 impl std::fmt::Display for WaitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Timeout { waited, evidence } => write!(
                 f,
-                "wait timed out after {waited:?} (evidence at revision {})",
-                evidence.revision
+                "wait timed out after {waited:?} (evidence at revision {})\n--- last screen ({}x{}) ---\n{}",
+                evidence.revision,
+                evidence.screen.cols(),
+                evidence.screen.rows(),
+                bounded_screen_dump(&evidence.screen)
             ),
             Self::Cancelled { evidence } => write!(
                 f,
-                "wait cancelled (evidence at revision {})",
-                evidence.revision
+                "wait cancelled (evidence at revision {})\n--- last screen ({}x{}) ---\n{}",
+                evidence.revision,
+                evidence.screen.cols(),
+                evidence.screen.rows(),
+                bounded_screen_dump(&evidence.screen)
             ),
             Self::Unsupported {
                 capability,
                 evidence,
             } => write!(
                 f,
-                "wait unsupported ({capability}; evidence at revision {})",
-                evidence.revision
+                "wait unsupported ({capability}; evidence at revision {})\n--- last screen ({}x{}) ---\n{}",
+                evidence.revision,
+                evidence.screen.cols(),
+                evidence.screen.rows(),
+                bounded_screen_dump(&evidence.screen)
             ),
-            Self::Closed { .. } => write!(f, "wait failed: session closed"),
+            Self::Closed {
+                evidence: Some(evidence),
+            } => write!(
+                f,
+                "wait failed: session closed (evidence at revision {})\n--- last screen ({}x{}) ---\n{}",
+                evidence.revision,
+                evidence.screen.cols(),
+                evidence.screen.rows(),
+                bounded_screen_dump(&evidence.screen)
+            ),
+            Self::Closed { evidence: None } => write!(f, "wait failed: session closed"),
         }
     }
 }
@@ -155,5 +238,80 @@ impl CancelToken {
     #[must_use]
     pub fn is_cancelled(&self) -> bool {
         self.flag.load(Ordering::SeqCst)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WaitError;
+    use std::time::Duration;
+    use tuiscotti_core::frame::{Cell, Color, Cursor, Mods};
+    use tuiscotti_core::screen::{
+        CaptureProvenance, CaptureReason, Observation, Screen, TermState,
+    };
+
+    fn obs_with_rows(cols: u16, rows: u16, lines: &[&str], rev: u64) -> Box<Observation> {
+        let mut cells = Vec::with_capacity((cols as usize) * (rows as usize));
+        for y in 0..rows {
+            let line = lines.get(y as usize).copied().unwrap_or("");
+            for x in 0..cols {
+                let ch = line.chars().nth(x as usize).unwrap_or(' ');
+                cells.push(Cell {
+                    x,
+                    y,
+                    symbol: ch.to_string(),
+                    width: 1,
+                    continuation: false,
+                    fg: Color::Default,
+                    bg: Color::Default,
+                    mods: Mods::default(),
+                    underline_color: Color::Default,
+                });
+            }
+        }
+        let screen = Screen::validate(cols, rows, 0, 0, cells, Cursor::default())
+            .expect("valid test screen");
+        Box::new(Observation::new(
+            screen,
+            rev,
+            CaptureReason::Manual,
+            TermState::default(),
+            CaptureProvenance::new(0, None, None, 0),
+        ))
+    }
+
+    #[test]
+    fn wait_error_display_includes_bounded_screen_dump() {
+        let err = WaitError::Timeout {
+            waited: Duration::from_millis(250),
+            evidence: obs_with_rows(20, 4, &["Login prompt", "Password:"], 3),
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.starts_with("wait timed out after 250ms (evidence at revision 3)"),
+            "{msg}"
+        );
+        assert!(msg.contains("--- last screen (20x4) ---"), "{msg}");
+        assert!(msg.contains("Login prompt\nPassword:"), "{msg}");
+
+        let blank = WaitError::Cancelled {
+            evidence: obs_with_rows(10, 3, &[], 1),
+        };
+        assert!(blank.to_string().contains("<blank screen>"), "{blank}");
+
+        let owned: Vec<String> = (0..50).map(|i| format!("row-{i}")).collect();
+        let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+        let capped = WaitError::Unsupported {
+            capability: "sync",
+            evidence: obs_with_rows(20, 50, &refs, 9),
+        };
+        let capped_msg = capped.to_string();
+        assert!(capped_msg.contains("row-0"), "{capped_msg}");
+        assert!(capped_msg.contains("row-39"), "{capped_msg}");
+        assert!(!capped_msg.contains("row-40"), "{capped_msg}");
+        assert!(
+            capped_msg.contains("... (10 more row(s) omitted)"),
+            "{capped_msg}"
+        );
     }
 }

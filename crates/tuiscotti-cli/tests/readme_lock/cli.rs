@@ -35,7 +35,7 @@ fn readme_cli_help_lists_documented_subcommands() {
     }
     // Documented flags per subcommand.
     let render = help(&["render", "--help"]).expect("help text");
-    for flag in ["--input", "--format", "--out", "--font-file"] {
+    for flag in ["--input", "--format", "--out", "--font-file", "ansi-cursor"] {
         assert!(render.contains(flag), "render --help missing {flag}");
     }
     let report = help(&["report", "--help"]).expect("help text");
@@ -50,8 +50,8 @@ fn readme_cli_help_lists_documented_subcommands() {
         ("capture", &["--out", "--timeout-ms"]),
         ("inspect", &["--dir"]),
         ("diff", &["--expected", "--actual"]),
-        ("review", &["--dir"]),
-        ("accept", &["--store"]),
+        ("review", &["--dir", "--filter"]),
+        ("accept", &["--store", "--actual", "--artifacts"]),
         ("import", &["--dir"]),
         ("record", &["--out", "--max-events", "--max-bytes"]),
         ("trace", &["--input", "--kind"]),

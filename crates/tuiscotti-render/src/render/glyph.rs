@@ -115,6 +115,10 @@ pub(crate) fn face_idx(bold: bool, italic: bool) -> FaceIdx {
     }
 }
 
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "fg*alpha + bg*(255-alpha) <= 255*255, so /255 fits in u8"
+)]
 pub(crate) fn blend(dst: &mut image::RgbImage, px: u32, py: u32, fg: Rgb, cov: u8) {
     if cov == 0 {
         return;
@@ -123,16 +127,19 @@ pub(crate) fn blend(dst: &mut image::RgbImage, px: u32, py: u32, fg: Rgb, cov: u
     if px >= dst_w || py >= dst_h {
         return;
     }
-    let pix = dst.get_pixel_mut(px, py);
+    let idx = ((py as usize) * (dst_w as usize) + (px as usize)) * 3;
+    let raw = dst.as_mut();
+    if cov == 255 {
+        raw[idx] = fg.r;
+        raw[idx + 1] = fg.g;
+        raw[idx + 2] = fg.b;
+        return;
+    }
     let alpha = u32::from(cov);
-    // Bound: fg*alpha + bg*(255-alpha) <= 255*255, so /255 <= 255 — the
-    // conversion always succeeds and the saturating fallback never fires.
-    let mix = |f: u8, b: u8| {
-        u8::try_from((u32::from(f) * alpha + u32::from(b) * (255 - alpha)) / 255).unwrap_or(u8::MAX)
-    };
-    pix[0] = mix(fg.r, pix[0]);
-    pix[1] = mix(fg.g, pix[1]);
-    pix[2] = mix(fg.b, pix[2]);
+    let inv = 255 - alpha;
+    raw[idx] = ((u32::from(fg.r) * alpha + u32::from(raw[idx]) * inv) / 255) as u8;
+    raw[idx + 1] = ((u32::from(fg.g) * alpha + u32::from(raw[idx + 1]) * inv) / 255) as u8;
+    raw[idx + 2] = ((u32::from(fg.b) * alpha + u32::from(raw[idx + 2]) * inv) / 255) as u8;
 }
 
 pub(crate) fn fill_rect(
@@ -144,12 +151,21 @@ pub(crate) fn fill_rect(
     color: Rgb,
 ) {
     let (dst_w, dst_h) = (dst.width(), dst.height());
-    for off_y in 0..height {
-        for off_x in 0..width {
-            let (px, py) = (left + off_x, top + off_y);
-            if px < dst_w && py < dst_h {
-                dst.put_pixel(px, py, image::Rgb([color.r, color.g, color.b]));
-            }
+    if left >= dst_w || top >= dst_h || width == 0 || height == 0 {
+        return;
+    }
+    let x0 = left as usize;
+    let x1 = left.saturating_add(width).min(dst_w) as usize;
+    let y0 = top as usize;
+    let y1 = top.saturating_add(height).min(dst_h) as usize;
+    let stride = (dst_w as usize) * 3;
+    let raw = dst.as_mut();
+    let rgb = [color.r, color.g, color.b];
+    for py in y0..y1 {
+        let row_start = py * stride + x0 * 3;
+        let row_end = py * stride + x1 * 3;
+        for pix in raw[row_start..row_end].as_chunks_mut::<3>().0 {
+            *pix = rgb;
         }
     }
 }

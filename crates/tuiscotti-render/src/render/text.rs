@@ -69,6 +69,37 @@ pub fn ansi_dump(frame: &Frame) -> String {
     out
 }
 
+/// Normalized ANSI dump plus one canonical VT cursor trailer: `ESC[?25l` when
+/// the cursor is hidden, or `ESC[?25h ESC[<y>;<x>H ESC[<Ps> q` (1-based
+/// row/col and DECSCUSR shape/blink `1..=6`) when visible.
+#[must_use]
+pub fn ansi_dump_with_cursor(frame: &Frame) -> String {
+    use tuiscotti_core::frame::CursorStyle;
+    let mut s = ansi_dump(frame);
+    let c = frame.cursor;
+    if c.visible {
+        use std::fmt::Write as _;
+        let ps = match (c.style, c.blinking) {
+            (CursorStyle::Block, true) => 1,
+            (CursorStyle::Block, false) => 2,
+            (CursorStyle::Underline, true) => 3,
+            (CursorStyle::Underline, false) => 4,
+            (CursorStyle::Bar, true) => 5,
+            (CursorStyle::Bar, false) => 6,
+        };
+        write!(
+            s,
+            "\x1b[?25h\x1b[{};{}H\x1b[{ps} q",
+            u32::from(c.y) + 1,
+            u32::from(c.x) + 1
+        )
+        .ok();
+    } else {
+        s.push_str("\x1b[?25l");
+    }
+    s
+}
+
 fn sgr_for(c: &tuiscotti_core::frame::Cell) -> String {
     let mut p: Vec<String> = Vec::new();
     if c.mods.hidden {

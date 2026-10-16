@@ -61,26 +61,27 @@ machine ops, cleanup. Rust paths are `tuiscotti::…` unless noted.
 | Child exit + evidence | `wait_exit_timeout / expect_exit_timeout` → `ExitWait` | `wait_exit / expect_exit` |
 | Exit assertions | `ExitWait::success() / .code(n)` → `Observation` | same |
 | Negative temporal | `Locator::eventually_absent / remains_absent / expect_count` (detached, `Duration`) | — |
-| Failure shape | `WaitError::{Timeout, Cancelled, Unsupported, Closed}` — always with evidence | same |
+| Failure shape | `WaitError::{Timeout, Cancelled, Unsupported, Closed}` — always with evidence (`Display` includes revision, dimensions, and a bounded 40-row / 4 KiB screen dump) | same |
 
 ## Input
 
 | Task | Rust |
 |---|---|
 | Text / raw bytes / paste | `send_text / send_bytes / paste` (bracketed when negotiated) |
-| Chords | `press("Ctrl+P")`; typed `press_key / key_down / key_repeat / key_up / key_event` |
+| Chords | `press("Ctrl+P")`, `press("f")` / `press("F")` (`Key::Char`), `press("F1")`..`press("F12")` (`Key::F`); typed `press_key / key_down / key_repeat / key_up / key_event` |
 | Typed keys | `Key`, `KeyMods`, `KeyChord: FromStr`, `Key: FromStr` (bare names) |
-| Mouse / focus / resize / signals | `click / mouse_down / mouse_up / mouse_move / mouse_drag / mouse_wheel`, `focus_in/out`, `resize`, `signal` |
+| Mouse / focus / resize / signals | `click / mouse_down / mouse_up / mouse_wheel` (DEC `1000`/`1002`/`1003` + SGR `1006`), `mouse_drag` (DEC `1002`/`1003`), `mouse_move` (DEC `1003`), `focus_in/out` (DEC `1004`), `resize`, `signal` |
 
 ## Locators
 
 | Task | Rust |
 |---|---|
-| Session-bound (fresh obs each call) | `session.get_by_text(t) / .get_by(loc)` → `BoundLocator` |
-| Bound actions | `.expect_visible() → Span`; `.click()` (unique + stale-checked, at most once) |
+| Session-bound (fresh obs each call) | `session.get_by_text(t) / .get_by(loc)` → `BoundLocator` (default `MatchPolicy::Unique`) |
+| Multi-match policies & selectors | `.first() / .last() / .nth(i) / .any() / .count_at_least(n) / .with_policy(MatchPolicy)` |
+| Bound actions & expectations | `.visible_now() / .expect_visible() / .expect_visible_within(d) → Span`; `.expect_count_at_least(n) / .expect_count_at_least_within(n, d) → Vec<Span>`; `.click()` (atomic in worker, at most once) |
 | Action errors (typed, sourced) | `ActionError::{Session(TuiError), Locate(LocateError)}` |
 | Detached queries (advanced/offline) | `Locator::text / regex / style / region`, `.mode/.within/.before/.after/.nth/.first/.last/.and/.or/.filter` |
-| Detached resolve | `.resolve / .resolve_unique` (+ `…_with_scrollback` siblings) / `.resolve_obs` (no scrollback sibling) |
+| Detached resolve | `.resolve / .resolve_unique / .resolve_at_least` (+ `…_with_scrollback` siblings) / `.resolve_obs` (no scrollback sibling) |
 | Readiness without sinks | `Locator::prepare_action / prepare_action_retry` → `PendingAction::click / submit` |
 
 ## Capture
@@ -119,11 +120,12 @@ machine ops, cleanup. Rust paths are `tuiscotti::…` unless noted.
 |---|---|---|
 | TXT (plain Unicode) | `Renderer` artifacts / `frame.text()` | `--format txt` |
 | ANSI (normalized SGR) | `render::ansi_dump` | `--format ansi` |
+| ANSI + VT cursor trailer | `render::ansi_dump_with_cursor` ↔ `formats::ansi::frame_from_ansi` | `--format ansi-cursor` |
 | Canonical JSON | `frame.to_json()` | `--format json` |
 | SVG (static) | `render::render_svg` | `--format svg` |
 | HTML (offline, no JS) | `Renderer::render_html` | `--format html` |
 | PNG (+ fidelity sidecar) | `Renderer::render_png / render` | `--format png` |
-| Four-artifact bundle | `assert::emit_four(&screen, dir)` | `render --input F --format … --out P [--font-file F]` |
+| Four-artifact / `.ansi` render | `assert::emit_four(&screen, dir)` | `render --input <F.frame.json\|F.ansi> --format … --out P [--font-file F]` |
 | Compare / inspect | `diff::compare_png…` | `diff --expected A --actual B`; `inspect --dir D`; `trace --input J [--kind start\|output\|exit\|complete]` |
 
 ## Frozen review (immutable references, never self-heal)
@@ -132,8 +134,9 @@ machine ops, cleanup. Rust paths are `tuiscotti::…` unless noted.
 |---|---|---|
 | Check against frozen root | `assert::check_frozen_snapshot / check_frozen_screenshot` | `import --dir D` (read-only tree view) |
 | Frozen asserts | `assert_frozen_snapshot / assert_frozen_screenshot` (+ `Policy::Frozen`) | — |
-| Accept (evolving only) | `snapshot::Store::accept` / `GroupedStore` | `accept --store S name` (frozen roots reject) |
-| Verdicts / report | `proto::read_verdicts / write_html_report` | `review --dir D`; `report --dir D --out R [--title T]` |
+| Grouped artifact modes | `GroupedStore::with_artifacts(ArtifactSet::{All, AnsiCursor})`, `.with_actual_root / .with_expected_root / .with_diff_root` | `accept --artifacts all\|ansi-cursor --actual A` |
+| Accept (evolving only) | `snapshot::Store::accept` / `GroupedStore::{accept, accept_matching, accept_all}` | `accept [--store S] [--actual A] [--artifacts all\|ansi-cursor] <name_or_glob>` (frozen roots reject) |
+| Verdicts / report | `proto::read_verdicts / write_html_report` | `review --dir D [--filter P]`; `report --dir D --out R [--title T]` |
 
 ## Machine ops
 
@@ -141,7 +144,7 @@ machine ops, cleanup. Rust paths are `tuiscotti::…` unless noted.
 |---|---|
 | Op protocol over stdio | `tuiscotti machine < ops.jsonl` (envelope JSON per line; exit 0/3) |
 | Typed ops (spawn/observe/input/assert/…) | `proto::Op`, `proto::execute`, `proto::run_machine_line` |
-| Named sessions | `session {start --name N [--force] -- argv… \| stop \| list \| prune \| attach --name N \| input --name N (--text T \| --chord C \| --bytes-b64 B) \| observe --name N}` |
+| Named sessions | `session {start --name N [--force] [--pty] [--cols C] [--rows R] -- argv… \| stop \| list \| prune \| attach --name N \| input --name N (--text T \| --chord C \| --bytes-b64 B) \| observe --name N}` |
 | Session API | `proto::session_start_os (OsString) / session_start / session_stop / session_list / session_prune` |
 
 ## Cleanup

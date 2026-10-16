@@ -105,3 +105,85 @@ fn readme_fallback_chain() {
     );
     assert!(bad.is_err());
 }
+
+#[test]
+#[cfg(feature = "pty")]
+fn readme_workflow_2_to_files_ansi_cursor() {
+    use std::time::{Duration, Instant};
+    use tuiscotti::grouped::{ArtifactSet, GroupedStore};
+    use tuiscotti::render;
+    use tuiscotti::tui::{CancelToken, MouseButton, MouseMods, Tui};
+
+    let tmp = tempfile::tempdir().expect("tempdir");
+    // Enable DEC 1003 + 1006 in the child so hover and press-and-hold succeed.
+    let session = Tui::new([
+        "/bin/sh",
+        "-c",
+        "printf '\\033[?1003h\\033[?1006hReady\\n'; sleep 30",
+    ])
+    .size(40, 8)
+    .env_clear(true)
+    .env("TERM", "xterm-256color")
+    .env("TUISCOTTI_FIXED_TIME", "2026-01-01T00:00:00Z")
+    .spawn()
+    .expect("spawn shell");
+
+    session
+        .get_by_text("Ready")
+        .any()
+        .expect_visible()
+        .expect("expect Ready");
+    let cancel = CancelToken::new();
+    session
+        .wait_stable_quiet(
+            Instant::now() + Duration::from_secs(2),
+            Duration::from_millis(50),
+            &cancel,
+        )
+        .expect("wait stable quiet");
+
+    session
+        .mouse_move(10, 5, MouseMods::NONE)
+        .expect("mouse_move");
+    session
+        .mouse_down(MouseButton::Left, 10, 5, MouseMods::NONE)
+        .expect("mouse_down");
+    session
+        .mouse_up(MouseButton::Left, 10, 5, MouseMods::NONE)
+        .expect("mouse_up");
+
+    let frame =
+        render::frame_from_screen(&session.snapshot().expect("snapshot"), "tuiscotti-default");
+    let store = GroupedStore::new(&tmp.path().join("snapshots/visual"))
+        .with_artifacts(ArtifactSet::AnsiCursor)
+        .with_actual_root(&tmp.path().join("target/tuiscotti/actual"))
+        .with_expected_root(&tmp.path().join("target/tuiscotti/expected"))
+        .with_diff_root(&tmp.path().join("target/tuiscotti/diff"));
+    let profile = Profile::default_profile();
+    let first = store
+        .check(
+            "dashboard/hover_40x8",
+            &frame,
+            &profile,
+            &VENDORED_FACES,
+            1.0,
+        )
+        .expect("first check");
+    assert_eq!(first.status(), tuiscotti::snapshot::Status::MissingApproval);
+    store
+        .accept_matching("dashboard/*")
+        .expect("accept matching");
+    store
+        .check(
+            "dashboard/hover_40x8",
+            &frame,
+            &profile,
+            &VENDORED_FACES,
+            1.0,
+        )
+        .expect("second check")
+        .ensure_matched()
+        .expect("matched after accept");
+
+    session.close().expect("close");
+}

@@ -13,6 +13,7 @@ use std::path::Path;
 use tuiscotti::proto::{self, EXIT_OP_ERROR, EXIT_USAGE, EXIT_VERIFY_FAIL};
 
 use crate::cli::{RenderFormat, TraceKind};
+pub(crate) use crate::ops_offline_accept::cmd_accept;
 use crate::ops_offline_render::{RasterFonts, render_format_to};
 
 pub(crate) fn op_error(e: &proto::OpError) -> i32 {
@@ -109,11 +110,22 @@ pub(crate) fn cmd_render(
             return EXIT_OP_ERROR;
         }
     };
-    let frame = match tuiscotti::Frame::from_json(&text) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("error: bad frame JSON: {e}");
-            return EXIT_OP_ERROR;
+    let frame = if input.extension().is_some_and(|e| e == "ansi") {
+        let prov = tuiscotti::Provenance::now("tuiscotti", "render", Vec::new());
+        match tuiscotti::formats::ansi::frame_from_ansi(&text, prov) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("error: bad ANSI frame: {e}");
+                return EXIT_OP_ERROR;
+            }
+        }
+    } else {
+        match tuiscotti::Frame::from_json(&text) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("error: bad frame JSON: {e}");
+                return EXIT_OP_ERROR;
+            }
         }
     };
     let fonts = match RasterFonts::load(font_file) {
@@ -176,11 +188,15 @@ pub(crate) fn cmd_diff(expected: &Path, actual: &Path) -> i32 {
     }
 }
 
-pub(crate) fn cmd_review(dir: &Path) -> i32 {
-    let verdicts = match proto::read_verdicts(dir) {
+pub(crate) fn cmd_review(dir: &Path, filter: Option<&str>) -> i32 {
+    let mut verdicts = match proto::read_verdicts(dir) {
         Ok(v) => v,
         Err(e) => return op_error(&e),
     };
+    if let Some(pat) = filter {
+        let norm = pat.replace("::", "/");
+        verdicts.retain(|v| tuiscotti::grouped::name_matches_filter(&v.name, &norm));
+    }
     let mut buf = String::new();
     if verdicts.is_empty() {
         crate::push_line(&mut buf, &format!("no verdicts in {}", dir.display()));
@@ -212,47 +228,6 @@ pub(crate) fn cmd_review(dir: &Path) -> i32 {
         return w;
     }
     if failed > 0 { EXIT_VERIFY_FAIL } else { 0 }
-}
-
-pub(crate) fn cmd_accept(store: &Path, name: &str) -> i32 {
-    // Frozen roots (`Policy::Frozen` layout: `<name>.canonical.txt` approvals
-    // directly in the root) reject acceptance unconditionally — route through
-    // `frozen_accept` so the refusal stays in one place. Checked before
-    // `Store::accept` so a planted `actual/` tree inside a frozen root can
-    // never bless into it.
-    if is_frozen_root(store) {
-        return match tuiscotti::assert::frozen_accept(store, name) {
-            Ok(()) => 0,
-            Err(e) => {
-                eprintln!("error: {e}");
-                EXIT_OP_ERROR
-            }
-        };
-    }
-    match tuiscotti::snapshot::Store::new(store).accept(name) {
-        Ok(()) => {
-            let buf = format!("accepted `{name}` in {}\n", store.display());
-            crate::write_stdout(&buf)
-        }
-        Err(e) => {
-            eprintln!("error: {e}");
-            EXIT_OP_ERROR
-        }
-    }
-}
-
-/// A frozen root holds `<name>.canonical.txt` approvals directly in the root
-/// (see `Policy::Frozen`); a classic store holds `approved/`/`actual/`/`diff/`
-/// subdirs instead, so the marker never collides.
-fn is_frozen_root(store: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(store) else {
-        return false;
-    };
-    entries.flatten().any(|e| {
-        e.file_name()
-            .to_str()
-            .is_some_and(|n| n.ends_with(".canonical.txt"))
-    })
 }
 
 pub(crate) fn cmd_report(dir: &Path, out: &Path, title: &str) -> i32 {

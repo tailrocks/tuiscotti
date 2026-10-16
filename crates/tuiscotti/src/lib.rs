@@ -61,4 +61,6 @@ pub use tuiscotti_render::profile::{
     VENDORED_FONT_ITALIC, VENDORED_SYMBOLS_FONT, VENDORED_SYMBOLS_FONT_SHA256,
     VENDORED_SYMBOLS2_FONT, VENDORED_SYMBOLS2_FONT_SHA256,
 };
-pub use tuiscotti_runtime::grouped::{ArtifactPaths, GroupedOutcome, GroupedStore, InvalidName};
+pub use tuiscotti_runtime::grouped::{
+    ArtifactPaths, ArtifactSet, GroupedOutcome, GroupedStore, InvalidName,
+};

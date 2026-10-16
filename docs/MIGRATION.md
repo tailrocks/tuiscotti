@@ -41,37 +41,42 @@ here were renamed in G8 (see above).
   does not import — re-capture.
 - `Frame::digest` mixes the schema version and the cursor; old
   digests are incomparable by design.
-- Grouped scenarios have no `.frame.json`: the `.ansi` dump is the
-  cell-exact gate; renderer changes are caught by the `.html` byte
-  gate plus the PNG pixel gate.
+- Grouped scenarios have no `.frame.json` in the approved tree: the
+  `.ansi` dump is the cell-exact gate; under `ArtifactSet::All`,
+  renderer changes are caught by the `.html` byte gate plus the PNG
+  pixel gate, while under `ArtifactSet::AnsiCursor` only `<name>.ansi`
+  (with canonical VT cursor trailer via `render::ansi_dump_with_cursor`)
+  is committed and expected/actual `.png` + `.html` + diff PNG are
+  rendered on demand via `formats::ansi::frame_from_ansi` when a check
+  mismatches.
 
 ## Removed surfaces (do not look for them)
 
 | Removed | Replacement |
 |---|---|
-| `BLESS=1` / `UPDATE_SNAPSHOT=1` ambient approval | Explicit `Store::accept` / `GroupedStore::accept` / `tuiscotti accept` / `cargo insta review` |
-| CLI `check`, `run`, `digest`; `accept --all`; `report --store`; `render` of raw `*.ansi` | Current grammar in [CLI.md](CLI.md); scriptable surface is `tuiscotti machine` + `proto::execute` |
+| `BLESS=1` / `UPDATE_SNAPSHOT=1` ambient approval | Explicit `Store::accept` / `GroupedStore::accept(_matching)` / `tuiscotti accept` / `cargo insta review` |
+| CLI `check`, `run`, `digest`; `accept --all`; `report --store` | Current grammar in [CLI.md](CLI.md) (`tuiscotti accept --store <dir> <name_or_glob>`, `tuiscotti review --filter`, `tuiscotti render --input <file.ansi>`); scriptable surface is `tuiscotti machine` + `proto::execute` |
 | `tuisnap::ratatui_shot::{widget_frame, draw_frame}` | `tuiscotti::ratatui::{widget_frame, draw_frame, capture}` (signatures take `Provenance`) |
 | `tuisnap::Baseline` | `tuiscotti::snapshot::Store` / `grouped::GroupedStore` |
 | `PtySession` / `run_once(argv, opts, sends)` | `tui::{Tui, Session}`; waits fail on timeout instead of returning `false` |
 | `tools/*.py` helpers (`subset_fonts.py`, `test_migration.py`, `migrate_fixture_v3.py`) | Gone with `tools/`; font subsets are committed under `assets/fonts/` (see `assets/fonts/FONTS.md`) |
-| Vendored `vt100` fork, `vendor/termlens`, `termpane` git dependency | PTY engine is `portable-pty` 0.9 (PTY owner) + `alacritty_terminal` 0.26 (terminal state) from crates.io — no git/path deps, no patches |
-| Hand-rolled SGR replay parser, `ansi::replay_raw`, `tuisnap::pty`, `tuisnap::termlens` re-export | Deleted; raw-ANSI replay is `observe::Replay` / `tui_shell::Recording` over the current engine |
+| Vendored `vt100` fork, `vendor/termlens`, `termpane` git dependency, `portable-pty` + `alacritty_terminal` bridge | PTY engine is released `termpane` `0.1` (PTY + shadow terminal surface) + `termpane-vt` `0.1` (ECMA-48 / VT parser) from crates.io — no git/path deps, no patches (`vt100` is dev-only differential oracle in `tuiscotti-fixtures`) |
+| Hand-rolled SGR replay parser, `ansi::replay_raw`, `tuisnap::pty`, `tuisnap::termlens` re-export | Deleted; normalized `.ansi` decoding is `formats::ansi::frame_from_ansi`, and raw-ANSI stream replay is `observe::Replay` / `tui_shell::Recording` over the current engine |
 
 ## Engine history (why the old docs mention other emulators)
 
 1. Vendored `vt100` 0.16.2 fork → replaced by `termpane` v0.1.0
    (git-only) over vendored `termlens` 0.9, schema 3 unchanged.
-   Differential evidence (16 streams, vt100 oracle, pre-cutover)
-   lived in the old migration doc; the oracle was removed at
-   cutover and its ported pins live in `tool_qualification` tests.
-2. `termpane` git + vendored `termlens` → `portable-pty` 0.9 +
-   `alacritty_terminal` 0.26 from crates.io (current). Rationale:
-   no vendored forks, no git-only backends, pure-cargo build.
+2. `termpane` git + vendored `termlens` → interim `portable-pty` 0.9 +
+   `alacritty_terminal` 0.26 bridge while `termpane` was prepared for
+   crates.io publication.
+3. `portable-pty` + `alacritty_terminal` → released `termpane` `0.1` +
+   `termpane-vt` `0.1` from crates.io (current). `vt100` remains a
+   dev-only differential oracle in `tuiscotti-fixtures`.
    See [DECISIONS.md](DECISIONS.md).
 
-MSRV history: 1.97 during the termpane window (its floor); current
-pin is 1.98.1 (`rust-toolchain.toml`).
+MSRV history: 1.97 during the early prototype window; current pin is
+1.98.1 (`rust-toolchain.toml`).
 
 ## Workflow then and now
 
@@ -81,6 +86,6 @@ UPDATE_BASELINE=1 cargo test   # ambient bless — gone
 
 # now
 cargo nextest run --locked --offline --all-features   # writes actuals, fails missing/changed
-tuiscotti accept --store <dir> <name>                # explicit, per-name, after review
+tuiscotti accept --store <dir> <name_or_glob>        # explicit per-name or pattern, after review
 cargo nextest run --locked --offline --all-features   # green
 ```

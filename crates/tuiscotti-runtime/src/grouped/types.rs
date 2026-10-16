@@ -8,6 +8,22 @@ impl From<InvalidName> for SnapshotError {
     }
 }
 
+/// Which artifacts a [`GroupedStore`] commits under the approved root and gates on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ArtifactSet {
+    /// Classic four-artifact grouped store: `.ansi` (normalized SGR), `.txt`,
+    /// `.png`, and `.html` are all committed under `approved_root` and gated.
+    #[default]
+    All,
+    /// Minimal artifact mode: only `<name>.ansi` (with a VT cursor trailer,
+    /// [`tuiscotti_render::render::ansi_dump_with_cursor`]) is committed under
+    /// `approved_root`. On a pass, no PNG or HTML is rendered. On a mismatch
+    /// or missing approval, actual and expected `.png`/`.html` plus a diff PNG
+    /// are rendered to the scratch roots (`actual_root`, `expected_root`,
+    /// `diff_root`) as review evidence.
+    AnsiCursor,
+}
+
 /// The on-disk artifact paths of one scenario under one root.
 #[derive(Debug, Clone)]
 pub struct ArtifactPaths {
@@ -26,7 +42,7 @@ pub struct ArtifactPaths {
 /// Outcome of one grouped [`GroupedStore::check_with`]. The shared
 /// [`CompareOutcome`] carries status, pixel score, diff path and the paths
 /// the report machinery reads; the per-artifact booleans record each byte
-/// gate individually (`None` = the approved artifact is missing).
+/// gate individually (`None` = the approved artifact is missing or not gated).
 #[derive(Debug, Clone)]
 pub struct GroupedOutcome {
     /// Shared check outcome (status, scores, paths).
@@ -71,8 +87,11 @@ impl GroupedOutcome {
 pub struct GroupedStore {
     pub(crate) approved_root: PathBuf,
     pub(crate) actual_root: PathBuf,
+    pub(crate) expected_root: PathBuf,
+    pub(crate) expected_root_explicit: bool,
     pub(crate) diff_root: PathBuf,
     pub(crate) report_path: Option<PathBuf>,
+    pub(crate) artifacts: ArtifactSet,
 }
 
 /// `root` with `suffix` appended to its last component
@@ -86,21 +105,58 @@ fn sibling(root: &Path, suffix: &str) -> PathBuf {
 
 impl GroupedStore {
     /// Approved root `snapshots/` defaults to actual `snapshots.actual/`,
-    /// diff `snapshots.diff/`, report `snapshots.actual/report.html`.
+    /// expected `snapshots.expected/`, diff `snapshots.diff/`, report
+    /// `snapshots.actual/report.html`, and [`ArtifactSet::All`].
     #[must_use]
     pub fn new(approved_root: &Path) -> Self {
         Self {
             approved_root: approved_root.to_path_buf(),
             actual_root: sibling(approved_root, ".actual"),
+            expected_root: sibling(approved_root, ".expected"),
+            expected_root_explicit: false,
             diff_root: sibling(approved_root, ".diff"),
             report_path: None,
+            artifacts: ArtifactSet::All,
         }
     }
 
-    /// Override the actual-artifacts root.
+    /// Select the committed artifact set ([`ArtifactSet::All`] or
+    /// [`ArtifactSet::AnsiCursor`]).
+    #[must_use]
+    pub fn with_artifacts(mut self, artifacts: ArtifactSet) -> Self {
+        self.artifacts = artifacts;
+        self
+    }
+
+    /// The configured committed artifact set.
+    #[must_use]
+    pub fn artifacts(&self) -> ArtifactSet {
+        self.artifacts
+    }
+
+    /// Override the actual-artifacts root. When `expected_root` has not been
+    /// explicitly set and `root` ends in `actual` (e.g.
+    /// `target/tuiscotti/actual`), `expected_root` follows to the sibling
+    /// `expected` directory (`target/tuiscotti/expected`).
     #[must_use]
     pub fn with_actual_root(mut self, root: &Path) -> Self {
         self.actual_root = root.to_path_buf();
+        if !self.expected_root_explicit {
+            if root.file_name() == Some(std::ffi::OsStr::new("actual")) {
+                self.expected_root = root.with_file_name("expected");
+            } else {
+                self.expected_root = sibling(root, ".expected");
+            }
+        }
+        self
+    }
+
+    /// Override the expected-evidence root (used in [`ArtifactSet::AnsiCursor`]
+    /// mode when rebuilding expected `.png`/`.html` from an approved `.ansi`).
+    #[must_use]
+    pub fn with_expected_root(mut self, root: &Path) -> Self {
+        self.expected_root = root.to_path_buf();
+        self.expected_root_explicit = true;
         self
     }
 
@@ -129,6 +185,12 @@ impl GroupedStore {
     #[must_use]
     pub fn actual_root(&self) -> &Path {
         &self.actual_root
+    }
+
+    /// Expected-evidence root (scratch area for rebuilt expected renders).
+    #[must_use]
+    pub fn expected_root(&self) -> &Path {
+        &self.expected_root
     }
 
     /// Diff-PNG root.

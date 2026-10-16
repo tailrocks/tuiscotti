@@ -49,9 +49,13 @@ rewrite `report.html`; `StoreReport::failed()` counts failures.
 ## Grouped store (`grouped::GroupedStore`)
 
 For suites that want nested scenario names and committed,
-human-reviewable artifacts. A scenario `<group>/…/<name>` commits
-EXACTLY four files under the approved root — no `.frame.json`, no
-sidecars:
+human-reviewable artifacts. `GroupedStore` supports two artifact modes
+via `GroupedStore::with_artifacts(ArtifactSet)`:
+
+### 1. `ArtifactSet::All` (default, 4 committed files per scenario)
+
+A scenario `<group>/…/<name>` commits four files under the approved
+root — no `.frame.json`, no sidecars:
 
 ```text
 snapshots/<group>/<name>_<cols>x<rows>_<profile>.ansi   # normalized SGR dump (cell-exact gate)
@@ -60,17 +64,49 @@ snapshots/<group>/<name>_<cols>x<rows>_<profile>.png    # colored image (pixel g
 snapshots/<group>/<name>_<cols>x<rows>_<profile>.html   # standalone colored HTML render
 ```
 
-Actuals (`<root>.actual/`), diff PNGs (`<root>.diff/`), and the
-report (`<root>.actual/report.html`) live OUTSIDE the approved tree
-by default; override with `with_actual_root` / `with_diff_root` /
-`with_report_path`. Gates: `.ansi`/`.txt`/`.html` byte-compares
-plus the same exact decoded-pixel PNG gate as the classic store.
-Actual PNG/HTML always render fresh from the candidate frame —
-never copied from approved. Missing approvals fail closed; names
-with absolute paths, `..`, empty segments, or backslashes are
-rejected (`InvalidName`). `accept(name)` blesses one scenario,
-`accept_all()` blesses every reviewed actual recursively and
-returns the accepted names.
+### 2. `ArtifactSet::AnsiCursor` (minimal `.ansi`-only baseline, on-demand PNG/HTML diff)
+
+For large multi-dimensional suites (thousands of scenarios), committing
+PNG and HTML files per scenario inflates repository size and passing-run
+I/O. With `.with_artifacts(ArtifactSet::AnsiCursor)`:
+
+- Only `<approved>/<name>.ansi` (written via
+  `render::ansi_dump_with_cursor`, which appends a canonical VT cursor
+  trailer `ESC[?25l` or `ESC[?25h ESC[<y>;<x>H ESC[<Ps> q`) is
+  committed to git.
+- **On a passing check**: the candidate's normalized `.ansi` + cursor
+  trailer is compared in memory against the approved `.ansi`. No PNG or
+  HTML rasterization runs (~0.37 ms per 120×40 check).
+- **On a mismatch or missing approval**: `formats::ansi::frame_from_ansi`
+  reconstructs the expected `Frame` (including cursor position/shape/blink)
+  from the approved `.ansi`, and the store renders:
+  - `<actual_root>/<name>.{ansi,txt,png,html}` (plus `.frame.json`,
+    `.png.fidelity.json`, `.manifest.json`, `.verdict.json`),
+  - `<expected_root>/<name>.{png,html}` (rebuilt from the approved `.ansi`),
+  - `<diff_root>/<name>.png` (red-overlay pixel diff).
+
+### Scratch roots and acceptance
+
+Actuals (`<root>.actual/`), rebuilt expected renders
+(`<root>.expected/`), diff PNGs (`<root>.diff/`), and the report
+(`<root>.actual/report.html`) live OUTSIDE the approved tree by default;
+override with `with_actual_root` / `with_expected_root` /
+`with_diff_root` / `with_report_path` (when `with_actual_root` ends in
+`actual` and `with_expected_root` was not explicitly called,
+`expected_root` automatically follows to the sibling `expected`
+directory). Missing approvals fail closed; names with absolute paths,
+`..`, empty segments, or backslashes are rejected (`InvalidName`).
+
+Acceptance is explicit:
+- `accept(name)` blesses one scenario (in `AnsiCursor` mode, validates
+  `<actual>/<name>.ansi` via `frame_from_ansi`, writes
+  `<approved>/<name>.ansi`, and removes any stale approved
+  `.txt`/`.png`/`.html`),
+- `accept_matching(filter)` blesses all scenarios in `actual_names()`
+  matching an exact name, prefix (`group` / `group/`), or `*`/`**`/`?`
+  glob (and errors when zero scenarios match),
+- `accept_all()` blesses every reviewed actual recursively and returns
+  the accepted names.
 
 The classic `Store` is unaffected; both share statuses, report
 machinery, and the renderer.

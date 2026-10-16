@@ -251,8 +251,7 @@ fn mouse_mode_gate(action: &MouseAction) -> (fn(MouseProtocolMode) -> bool, &'st
     fn drag_or_motion(mode: MouseProtocolMode) -> bool {
         matches!(
             mode,
-            MouseProtocolMode::PressRelease
-                | MouseProtocolMode::ButtonMotion
+            MouseProtocolMode::ButtonMotion
                 | MouseProtocolMode::AnyEvent
                 | MouseProtocolMode::AnyMotion
         )

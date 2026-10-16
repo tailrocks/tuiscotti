@@ -65,6 +65,7 @@ fn member_manifests(root: &Path) -> Vec<PathBuf> {
         "tuiscotti",
         "tuiscotti-cli",
         "tuiscotti-fixtures",
+        "tuiscotti-bench",
         "xtask",
     ] {
         out.push(root.join("crates").join(member).join("Cargo.toml"));

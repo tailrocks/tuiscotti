@@ -26,6 +26,7 @@
 mod cli;
 mod machine;
 mod ops_offline;
+mod ops_offline_accept;
 mod ops_offline_render;
 mod ops_run;
 mod ops_setup;

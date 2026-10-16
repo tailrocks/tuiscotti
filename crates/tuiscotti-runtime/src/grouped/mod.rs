@@ -75,6 +75,7 @@ mod types;
 
 pub(crate) use check::*;
 pub(crate) use check_gates::*;
+pub use mutate::name_matches_filter;
 pub use types::*;
 
 pub use tuiscotti_core::names::{InvalidName, validate_name};

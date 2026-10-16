@@ -319,3 +319,77 @@ fn pending_action_refuses_an_update_injected_before_delivery() {
     );
     assert_eq!(delivered, 0, "the sink never ran");
 }
+
+#[test]
+fn bound_locator_fluent_disambiguation_and_count_policies() {
+    let s = Tui::new([
+        "/bin/sh",
+        "-c",
+        r"printf '\033[?1002h\033[?1006h[Btn-A]\r\n[Btn-B]\r\n[Btn-C]'; stty raw -echo; cat -v",
+    ])
+    .size(40, 8)
+    .spawn()
+    .expect("spawn succeeds");
+    s.get_by_text("[Btn-C]")
+        .expect_visible()
+        .expect("all three drawn");
+
+    // Both `Locator::first(loc)` and `loc.first()` work because `first(self)`
+    // takes `self` by value.
+    drop(Locator::first(Locator::text("Btn")));
+    drop(Locator::text("Btn").first());
+
+    // Unique (default) rejects 3 matches; `.any()` and `.count_at_least(2)` pass;
+    // `.expect_count_at_least(3)` returns all 3 spans.
+    let ambig = s
+        .get_by_text("Btn")
+        .visible_now()
+        .expect_err("3 matches fail Unique");
+    assert!(
+        matches!(ambig, ActionError::Locate(LocateError::Ambiguous { ref matches }) if matches.len() == 3),
+        "{ambig:?}"
+    );
+
+    let first_any = s
+        .get_by_text("Btn")
+        .any()
+        .expect_visible()
+        .expect("any() accepts multiple matches");
+    assert_eq!(first_any.text, "Btn");
+    assert_eq!(first_any.y, 0);
+
+    let at_least_two = s
+        .get_by_text("Btn")
+        .count_at_least(2)
+        .expect_visible()
+        .expect("count_at_least(2) passes on 3 matches");
+    assert_eq!(at_least_two.text, "Btn");
+
+    let all_three = s
+        .get_by_text("Btn")
+        .expect_count_at_least(3)
+        .expect("expect_count_at_least(3) returns all matches");
+    assert_eq!(all_three.len(), 3);
+
+    // `.first()`, `.nth(1)`, `.last()` select specific matches and work with `.click()`.
+    let first = s
+        .get_by_text("Btn")
+        .first()
+        .visible_now()
+        .expect("first resolves");
+    let middle = s
+        .get_by_text("Btn")
+        .nth(1)
+        .visible_now()
+        .expect("nth(1) resolves");
+    let last = s
+        .get_by_text("Btn")
+        .last()
+        .click()
+        .expect("last clicks row 2");
+    assert_eq!((first.text.as_str(), first.y), ("Btn", 0));
+    assert_eq!((middle.text.as_str(), middle.y), ("Btn", 1));
+    assert_eq!((last.text.as_str(), last.y), ("Btn", 2));
+
+    s.close().expect("close succeeds");
+}

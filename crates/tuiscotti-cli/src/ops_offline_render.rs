@@ -66,6 +66,10 @@ pub(crate) fn render_format_to(
         RenderFormat::Ansi => {
             std::fs::write(path, tuiscotti::render::ansi_dump(frame)).map_err(|e| e.to_string())
         }
+        RenderFormat::AnsiCursor => {
+            std::fs::write(path, tuiscotti::render::ansi_dump_with_cursor(frame))
+                .map_err(|e| e.to_string())
+        }
         RenderFormat::Json => std::fs::write(path, frame.to_json()).map_err(|e| e.to_string()),
         RenderFormat::Svg => {
             std::fs::write(path, tuiscotti::render::render_svg(frame, &fonts.profile))

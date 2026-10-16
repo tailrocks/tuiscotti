@@ -62,7 +62,7 @@ pub(crate) use svg::html_document;
 pub use svg::{
     escape_html, escape_html_attr, escape_json_for_script, render_svg, render_svg_phased,
 };
-pub use text::{ansi_dump, render_png, render_png_report};
+pub use text::{ansi_dump, ansi_dump_with_cursor, render_png, render_png_report};
 
 /// Import/render failure: explicit, never silent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,6 +75,12 @@ impl std::fmt::Display for RenderError {
 }
 
 impl std::error::Error for RenderError {}
+
+impl From<crate::formats::FormatError> for RenderError {
+    fn from(e: crate::formats::FormatError) -> Self {
+        RenderError(e.to_string())
+    }
+}
 
 #[cfg(test)]
 mod tests {

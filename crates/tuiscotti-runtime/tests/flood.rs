@@ -75,7 +75,7 @@ fn saturating_flood_stays_revision_bounded_and_drains() {
         body.push('x');
     }
     assert_eq!(body.len(), target_len, "exact flood volume");
-    let file = std::env::temp_dir().join(format!("tuisnap-flood-{}", std::process::id()));
+    let file = std::env::temp_dir().join(format!("tuiscotti-flood-{}", std::process::id()));
     std::fs::write(&file, &body).expect("stage flood file");
     let cmd = format!("stty -opost; cat '{}'", file.display());
     let s = Tui::new(["/bin/sh", "-c", cmd.as_str()])

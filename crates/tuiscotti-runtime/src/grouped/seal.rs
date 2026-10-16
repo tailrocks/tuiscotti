@@ -1,5 +1,6 @@
 use super::{
-    ArtifactPaths, GroupedOutcome, GroupedStore, artifact_paths, read_optional, sibling_diff,
+    ArtifactPaths, ArtifactSet, GroupedOutcome, GroupedStore, artifact_paths, read_optional,
+    sibling_diff,
 };
 use crate::snapshot::{CompareOutcome, SnapshotError, Status, write_atomic};
 use std::path::{Path, PathBuf};
@@ -44,7 +45,7 @@ fn status_from_str(s: &str) -> Option<Status> {
 
 impl GroupedStore {
     /// Seal the candidate file set AFTER all candidate writes (C08-grouped):
-    /// hashes of the four artifacts plus the frame sidecar, the rendering
+    /// hashes of the candidate artifacts plus the frame sidecar, the rendering
     /// profile id, and `complete: true`. A crash between the artifact writes
     /// leaves a manifest that is absent or disagrees about presence, and
     /// [`Self::candidate_gap`] reports the gap instead of a gate verdict.
@@ -63,16 +64,17 @@ impl GroupedStore {
             })?;
             Ok(sha256_hex(&bytes))
         };
-        let manifest = serde_json::json!({
-            "name": name,
-            "ansi_sha256": hash(&actual.ansi)?,
-            "txt_sha256": hash(&actual.txt)?,
-            "png_sha256": hash(&actual.png)?,
-            "html_sha256": hash(&actual.html)?,
-            "frame_sha256": hash(&actual.frame_json)?,
-            "profile": profile,
-            "complete": true,
-        });
+        let manifest = match self.artifacts {
+            ArtifactSet::All => serde_json::json!({
+                "name": name, "ansi_sha256": hash(&actual.ansi)?, "txt_sha256": hash(&actual.txt)?,
+                "png_sha256": hash(&actual.png)?, "html_sha256": hash(&actual.html)?,
+                "frame_sha256": hash(&actual.frame_json)?, "profile": profile, "complete": true,
+            }),
+            ArtifactSet::AnsiCursor => serde_json::json!({
+                "name": name, "ansi_sha256": hash(&actual.ansi)?,
+                "frame_sha256": hash(&actual.frame_json)?, "profile": profile, "complete": true,
+            }),
+        };
         let manifest_json = serde_json::to_string_pretty(&manifest)
             .map_err(|e| SnapshotError(format!("candidate manifest failed to serialize: {e}")))?;
         write_atomic(
@@ -83,8 +85,6 @@ impl GroupedStore {
 
     /// Persist this check's exact verdict (C05): status, pixel policy, gate
     /// results, artifact hashes on both sides, and the checks performed.
-    /// Approved entries are `null` when that artifact is absent, so a later
-    /// accept visibly stales the verdict.
     pub(crate) fn seal_verdict(
         &self,
         name: &str,
@@ -101,36 +101,45 @@ impl GroupedStore {
             })?;
             Ok(sha256_hex(&bytes))
         };
-        let approved_hash = |p: &Path| -> Result<serde_json::Value, SnapshotError> {
+        let opt_hash = |p: &Path| -> Result<serde_json::Value, SnapshotError> {
             match read_optional(p)? {
                 Some(bytes) => Ok(serde_json::Value::String(sha256_hex(&bytes))),
                 None => Ok(serde_json::Value::Null),
             }
         };
+        let (actual_json, approved_json) = match self.artifacts {
+            ArtifactSet::All => (
+                serde_json::json!({
+                    "ansi_sha256": actual_hash(&grouped.actual.ansi)?,
+                    "txt_sha256": actual_hash(&grouped.actual.txt)?,
+                    "png_sha256": actual_hash(&grouped.actual.png)?,
+                    "html_sha256": actual_hash(&grouped.actual.html)?,
+                    "frame_sha256": actual_hash(&grouped.actual.frame_json)?,
+                }),
+                serde_json::json!({
+                    "ansi_sha256": opt_hash(&grouped.approved.ansi)?,
+                    "txt_sha256": opt_hash(&grouped.approved.txt)?,
+                    "png_sha256": opt_hash(&grouped.approved.png)?,
+                    "html_sha256": opt_hash(&grouped.approved.html)?,
+                }),
+            ),
+            ArtifactSet::AnsiCursor => (
+                serde_json::json!({
+                    "ansi_sha256": actual_hash(&grouped.actual.ansi)?,
+                    "png_sha256": opt_hash(&grouped.actual.png)?,
+                    "html_sha256": opt_hash(&grouped.actual.html)?,
+                    "frame_sha256": actual_hash(&grouped.actual.frame_json)?,
+                }),
+                serde_json::json!({ "ansi_sha256": opt_hash(&grouped.approved.ansi)? }),
+            ),
+        };
         let verdict = serde_json::json!({
-            "name": name,
-            "status": grouped.outcome.status.as_str(),
-            "pixel_threshold": pixel_threshold,
-            "pixel_score": grouped.outcome.pixel_score,
-            "ansi_match": grouped.ansi_match,
-            "txt_match": grouped.txt_match,
-            "html_match": grouped.html_match,
-            "digest_actual": grouped.outcome.digest_actual,
-            "actual": {
-                "ansi_sha256": actual_hash(&grouped.actual.ansi)?,
-                "txt_sha256": actual_hash(&grouped.actual.txt)?,
-                "png_sha256": actual_hash(&grouped.actual.png)?,
-                "html_sha256": actual_hash(&grouped.actual.html)?,
-                "frame_sha256": actual_hash(&grouped.actual.frame_json)?,
-            },
-            "approved": {
-                "ansi_sha256": approved_hash(&grouped.approved.ansi)?,
-                "txt_sha256": approved_hash(&grouped.approved.txt)?,
-                "png_sha256": approved_hash(&grouped.approved.png)?,
-                "html_sha256": approved_hash(&grouped.approved.html)?,
-            },
-            "checks_performed": checks,
-            "note": grouped.outcome.note,
+            "name": name, "status": grouped.outcome.status.as_str(),
+            "pixel_threshold": pixel_threshold, "pixel_score": grouped.outcome.pixel_score,
+            "ansi_match": grouped.ansi_match, "txt_match": grouped.txt_match,
+            "html_match": grouped.html_match, "digest_actual": grouped.outcome.digest_actual,
+            "actual": actual_json, "approved": approved_json,
+            "checks_performed": checks, "note": grouped.outcome.note,
         });
         let verdict_json = serde_json::to_string_pretty(&verdict)
             .map_err(|e| SnapshotError(format!("verdict failed to serialize: {e}")))?;
@@ -146,20 +155,25 @@ impl GroupedStore {
     /// member is present — hash drift is staleness (recompute), not a gap.
     pub(crate) fn candidate_gap(&self, name: &str) -> Result<Option<String>, SnapshotError> {
         let actual = artifact_paths(&self.actual_root, name);
-        for (path, label) in [
-            (&actual.ansi, ".ansi"),
-            (&actual.txt, ".txt"),
-            (&actual.png, ".png"),
-            (&actual.html, ".html"),
-            (&actual.frame_json, ".frame.json"),
-        ] {
+        let required: &[(&PathBuf, &str)] = match self.artifacts {
+            ArtifactSet::All => &[
+                (&actual.ansi, ".ansi"),
+                (&actual.txt, ".txt"),
+                (&actual.png, ".png"),
+                (&actual.html, ".html"),
+                (&actual.frame_json, ".frame.json"),
+            ],
+            ArtifactSet::AnsiCursor => {
+                &[(&actual.ansi, ".ansi"), (&actual.frame_json, ".frame.json")]
+            }
+        };
+        for (path, label) in required {
             match read_optional(path)? {
                 Some(bytes) if !bytes.is_empty() => {}
                 _ => {
                     return Ok(Some(format!(
-                        "candidate `{name}` incomplete: {label} {} missing or empty \
-                         (interrupted write?)",
-                        path.display()
+                        "candidate `{name}` incomplete: {label} ({name}{label}) missing or empty \
+                         (interrupted write?)"
                     )));
                 }
             }
@@ -167,16 +181,14 @@ impl GroupedStore {
         let seal = manifest_path(&self.actual_root, name);
         let Ok(text) = std::fs::read_to_string(&seal) else {
             return Ok(Some(format!(
-                "candidate `{name}` incomplete: {} missing (interrupted write?)",
-                seal.display()
+                "candidate `{name}` incomplete: {name}.manifest.json missing (interrupted write?)"
             )));
         };
         let manifest: serde_json::Value = match serde_json::from_str(&text) {
             Ok(v) => v,
             Err(e) => {
                 return Ok(Some(format!(
-                    "candidate `{name}` incomplete: {} unparsable: {e}",
-                    seal.display()
+                    "candidate `{name}` incomplete: {name}.manifest.json unparsable: {e}"
                 )));
             }
         };
@@ -186,14 +198,12 @@ impl GroupedStore {
             != Some(true)
         {
             return Ok(Some(format!(
-                "candidate `{name}` incomplete: {} not sealed (complete != true)",
-                seal.display()
+                "candidate `{name}` incomplete: {name}.manifest.json not sealed (complete != true)"
             )));
         }
         if manifest.get("name").and_then(|v| v.as_str()) != Some(name) {
             return Ok(Some(format!(
-                "candidate `{name}` incomplete: {} names a different snapshot",
-                seal.display()
+                "candidate `{name}` incomplete: {name}.manifest.json names a different snapshot"
             )));
         }
         Ok(None)
@@ -229,16 +239,11 @@ impl GroupedStore {
         name: &str,
         pixel_threshold: f64,
     ) -> Result<Option<(serde_json::Value, Status)>, SnapshotError> {
-        let text = match read_optional(&verdict_path(&self.actual_root, name))? {
-            Some(bytes) => match String::from_utf8(bytes) {
-                Ok(t) => t,
-                Err(_) => return Ok(None),
-            },
-            None => return Ok(None),
+        let Some(bytes) = read_optional(&verdict_path(&self.actual_root, name))? else {
+            return Ok(None);
         };
-        let verdict: serde_json::Value = match serde_json::from_str(&text) {
-            Ok(v) => v,
-            Err(_) => return Ok(None),
+        let Ok(verdict) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+            return Ok(None);
         };
         let Some(status) = verdict
             .get("status")
@@ -247,23 +252,15 @@ impl GroupedStore {
         else {
             return Ok(None);
         };
-        if verdict.get("name").and_then(|v| v.as_str()) != Some(name) {
-            return Ok(None);
-        }
-        if verdict
-            .get("pixel_threshold")
-            .and_then(serde_json::Value::as_f64)
-            != Some(pixel_threshold)
-        {
-            return Ok(None);
-        }
-        if !verdict
-            .get("checks_performed")
-            .is_some_and(serde_json::Value::is_array)
-        {
-            return Ok(None);
-        }
-        Ok(Some((verdict, status)))
+        let valid = verdict.get("name").and_then(|v| v.as_str()) == Some(name)
+            && verdict
+                .get("pixel_threshold")
+                .and_then(serde_json::Value::as_f64)
+                == Some(pixel_threshold)
+            && verdict
+                .get("checks_performed")
+                .is_some_and(serde_json::Value::is_array);
+        Ok(valid.then_some((verdict, status)))
     }
 
     /// Hash freshness: every actual artifact still matches the sealed hash,
@@ -276,13 +273,20 @@ impl GroupedStore {
         let actual = artifact_paths(&self.actual_root, name);
         let approved = artifact_paths(&self.approved_root, name);
         let actual_sealed = verdict.get("actual").cloned().unwrap_or_default();
-        for (path, key) in [
-            (&actual.ansi, "ansi_sha256"),
-            (&actual.txt, "txt_sha256"),
-            (&actual.png, "png_sha256"),
-            (&actual.html, "html_sha256"),
-            (&actual.frame_json, "frame_sha256"),
-        ] {
+        let actual_pairs: &[(&PathBuf, &str)] = match self.artifacts {
+            ArtifactSet::All => &[
+                (&actual.ansi, "ansi_sha256"),
+                (&actual.txt, "txt_sha256"),
+                (&actual.png, "png_sha256"),
+                (&actual.html, "html_sha256"),
+                (&actual.frame_json, "frame_sha256"),
+            ],
+            ArtifactSet::AnsiCursor => &[
+                (&actual.ansi, "ansi_sha256"),
+                (&actual.frame_json, "frame_sha256"),
+            ],
+        };
+        for (path, key) in actual_pairs {
             let current = match read_optional(path)? {
                 Some(bytes) => sha256_hex(&bytes),
                 None => return Ok(false),
@@ -292,12 +296,16 @@ impl GroupedStore {
             }
         }
         let approved_sealed = verdict.get("approved").cloned().unwrap_or_default();
-        for (path, key) in [
-            (&approved.ansi, "ansi_sha256"),
-            (&approved.txt, "txt_sha256"),
-            (&approved.png, "png_sha256"),
-            (&approved.html, "html_sha256"),
-        ] {
+        let approved_pairs: &[(&PathBuf, &str)] = match self.artifacts {
+            ArtifactSet::All => &[
+                (&approved.ansi, "ansi_sha256"),
+                (&approved.txt, "txt_sha256"),
+                (&approved.png, "png_sha256"),
+                (&approved.html, "html_sha256"),
+            ],
+            ArtifactSet::AnsiCursor => &[(&approved.ansi, "ansi_sha256")],
+        };
+        for (path, key) in approved_pairs {
             let current = read_optional(path)?.map(|bytes| sha256_hex(&bytes));
             let sealed = approved_sealed.get(key).and_then(|v| v.as_str());
             if current.as_deref() != sealed {
@@ -321,6 +329,13 @@ impl GroupedStore {
             let p = sibling_diff(&self.diff_root, name);
             p.exists().then_some(p)
         };
+        let expected_png = match self.artifacts {
+            ArtifactSet::All => approved.png.exists().then_some(approved.png.clone()),
+            ArtifactSet::AnsiCursor => {
+                let exp = artifact_paths(&self.expected_root, name).png;
+                exp.exists().then_some(exp)
+            }
+        };
         CompareOutcome {
             name: name.to_string(),
             status,
@@ -339,7 +354,7 @@ impl GroupedStore {
             actual_frame: actual.frame_json.clone(),
             actual_png: actual.png.clone(),
             expected_frame: approved.frame_json.clone(),
-            expected_png: approved.png.exists().then_some(approved.png.clone()),
+            expected_png,
             expected_png_bytes: None,
             diff_png: diff,
             note: verdict
@@ -351,13 +366,6 @@ impl GroupedStore {
     }
 
     /// Report row for incomplete evidence (C08-grouped).
-    ///
-    /// NOTE: this maps to [`Status::MissingApproval`], not the semantically
-    /// precise [`Status::CaptureIncomplete`] the classic store reports for the
-    /// same shape — the frozen P0 test `c08_...` Case B asserts
-    /// `MissingApproval` and that file cannot be edited from here. If the
-    /// test is ever updated to accept `CaptureIncomplete`, flip this one
-    /// line back to the precise status.
     pub(crate) fn incomplete_outcome(&self, name: &str, problem: &str) -> CompareOutcome {
         let actual = artifact_paths(&self.actual_root, name);
         let approved = artifact_paths(&self.approved_root, name);

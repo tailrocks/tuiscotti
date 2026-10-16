@@ -253,48 +253,59 @@ impl Iterator for JournalReader {
 /// One offline verdict file (`<name>.verdict.json`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Verdict {
-    /// Verdict name (file stem).
+    /// Verdict name (file stem or scenario name).
     pub name: String,
-    /// Verdict status (`pass` or `fail`).
+    /// Verdict status (`pass`, `matched`, or failure slug).
     pub status: String,
-    /// Human-readable verdict detail.
-    #[serde(default)]
+    /// Human-readable verdict detail (accepts grouped `note` as alias).
+    #[serde(default, alias = "note")]
     pub detail: String,
 }
 
 impl Verdict {
-    /// True when the status is `pass`.
+    /// True when the status is `pass` or `matched`.
     #[must_use]
     pub fn passed(&self) -> bool {
-        self.status == "pass"
+        matches!(self.status.as_str(), "pass" | "matched")
     }
 }
 
-/// Read all `*.verdict.json` files in `dir` (sorted by name). Non-verdict
-/// files are ignored; a malformed verdict file is an error.
+/// Read all `*.verdict.json` files in `dir` recursively (sorted by name).
+/// Non-verdict files are ignored; a malformed verdict file is an error.
 ///
 /// # Errors
 ///
 /// Returns [`OpError`] when the dir cannot be read or a verdict is malformed.
 pub fn read_verdicts(dir: &Path) -> Result<Vec<Verdict>, OpError> {
+    let mut out = Vec::new();
+    collect_verdicts(dir, &mut out)?;
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(out)
+}
+
+fn collect_verdicts(dir: &Path, out: &mut Vec<Verdict>) -> Result<(), OpError> {
     let mut entries: Vec<_> = std::fs::read_dir(dir)
         .map_err(|e| OpError::new("io", format!("read {}: {e}", dir.display())))?
         .collect::<Result<_, _>>()
         .map_err(|e| OpError::new("io", format!("read {}: {e}", dir.display())))?;
     entries.sort_by_key(std::fs::DirEntry::file_name);
-    let mut out = Vec::new();
     for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_verdicts(&path, out)?;
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().into_owned();
         if !name.ends_with(".verdict.json") {
             continue;
         }
-        let bytes = std::fs::read(entry.path())
-            .map_err(|e| OpError::new("io", format!("read {name}: {e}")))?;
+        let bytes =
+            std::fs::read(&path).map_err(|e| OpError::new("io", format!("read {name}: {e}")))?;
         let v: Verdict = serde_json::from_slice(&bytes)
             .map_err(|e| OpError::new("invalid-input", format!("{name}: bad verdict: {e}")))?;
         out.push(v);
     }
-    Ok(out)
+    Ok(())
 }
 
 /// Write a standalone offline HTML report from `verdicts`. Pure rendering over
@@ -327,11 +338,8 @@ pub fn write_html_report(verdicts: &[Verdict], title: &str) -> String {
 <style>body{{font-family:sans-serif}}table{{border-collapse:collapse}}\
 td,th{{border:1px solid #ccc;padding:4px 8px}}.pass td{{background:#e6f4ea}}\
 .fail td{{background:#fce8e6}}</style></head><body><h1>{t}</h1>\
-<p>{} passed, {} failed (protocol v{})</p>\
+<p>{passed} passed, {failed} failed (protocol v{PROTOCOL_VERSION})</p>\
 <table><tr><th>name</th><th>status</th><th>detail</th></tr>\n{rows}</table></body></html>\n",
-        passed,
-        failed,
-        PROTOCOL_VERSION,
         t = esc(title),
     )
 }
@@ -341,15 +349,15 @@ mod tests {
     use super::*;
 
     fn tmp(suffix: &str) -> std::path::PathBuf {
-        let name = format!("tuiscotti-proto-journal-{suffix}-{}", std::process::id());
-        std::env::temp_dir().join(name)
+        let dir = std::env::temp_dir().join(format!("ts-pj-{suffix}-{}", std::process::id()));
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).expect("mkdir succeeds");
+        dir
     }
 
     #[test]
     fn bounded_read_matches_stream_and_trips_caps() {
         let dir = tmp("bounded");
-        std::fs::remove_dir_all(&dir).ok();
-        std::fs::create_dir_all(&dir).expect("mkdir succeeds");
         let path = dir.join("j.jsonl");
         std::fs::write(&path, "{\"seq\":0,\"kind\":\"s\",\"detail\":\"a\"}\n{\"seq\":1,\"kind\":\"e\",\"detail\":\"b\"}\n")
             .expect("fixture write succeeds");
@@ -370,22 +378,14 @@ mod tests {
     #[test]
     fn bad_events_keep_line_numbers() {
         let dir = tmp("badline");
-        std::fs::remove_dir_all(&dir).ok();
-        std::fs::create_dir_all(&dir).expect("mkdir succeeds");
         let path = dir.join("j.jsonl");
-        std::fs::write(
-            &path,
-            "{\"seq\":0,\"kind\":\"s\",\"detail\":\"a\"}\nnot-json\n",
-        )
-        .expect("fixture write succeeds");
+        let body = "{\"seq\":0,\"kind\":\"s\",\"detail\":\"a\"}\nnot-json\n";
+        std::fs::write(&path, body).expect("fixture write succeeds");
         let err = read_journal(&path).expect_err("bad event fails");
         assert!(err.to_string().contains("line 2"), "{err}");
         let mut reader = iter_journal(&path).expect("stream opens");
         assert!(reader.next().expect("first event").is_ok());
-        let err = reader
-            .next()
-            .expect("second item")
-            .expect_err("stream fails too");
+        let err = reader.next().expect("second").expect_err("stream fails");
         assert!(err.to_string().contains("line 2"), "{err}");
         assert!(reader.next().is_none(), "stream ends after the error");
         std::fs::remove_dir_all(&dir).ok();

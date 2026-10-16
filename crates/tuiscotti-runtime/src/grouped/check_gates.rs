@@ -3,7 +3,7 @@ use crate::snapshot::{CompareOutcome, Status};
 use tuiscotti_core::frame::Frame;
 
 /// Locate the first differing byte of two blobs, for human diagnostics.
-fn first_difference(approved: &[u8], actual: &[u8]) -> String {
+pub(crate) fn first_difference(approved: &[u8], actual: &[u8]) -> String {
     let n = approved.len().min(actual.len());
     let mut i = 0;
     while i < n && approved[i] == actual[i] {

@@ -9,7 +9,7 @@ use tuiscotti_render::diff;
 use tuiscotti_render::profile::Profile;
 use tuiscotti_render::render;
 
-fn summarize(cell: &tuiscotti_core::frame::Cell) -> String {
+pub(crate) fn summarize(cell: &tuiscotti_core::frame::Cell) -> String {
     if cell.continuation {
         return "…".to_string();
     }
@@ -295,7 +295,7 @@ fn fresh_outcome(
 }
 
 /// Cell comparison (exact; dimension mismatch is a status, not a diff).
-fn compare_cells(actual: &Frame, approved: &Frame, outcome: &mut CompareOutcome) {
+pub(crate) fn compare_cells(actual: &Frame, approved: &Frame, outcome: &mut CompareOutcome) {
     match actual.diff_cells(approved) {
         Err(_) => {
             outcome.status = Status::DimensionMismatch;

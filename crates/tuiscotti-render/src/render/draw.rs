@@ -163,23 +163,27 @@ fn draw_fallback_glyph(
     let origin_x = pen_x + ((span_f - m.advance_width) / 2.0).round() as i32;
     let top = baseline - (m.ymin + i32::try_from(m.height).unwrap_or(i32::MAX));
     let mut inked = false;
-    for (i, &cov) in bmp.iter().enumerate() {
-        if cov == 0 {
-            continue;
-        }
-        let bx = i32::try_from(i % m.width).unwrap_or(i32::MAX);
-        let by = i32::try_from(i / m.width).unwrap_or(i32::MAX);
-        let dx = origin_x + m.xmin + bx;
+    let x_end = pen_x + span_px.cast_signed();
+    let y_end = cell_top + cell_h.cast_signed();
+    for (by_u, row) in bmp.chunks_exact(m.width).enumerate() {
+        let by = i32::try_from(by_u).unwrap_or(i32::MAX);
         let dy = top + by;
-        if dx < pen_x
-            || dx >= pen_x + span_px.cast_signed()
-            || dy < cell_top
-            || dy >= cell_top + cell_h.cast_signed()
-        {
+        if dy < cell_top || dy >= y_end {
             continue;
         }
-        inked = true;
-        blend(dst, dx.cast_unsigned(), dy.cast_unsigned(), fg, cov);
+        let dy_u = dy.cast_unsigned();
+        for (bx_u, &cov) in row.iter().enumerate() {
+            if cov == 0 {
+                continue;
+            }
+            let bx = i32::try_from(bx_u).unwrap_or(i32::MAX);
+            let dx = origin_x + m.xmin + bx;
+            if dx < pen_x || dx >= x_end {
+                continue;
+            }
+            inked = true;
+            blend(dst, dx.cast_unsigned(), dy_u, fg, cov);
+        }
     }
     inked
 }
@@ -280,27 +284,35 @@ pub(crate) fn draw_primary(
     // ymin = offset of the bitmap's BOTTOM edge from the baseline, so the
     // top edge sits at baseline - (ymin + height).
     // Bitmap dims are small pixels; the saturating fallbacks never fire.
-    let top = baseline - (m.ymin + i32::try_from(m.height).unwrap_or(i32::MAX));
-    for (i, &cov) in bmp.iter().enumerate() {
-        if cov == 0 {
+    let mh = i32::try_from(m.height).unwrap_or(i32::MAX);
+    let top = baseline - (m.ymin + mh);
+    for (by_u, row) in bmp.chunks_exact(m.width).enumerate() {
+        let by = i32::try_from(by_u).unwrap_or(i32::MAX);
+        let dy = top + by;
+        if dy < 0 {
             continue;
         }
-        let bx = i32::try_from(i % m.width).unwrap_or(i32::MAX);
-        let by = i32::try_from(i / m.width).unwrap_or(i32::MAX);
+        let dy_u = dy.cast_unsigned();
         // Faux italic: shear top rows right (fallback only).
         let shear = if faux_italic {
-            let rows_above = i32::try_from(m.height).unwrap_or(i32::MAX) - 1 - by;
+            let rows_above = mh - 1 - by;
             (f32::from(i16::try_from(rows_above).unwrap_or(i16::MAX)) * 0.15) as i32
         } else {
             0
         };
-        let dx = pen_x + m.xmin + bx + shear;
-        let dy = top + by;
-        if dx >= 0 && dy >= 0 {
-            blend(dst, dx.cast_unsigned(), dy.cast_unsigned(), fg, cov);
-            // Faux bold: double-strike one unscaled pixel right.
-            if faux_bold {
-                blend(dst, (dx + u).cast_unsigned(), dy.cast_unsigned(), fg, cov);
+        let row_x0 = pen_x + m.xmin + shear;
+        for (bx_u, &cov) in row.iter().enumerate() {
+            if cov == 0 {
+                continue;
+            }
+            let bx = i32::try_from(bx_u).unwrap_or(i32::MAX);
+            let dx = row_x0 + bx;
+            if dx >= 0 {
+                blend(dst, dx.cast_unsigned(), dy_u, fg, cov);
+                // Faux bold: double-strike one unscaled pixel right.
+                if faux_bold {
+                    blend(dst, (dx + u).cast_unsigned(), dy_u, fg, cov);
+                }
             }
         }
     }

@@ -162,7 +162,10 @@ pub fn parse_chord(text: &str) -> Result<(Key, KeyMods), TuiError> {
         "insert" | "ins" => Key::Insert,
         "delete" | "del" => Key::Delete,
         _ => {
-            if let Some(rest) = name.strip_prefix('F').or_else(|| name.strip_prefix('f')) {
+            if let Some(rest) = name.strip_prefix('F').or_else(|| name.strip_prefix('f'))
+                && !rest.is_empty()
+                && rest.bytes().all(|b| b.is_ascii_digit())
+            {
                 match rest.parse::<u8>() {
                     Ok(n) if (1..=12).contains(&n) => Key::F(n),
                     _ => return Err(bad(format!("bad function key {name:?}"))),
@@ -249,5 +252,59 @@ impl Signal {
             Signal::Hup => termpane::process::SIGHUP,
             Signal::Custom(n) => n,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Key, KeyMods, parse_chord};
+
+    #[test]
+    fn parse_chord_distinguishes_letter_f_from_function_keys() {
+        assert_eq!(
+            parse_chord("f").expect("f"),
+            (Key::Char('f'), KeyMods::NONE)
+        );
+        assert_eq!(
+            parse_chord("F").expect("F"),
+            (Key::Char('F'), KeyMods::NONE)
+        );
+        assert_eq!(
+            parse_chord("ctrl+f").expect("ctrl+f"),
+            (Key::Char('f'), KeyMods::CTRL)
+        );
+        assert_eq!(
+            parse_chord("shift+F").expect("shift+F"),
+            (Key::Char('F'), KeyMods::SHIFT)
+        );
+        assert_eq!(
+            parse_chord("Alt+F").expect("Alt+F"),
+            (Key::Char('F'), KeyMods::ALT)
+        );
+        let (k, m) = parse_chord("Ctrl+Shift+f").expect("Ctrl+Shift+f");
+        assert_eq!(k, Key::Char('f'));
+        assert!(m.ctrl && m.shift && !m.alt);
+        assert_eq!(parse_chord("F1").expect("F1"), (Key::F(1), KeyMods::NONE));
+        assert_eq!(
+            parse_chord("F12").expect("F12"),
+            (Key::F(12), KeyMods::NONE)
+        );
+        assert_eq!(
+            parse_chord("f12").expect("f12"),
+            (Key::F(12), KeyMods::NONE)
+        );
+        assert_eq!(
+            parse_chord("Ctrl+F5").expect("Ctrl+F5"),
+            (Key::F(5), KeyMods::CTRL)
+        );
+
+        let f0 = parse_chord("F0").expect_err("F0 out of range").to_string();
+        assert!(f0.contains("bad function key"), "{f0}");
+        let f13 = parse_chord("F13")
+            .expect_err("F13 out of range")
+            .to_string();
+        assert!(f13.contains("bad function key"), "{f13}");
+        let fx = parse_chord("fx").expect_err("fx is unknown").to_string();
+        assert!(fx.contains("unknown key"), "{fx}");
     }
 }

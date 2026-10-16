@@ -12,7 +12,7 @@ pub const HELP: &str = "\
 usage: cargo xtask migrate\n\
 \n\
 checks the migrated workspace shape:\n\
-  - root Cargo.toml lists exactly the 8 expected members and is virtual\n\
+  - root Cargo.toml lists the expected workspace members and is virtual\n\
   - every member manifest inherits edition/rust-version/license and lints\n\
   - xtask has no product-graph dependencies (no tuiscotti/path deps)\n\
   - legacy first-party tools/ directory is gone\n\
@@ -27,6 +27,7 @@ const MEMBERS: &[&str] = &[
     "crates/tuiscotti",
     "crates/tuiscotti-cli",
     "crates/tuiscotti-fixtures",
+    "crates/tuiscotti-bench",
     "crates/xtask",
 ];
 

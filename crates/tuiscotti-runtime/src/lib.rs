@@ -29,6 +29,6 @@ pub mod tui_shell;
 #[cfg(feature = "pty")]
 pub mod waits;
 
-pub use grouped::{ArtifactPaths, GroupedOutcome, GroupedStore, InvalidName};
+pub use grouped::{ArtifactPaths, ArtifactSet, GroupedOutcome, GroupedStore, InvalidName};
 #[cfg(feature = "pty")]
 pub use keys::KeyChord;

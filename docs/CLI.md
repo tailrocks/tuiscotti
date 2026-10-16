@@ -81,30 +81,41 @@ Never executes anything in the directory.
 
 ### `render --input <INPUT> [--format <F>]... [--out <PREFIX>] [--font-file <TTF>]`
 
-Renders a canonical `frame.json` to offline artifacts. Repeatable
-`--format`, one of six (`txt`, `ansi`, `json`, `svg`, `html`,
-`png` — ASCII is a separate 7-bit loss-accounted projection in the
-Rust API, not a CLI format); `--out` is the output prefix (default
-`shot`); `--font-file` overrides the primary face (hash recorded
-in the profile; the fallback chain still applies on top). Offline
-re-renders are byte-identical (pinned by tests). Writes
-`<prefix>.png.fidelity.json` next to every PNG.
+Renders a canonical `frame.json` or a normalized `.ansi` capture
+(`formats::ansi::frame_from_ansi`, with or without a VT cursor trailer)
+to offline artifacts. Repeatable `--format`, one of seven (`txt`,
+`ansi`, `ansi-cursor`, `json`, `svg`, `html`, `png` — `ansi-cursor`
+writes `.ansi` with the canonical VT cursor trailer; ASCII is a
+separate 7-bit loss-accounted projection in the Rust API, not a CLI
+format); `--out` is the output prefix (default `shot`); `--font-file`
+overrides the primary face (hash recorded in the profile; the fallback
+chain still applies on top). Offline re-renders are byte-identical
+(pinned by tests). Writes `<prefix>.png.fidelity.json` next to every
+PNG.
 
 ### `diff --expected <PNG> --actual <PNG>`
 
 Compares two PNGs by decoded pixels. Exit 0 identical, exit 4 on
 any mismatch (one changed channel fails; re-encoding passes).
 
-### `review --dir <DIR>`
+### `review --dir <DIR> [--filter <PATTERN>]`
 
-Lists offline verdicts. Exit 4 when any verdict fails, 0 on an
+Lists offline verdicts, optionally filtered by `<PATTERN>` (exact
+scenario name, prefix `group` / `group/`, or `*`/`**`/`?` glob; `::`
+is normalized to `/`). Exit 4 when any matching verdict fails, 0 on an
 empty or all-pass dir.
 
-### `accept [--store <DIR>] <NAME>`
+### `accept [--store <DIR>] [--actual <DIR>] [--artifacts <all|ansi-cursor>] <NAME>`
 
-Approves one snapshot: `actual/<NAME>` → `approved/<NAME>`.
-Explicit and per-name only — there is no `--all`. Frozen roots
-reject. `--store` defaults to `.`.
+Approves one classic snapshot (`actual/<NAME>` → `approved/<NAME>`) or
+every grouped scenario matching `<NAME>` (exact name, prefix
+`pages/overview`, or glob `pages/*`, via
+`GroupedStore::accept_matching`). Auto-detects classic vs grouped
+stores; `--actual` overrides the grouped actual-artifacts root (e.g.
+`target/tuiscotti/actual`), and `--artifacts <all|ansi-cursor>`
+explicitly selects the grouped artifact mode (auto-detected from the
+store when omitted). Fails loudly if zero scenarios match `<NAME>`.
+Frozen roots reject. `--store` defaults to `.`.
 
 ### `report --dir <DIR> --out <FILE> [--title <T>]`
 
@@ -120,8 +131,9 @@ unsupported trees error.
 
 Named sessions (versioned endpoints, owner-only runtime dir):
 
-- `start --name <N> [--force] [-- <ARGV>...]` — detached child +
-  endpoint file.
+- `start --name <N> [--force] [--pty] [--cols <C>] [--rows <R>] [-- <ARGV>...]` —
+  detached child + endpoint file (`--pty` retains a live PTY session
+  behind the per-runtime-dir daemon).
 - `stop --name <N>` — stop the session, remove its endpoint.
 - `list` — sessions with liveness.
 - `prune` — drop endpoints whose process already exited.
@@ -154,7 +166,11 @@ echo '{"type":"capabilities"}' | tuiscotti machine
 
 ## Removed commands
 
-`check`, `run`, `digest`, `accept --all`, `report --store`, and
-`render` of raw `*.ansi` do not exist. There are no shims: unknown
-subcommands exit 2. The op protocol (`machine`, `proto::execute`)
-is the scriptable surface — there are no `tools/*.py` helpers.
+`check`, `run`, `digest`, `accept --all`, and `report --store` do not
+exist (use `tuiscotti accept --store <dir> "*"` for explicit pattern
+matching on a grouped store, and `tuiscotti render --input <file.ansi>`
+for normalized `.ansi` captures; un-normalized raw PTY byte streams use
+`observe::Replay` / `tui_shell::Recording` in Rust). There are no
+shims: unknown subcommands exit 2. The op protocol (`machine`,
+`proto::execute`) is the scriptable surface — there are no `tools/*.py`
+helpers.
