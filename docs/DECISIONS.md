@@ -160,12 +160,12 @@ multiple locales) drove eight durable design refinements:
   `Key::from_str("f")` parse as `Key::Char('f')`, while uppercase
   `"F"` parses as `Key::Char('F')` (matching every other single
   ASCII letter); function keys require explicit digits (`"F1"`..`"F12"`).
-- **P2 — SemVer caret ranges + multi-version Ratatui (`0.29..0.31`)**:
+- **P2 — SemVer caret ranges (`ratatui 0.30`, `crossterm 0.29`)**:
   workspace dependencies use standard SemVer caret ranges (`Cargo.lock`
   pins exact resolution for reproducible CI), and `tuiscotti-core`'s
-  `ratatui` dependency accepts `>=0.29, <0.31` so downstream crates on
-  either `ratatui 0.29` or `ratatui 0.30` share one `Buffer`/`Terminal`
-  adapter without duplicate-crate type mismatches.
+  `ratatui` dependency targets `0.30` so downstream crates on
+  `ratatui 0.30` share one `Buffer`/`Terminal` adapter without
+  duplicate-crate type mismatches.
 - **P3 — Minimal `.ansi`-only grouped store (`ArtifactSet::AnsiCursor`)**:
   `GroupedStore::with_artifacts(ArtifactSet::AnsiCursor)` commits only
   `<name>.ansi` (via `render::ansi_dump_with_cursor`, which appends a

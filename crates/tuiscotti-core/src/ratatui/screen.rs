@@ -202,7 +202,7 @@ fn convert_buffer(
 /// | HIDDEN | `mods.hidden` | preserved (intent; renderers omit the glyph) |
 /// | `SLOW_BLINK/RAPID_BLINK` | `mods.blink` | preserved (intent; stills freeze phase) |
 /// | underline color | `underline_color` | preserved via the `underline-color` cargo feature (`Reset` → `Default`) |
-/// | underline style | `mods.underline` | PARTIAL: ratatui 0.29 exposes only the UNDERLINED bit (no style API), so every ratatui underline maps to `Single` |
+/// | underline style | `mods.underline` | PARTIAL: ratatui 0.30 exposes only the UNDERLINED bit (no style API), so every ratatui underline maps to `Single` |
 /// | hyperlinks (OSC 8) | — | NOT exposed: `Buffer`/`Cell` store no link targets |
 /// | title, bells, modes, palette, clipboard, graphics | — | NOT exposed by `Buffer`/`TestBackend` |
 /// | cursor position + visibility | `Cursor` x/y/visible | preserved (post-draw) |
