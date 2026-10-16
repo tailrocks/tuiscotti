@@ -179,4 +179,32 @@ mod tests {
         assert_eq!(perceptual_score(&po, &pt)?, 0.0);
         Ok(())
     }
+
+    #[test]
+    fn full_resolution_single_cell_scores_remain_pinned() {
+        use crate::profile::{Profile, VENDORED_FACES};
+        use crate::render::Renderer;
+        use tuiscotti_core::frame::{Frame, Provenance};
+
+        let profile = Profile::default_profile();
+        let mut renderer = Renderer::new(&profile, &VENDORED_FACES).expect("renderer");
+        for (cols, rows, expected_score) in [
+            (80_u16, 24_u16, 0.999_853_f64),
+            (120_u16, 40_u16, 0.999_940_f64),
+            (160_u16, 50_u16, 0.999_963_f64),
+        ] {
+            let base = Frame::blank(cols, rows, Provenance::default());
+            let mut changed = base.clone();
+            changed.cells[0].symbol = ".".to_string();
+            let png_base = renderer.render_png(&base).expect("render base");
+            let png_changed = renderer.render_png(&changed).expect("render changed");
+            let verdict = compare_png(&png_base, &png_changed).expect("compare_png");
+            assert!(!verdict.pixels_equal);
+            assert!(
+                (verdict.score - expected_score).abs() < 1e-5,
+                "{cols}x{rows}: expected score ~{expected_score:.6}, got {:.6}",
+                verdict.score
+            );
+        }
+    }
 }

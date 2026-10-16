@@ -142,8 +142,9 @@ pub(crate) enum Cmd {
         #[arg(long)]
         dir: PathBuf,
     },
-    /// Render a canonical frame.json to offline artifacts.
+    /// Render a canonical frame.json or normalized .ansi capture to offline artifacts.
     Render {
+        /// Input .frame.json or .ansi path.
         #[arg(long)]
         input: PathBuf,
         #[arg(long = "format")]

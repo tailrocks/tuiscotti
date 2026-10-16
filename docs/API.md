@@ -17,7 +17,7 @@ facade paths. Status labels: **implemented** (shipped, tested),
 | `tui::Session::{click, mouse_down, mouse_up, mouse_move, mouse_drag, mouse_wheel, focus_in, focus_out}` | implemented | Fail closed with `TuiError::ModeNotEnabled`: `click`/`mouse_down`/`mouse_up`/`mouse_wheel` require DEC `1000`/`1002`/`1003` (+ SGR `1006` recommended); `mouse_drag` requires DEC `1002`/`1003`; `mouse_move` (hover) requires DEC `1003`; `focus_in`/`focus_out` require DEC `1004`. |
 | `tui::Session::{resize, signal, pid, revision, poll_exit}` | implemented | Resize updates PTY + emulator together; signals unix-only. |
 | `tui::Session::meta` → `tui::SessionMeta` | implemented | Cheap revision + geometry under one lock — no worker round trip, no screen clone (F12). |
-| `tui::Session::{get_by, get_by_text}` → `BoundLocator::{first, last, nth, any, count_at_least, visible_now, expect_visible[_within], expect_count_at_least[_within], click}` | implemented | Default `MatchPolicy::Unique` (fail-closed on `2+` matches); `.first()`/`.last()`/`.nth(i)`/`.any()`/`.count_at_least(n)` select or relax cardinality; `click` resolves + delivers atomically in the owning worker (F11). |
+| `tui::Session::{get_by, get_by_text}` → `BoundLocator::{first, last, nth, any, count_at_least, visible_now, expect_visible[_within], expect_count_at_least[_within], click}` | implemented | Default `MatchPolicy::Unique` (fail-closed on `2+` matches); `.first()`/`.last()`/`.nth(i)`/`.any()` select one target; `.count_at_least(n)` is assertion-only (rejects `.click()` with `LocateError::Multiple`); `click` resolves + delivers atomically in the owning worker (F11). |
 | `tui_shell::{Recording, Replayed, replay_*, TermSnapshot, assert_*}` | implemented | Recording/replay (`replay_bytes`/`replay_chunks`/`replay_recording` → `Replayed`) + terminal-state assertions (title, modes, palette, clipboard, links, scrollback). |
 | `command::{Command, ProcessOutput, IsolatedEnv}` | implemented | Piped child runs: timeouts, output limits, split streams,exit/signal distinction (`Termination`). |
 
@@ -27,7 +27,7 @@ facade paths. Status labels: **implemented** (shipped, tested),
 |---|---|---|
 | `locate::Locator::{text, regex, regex_case_insensitive, style, region}` | implemented | Playwright-style; `StyleQuery` covers fg/bg/bold/dim/italic/underline(+style/color)/strike/reverse/hidden/blink/custom. |
 | `Locator::{within, before, after, nth, first, last, and, or, filter, mode, physical_rows}` | implemented | Combinators over spans. |
-| `Locator::{resolve, resolve_unique, resolve_at_least, expect_visible, expect_text, expect_count, present_now, not_present_now, eventually_absent, remains_absent, prepare_action}` | implemented | Waits take one deadline; `PendingAction::{click, submit}` acts at a resolved span. |
+| `Locator::{resolve, resolve_unique, resolve_at_least, expect_visible, expect_text, expect_count, expect_count_at_least, present_now, not_present_now, eventually_absent, remains_absent, prepare_action}` | implemented | Waits take one deadline; `PendingAction::{click, submit}` acts at a resolved span. |
 | `semant::{by_role, Role, SemNode, HitRegion}` | implemented | App-provided semantic trees; `center()` gives click points. |
 | `observe::{screen_text, compare_replay_vs_rerun, Watcher, Replay, Rerun}` | implemented | `Watcher` (feature `pty`) polls a session; `Replay`/`Rerun` compare recorded vs re-executed output. |
 
@@ -36,7 +36,7 @@ facade paths. Status labels: **implemented** (shipped, tested),
 | Item | Status | Notes |
 |---|---|---|
 | `snapshot::{Store, Status, CompareOutcome}` | implemented | Classic store; 8 statuses; `CompareOutcome` is `#[must_use]`. |
-| `grouped::{GroupedStore, ArtifactSet, GroupedOutcome, ArtifactPaths}` | implemented | Nested names; `ArtifactSet::All` (4 committed artifacts) or `ArtifactSet::AnsiCursor` (`.ansi` with cursor trailer committed, `.png`/`.html`/diff rendered on demand into `actual_root`/`expected_root`/`diff_root` on mismatch); `with_artifacts`, `with_actual_root`, `with_expected_root`, `with_diff_root`, `accept`, `accept_all`, `accept_matching`. |
+| `grouped::{GroupedStore, ArtifactSet, GroupedOutcome, ArtifactPaths}` | implemented | Nested names; `ArtifactSet::All` (4 committed artifacts) or `ArtifactSet::AnsiCursor` (`.ansi` with cursor trailer committed, `.png`/`.html`/diff rendered on demand into `actual_root`/`expected_root`/`diff_root` on mismatch); `with_artifacts`, `with_actual_root`, `with_expected_root`, `with_diff_root`, `with_run_id`, `accept`, `accept_all`, `accept_matching` (segment-aware prefix, single-segment `*`, multi-segment `**`, `run_id` freshness, `CI` refusal). |
 | `assert_snapshot!` / `assert_screenshot!` | implemented | Insta-backed; canonical text gate / canonical+PNG compound gate with generation binding. |
 | `assert::{render_sample, generation_id, png_tag_generation, png_generation, check_consistent}` | implemented | Compound lifecycle: mixed generations fail, never half-pass. |
 | `assert::{check_frozen_snapshot, check_frozen_screenshot, frozen_accept}` | implemented | Frozen policy: read-only, never self-heals; accept always errors. |

@@ -13,6 +13,12 @@ pub(crate) fn cmd_accept(
     actual_override: Option<&Path>,
     artifacts_arg: Option<ArtifactSetArg>,
 ) -> i32 {
+    if tuiscotti::grouped::is_ci_env() {
+        eprintln!(
+            "error: refusing to accept snapshots because CI is set: approving snapshots is local only"
+        );
+        return EXIT_OP_ERROR;
+    }
     // Frozen roots (`Policy::Frozen` layout: `<name>.canonical.txt` approvals
     // directly in the root) reject acceptance unconditionally — route through
     // `frozen_accept` so the refusal stays in one place. Checked before
@@ -55,43 +61,34 @@ fn accept_grouped(
     let mut grouped = tuiscotti::grouped::GroupedStore::new(store);
     if let Some(act) = actual_override {
         grouped = grouped.with_actual_root(act);
-    } else if !grouped.actual_root().exists() {
-        let target_actual = store
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join("target/tuiscotti/actual");
-        if target_actual.is_dir() {
-            grouped = grouped.with_actual_root(&target_actual);
+    }
+    let filter_norm = name.replace("::", "/");
+    let is_pattern = filter_norm.contains(['*', '?']);
+    if !is_pattern {
+        let trimmed = filter_norm.strip_suffix('/').unwrap_or(&filter_norm);
+        if let Err(e) = tuiscotti::grouped::validate_name(trimmed) {
+            eprintln!("error: {e}");
+            return EXIT_OP_ERROR;
         }
     }
     let set = match artifacts_arg {
         Some(ArtifactSetArg::All) => tuiscotti::grouped::ArtifactSet::All,
         Some(ArtifactSetArg::AnsiCursor) => tuiscotti::grouped::ArtifactSet::AnsiCursor,
-        None => detect_artifact_set(&grouped, name),
+        None => match detect_artifact_set(&grouped, &filter_norm) {
+            Ok(s) => s,
+            Err(msg) => {
+                eprintln!("error: {msg}");
+                return EXIT_OP_ERROR;
+            }
+        },
     };
     grouped = grouped.with_artifacts(set);
 
-    let is_pattern = name.contains(['*', '?']);
-    if !is_pattern && let Err(e) = tuiscotti::grouped::validate_name(name) {
-        eprintln!("error: {e}");
-        return EXIT_OP_ERROR;
-    }
-    let exact_ansi = grouped.actual_root().join(format!("{name}.ansi"));
-    let names = if !is_pattern && exact_ansi.is_file() {
-        match grouped.accept(name) {
-            Ok(()) => vec![name.to_string()],
-            Err(e) => {
-                eprintln!("error: {e}");
-                return EXIT_OP_ERROR;
-            }
-        }
-    } else {
-        match grouped.accept_matching(name) {
-            Ok(list) => list,
-            Err(e) => {
-                eprintln!("error: {e}");
-                return EXIT_OP_ERROR;
-            }
+    let names = match grouped.accept_matching(name) {
+        Ok(list) => list,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return EXIT_OP_ERROR;
         }
     };
     let mut buf = String::new();
@@ -103,39 +100,75 @@ fn accept_grouped(
 
 fn detect_artifact_set(
     grouped: &tuiscotti::grouped::GroupedStore,
-    name: &str,
-) -> tuiscotti::grouped::ArtifactSet {
-    let check_name = |n: &str| -> Option<tuiscotti::grouped::ArtifactSet> {
+    filter_norm: &str,
+) -> Result<tuiscotti::grouped::ArtifactSet, String> {
+    use tuiscotti::grouped::ArtifactSet;
+    let check_actual = |n: &str| -> Option<ArtifactSet> {
+        let manifest_path = grouped.actual_root().join(format!("{n}.manifest.json"));
+        if let Ok(text) = std::fs::read_to_string(&manifest_path)
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(&text)
+        {
+            return Some(if v.get("txt_sha256").is_some() {
+                ArtifactSet::All
+            } else {
+                ArtifactSet::AnsiCursor
+            });
+        }
         let act_ansi = grouped.actual_root().join(format!("{n}.ansi"));
         let act_txt = grouped.actual_root().join(format!("{n}.txt"));
         if act_ansi.is_file() {
             return Some(if act_txt.is_file() {
-                tuiscotti::grouped::ArtifactSet::All
+                ArtifactSet::All
             } else {
-                tuiscotti::grouped::ArtifactSet::AnsiCursor
-            });
-        }
-        let app_ansi = grouped.approved_root().join(format!("{n}.ansi"));
-        let app_png = grouped.approved_root().join(format!("{n}.png"));
-        if app_ansi.is_file() {
-            return Some(if app_png.is_file() {
-                tuiscotti::grouped::ArtifactSet::All
-            } else {
-                tuiscotti::grouped::ArtifactSet::AnsiCursor
+                ArtifactSet::AnsiCursor
             });
         }
         None
     };
-    if let Some(s) = check_name(name) {
-        return s;
+    let check_approved = |n: &str| -> Option<ArtifactSet> {
+        let app_ansi = grouped.approved_root().join(format!("{n}.ansi"));
+        let app_png = grouped.approved_root().join(format!("{n}.png"));
+        let app_txt = grouped.approved_root().join(format!("{n}.txt"));
+        if app_ansi.is_file() {
+            return Some(if app_png.is_file() || app_txt.is_file() {
+                ArtifactSet::All
+            } else {
+                ArtifactSet::AnsiCursor
+            });
+        }
+        None
+    };
+
+    let matched: Vec<String> = grouped
+        .actual_names()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|n| tuiscotti::grouped::name_matches_filter(n, filter_norm))
+        .collect();
+
+    let mut detected: Option<ArtifactSet> = None;
+    let mut record = |s: ArtifactSet| -> Result<(), String> {
+        if let Some(prev) = detected
+            && prev != s
+        {
+            return Err(
+                "matched candidates mix artifact sets; pass --artifacts all or --artifacts ansi-cursor explicitly"
+                    .to_string(),
+            );
+        }
+        detected = Some(s);
+        Ok(())
+    };
+
+    for n in &matched {
+        if let Some(s) = check_actual(n) {
+            record(s)?;
+        }
+        if let Some(s) = check_approved(n) {
+            record(s)?;
+        }
     }
-    if let Ok(actuals) = grouped.actual_names()
-        && let Some(first) = actuals.first()
-        && let Some(s) = check_name(first)
-    {
-        return s;
-    }
-    tuiscotti::grouped::ArtifactSet::All
+    Ok(detected.unwrap_or(ArtifactSet::All))
 }
 
 /// A frozen root holds `<name>.canonical.txt` approvals directly in the root

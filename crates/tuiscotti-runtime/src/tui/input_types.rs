@@ -167,7 +167,7 @@ pub fn parse_chord(text: &str) -> Result<(Key, KeyMods), TuiError> {
                 && rest.bytes().all(|b| b.is_ascii_digit())
             {
                 match rest.parse::<u8>() {
-                    Ok(n) if (1..=12).contains(&n) => Key::F(n),
+                    Ok(n) if !rest.starts_with('0') && (1..=12).contains(&n) => Key::F(n),
                     _ => return Err(bad(format!("bad function key {name:?}"))),
                 }
             } else if name.chars().count() == 1 {
@@ -298,12 +298,12 @@ mod tests {
             (Key::F(5), KeyMods::CTRL)
         );
 
-        let f0 = parse_chord("F0").expect_err("F0 out of range").to_string();
-        assert!(f0.contains("bad function key"), "{f0}");
-        let f13 = parse_chord("F13")
-            .expect_err("F13 out of range")
-            .to_string();
-        assert!(f13.contains("bad function key"), "{f13}");
+        for bad_fn in ["F0", "F01", "f01", "F13"] {
+            let err = parse_chord(bad_fn)
+                .expect_err("invalid function key")
+                .to_string();
+            assert!(err.contains("bad function key"), "{bad_fn}: {err}");
+        }
         let fx = parse_chord("fx").expect_err("fx is unknown").to_string();
         assert!(fx.contains("unknown key"), "{fx}");
     }

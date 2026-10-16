@@ -170,6 +170,29 @@ fn readme_workflow_2_to_files_ansi_cursor() {
         )
         .expect("first check");
     assert_eq!(first.status(), tuiscotti::snapshot::Status::MissingApproval);
+    if tuiscotti::grouped::is_ci_env() {
+        let err = store
+            .accept_matching("dashboard/*")
+            .expect_err("accept_matching must refuse under CI");
+        assert!(err.to_string().contains("CI is set"), "{err}");
+        session.close().expect("close");
+        let exe = std::env::current_exe().expect("current_exe");
+        let out = std::process::Command::new(exe)
+            .args([
+                "--exact",
+                "grouped::readme_workflow_2_to_files_ansi_cursor",
+                "--nocapture",
+            ])
+            .env_remove("CI")
+            .output()
+            .expect("spawn child without CI");
+        assert!(
+            out.status.success(),
+            "child failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        return;
+    }
     store
         .accept_matching("dashboard/*")
         .expect("accept matching");

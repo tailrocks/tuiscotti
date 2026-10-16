@@ -76,32 +76,76 @@ impl Provenance {
     }
 }
 
-fn is_abs_path(s: &str) -> bool {
+const UNIX_HOST_PREFIXES: &[&str] = &[
+    "/Users/",
+    "/home/",
+    "/tmp/",
+    "/var/",
+    "/private/",
+    "/opt/",
+    "/nix/",
+    "/proc/",
+    "/sys/",
+    "/dev/",
+    "/etc/",
+    "/run/",
+    "/mnt/",
+    "/Volumes/",
+    "/System/",
+    "/Library/",
+    "/Applications/",
+    "/usr/",
+    "/bin/",
+    "/sbin/",
+    "/root/",
+];
+
+const HOST_PATH_SEGMENTS: &[&str] = &[
+    "/target/",
+    "/snapshots/",
+    "/.cargo/",
+    "/.rustup/",
+    "/.config/",
+    "/.local/",
+    "/.cache/",
+];
+
+fn is_windows_host_path(s: &str) -> bool {
     let bytes = s.as_bytes();
-    s.starts_with('/')
-        || s.starts_with('\\')
+    s.starts_with("\\\\")
         || (bytes.len() >= 3
             && bytes[0].is_ascii_alphabetic()
             && bytes[1] == b':'
             && (bytes[2] == b'/' || bytes[2] == b'\\'))
 }
 
+fn looks_like_host_path(s: &str) -> bool {
+    if is_windows_host_path(s) {
+        return !s.ends_with(['/', '\\']);
+    }
+    if !s.starts_with('/') || s.ends_with('/') {
+        return false;
+    }
+    UNIX_HOST_PREFIXES.iter().any(|p| s.starts_with(p))
+        || HOST_PATH_SEGMENTS.iter().any(|seg| s.contains(seg))
+}
+
 fn file_name_only(s: &str) -> String {
-    if !s.contains(['/', '\\']) {
+    if !s.contains(['/', '\\']) || s.ends_with(['/', '\\']) {
         return s.to_string();
     }
     s.rsplit(['/', '\\'])
         .find(|seg| !seg.is_empty())
-        .unwrap_or("root")
+        .unwrap_or(s)
         .to_string()
 }
 
 fn sanitize_token(s: &str) -> String {
-    if is_abs_path(s) {
+    if looks_like_host_path(s) {
         return file_name_only(s);
     }
     if let Some((k, v)) = s.split_once('=')
-        && is_abs_path(v)
+        && looks_like_host_path(v)
     {
         return format!("{k}={}", file_name_only(v));
     }
@@ -124,12 +168,26 @@ mod tests {
                 "/var/folders/tmp/input.txt".to_string(),
                 "--port".to_string(),
                 "8080".to_string(),
+                "/".to_string(),
+                "/api/v1".to_string(),
+                "/foo/".to_string(),
+                "--route=/api/v1".to_string(),
             ],
         );
         assert_eq!(p.source, "home.json");
         assert_eq!(
             p.argv,
-            vec!["my-bin", "--config=app.toml", "input.txt", "--port", "8080"]
+            vec![
+                "my-bin",
+                "--config=app.toml",
+                "input.txt",
+                "--port",
+                "8080",
+                "/",
+                "/api/v1",
+                "/foo/",
+                "--route=/api/v1",
+            ]
         );
 
         let frame = Frame::blank(

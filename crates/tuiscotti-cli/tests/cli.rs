@@ -42,7 +42,7 @@ fn run_cli(
     stdin: Option<&str>,
 ) -> std::io::Result<Output> {
     let mut cmd = Command::new(bin());
-    cmd.args(args);
+    cmd.args(args).env_remove("CI");
     for (k, v) in env_extra {
         cmd.env(k, v);
     }
@@ -68,7 +68,7 @@ fn stdout(out: &Output) -> String {
 
 fn run_cli_cwd(cwd: &Path, args: &[&str]) -> std::io::Result<Output> {
     let mut cmd = Command::new(bin());
-    cmd.args(args).current_dir(cwd);
+    cmd.args(args).current_dir(cwd).env_remove("CI");
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     spawn_locked(&mut cmd)?.wait_with_output()
 }

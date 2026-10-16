@@ -12,10 +12,12 @@ Real executable ──▶ PTY + terminal-state engine ──▶ frame   (keyboar
 ```
 
 A changed snapshot requires explicit review (`Store::accept` /
-`GroupedStore::accept_all`, or `cargo insta review` for the macro
-gates). There is deliberately **no** `BLESS=1` / auto-accept: CI must
-never approve snapshots by itself. Equality only validates the
-fixtures covered — never every app state.
+`GroupedStore::{accept, accept_matching, accept_all}` / `tuiscotti accept`
+with an exact name, segment-aware prefix, single-segment `*`, or
+multi-segment `**` glob, or `cargo insta review` for the macro gates).
+There is deliberately **no** `BLESS=1` / auto-accept, and `accept`
+refuses when `CI` is set: CI must never approve snapshots by itself.
+Equality only validates the fixtures covered — never every app state.
 
 Names: facade `tuiscotti`, binary `tuiscotti` (from
 `tuiscotti-cli`), config `tuiscotti.toml`.

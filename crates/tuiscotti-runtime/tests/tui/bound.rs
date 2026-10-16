@@ -364,6 +364,15 @@ fn bound_locator_fluent_disambiguation_and_count_policies() {
         .expect_visible()
         .expect("count_at_least(2) passes on 3 matches");
     assert_eq!(at_least_two.text, "Btn");
+    let bad_click = s
+        .get_by_text("Btn")
+        .count_at_least(2)
+        .click()
+        .expect_err("count_at_least click must fail with Usage");
+    assert!(matches!(
+        bad_click,
+        ActionError::Locate(LocateError::Usage(_))
+    ));
 
     let all_three = s
         .get_by_text("Btn")
@@ -372,21 +381,9 @@ fn bound_locator_fluent_disambiguation_and_count_policies() {
     assert_eq!(all_three.len(), 3);
 
     // `.first()`, `.nth(1)`, `.last()` select specific matches and work with `.click()`.
-    let first = s
-        .get_by_text("Btn")
-        .first()
-        .visible_now()
-        .expect("first resolves");
-    let middle = s
-        .get_by_text("Btn")
-        .nth(1)
-        .visible_now()
-        .expect("nth(1) resolves");
-    let last = s
-        .get_by_text("Btn")
-        .last()
-        .click()
-        .expect("last clicks row 2");
+    let first = s.get_by_text("Btn").first().visible_now().expect("first");
+    let middle = s.get_by_text("Btn").nth(1).visible_now().expect("nth(1)");
+    let last = s.get_by_text("Btn").last().click().expect("last clicks");
     assert_eq!((first.text.as_str(), first.y), ("Btn", 0));
     assert_eq!((middle.text.as_str(), middle.y), ("Btn", 1));
     assert_eq!((last.text.as_str(), last.y), ("Btn", 2));

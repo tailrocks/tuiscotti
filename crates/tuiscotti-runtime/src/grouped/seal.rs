@@ -1,23 +1,13 @@
 use super::{
-    ArtifactPaths, ArtifactSet, GroupedOutcome, GroupedStore, artifact_paths, read_optional,
-    sibling_diff,
+    ArtifactPaths, ArtifactSet, GroupedOutcome, GroupedStore, artifact_paths, manifest_path,
+    read_optional, sibling_diff, status_from_str, verdict_path,
 };
 use crate::snapshot::{CompareOutcome, SnapshotError, Status, write_atomic};
 use std::path::{Path, PathBuf};
 use tuiscotti_core::frame::Frame;
 
-/// Candidate seal: `<name>.manifest.json` under the actual root.
-fn manifest_path(actual_root: &Path, name: &str) -> PathBuf {
-    actual_root.join(format!("{name}.manifest.json"))
-}
-
-/// Persisted check verdict: `<name>.verdict.json` under the actual root.
-fn verdict_path(actual_root: &Path, name: &str) -> PathBuf {
-    actual_root.join(format!("{name}.verdict.json"))
-}
-
 /// Lowercase hex SHA-256 of `bytes` (manifest/verdict integrity, not gating).
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     use std::fmt::Write as _;
     let digest = Sha256::digest(bytes);
@@ -28,27 +18,10 @@ fn sha256_hex(bytes: &[u8]) -> String {
     s
 }
 
-/// Inverse of [`Status::as_str`] for persisted verdicts.
-fn status_from_str(s: &str) -> Option<Status> {
-    Some(match s {
-        "matched" => Status::Matched,
-        "cells-differ" => Status::CellsDiffer,
-        "pixels-differ" => Status::PixelsDiffer,
-        "dimension-mismatch" => Status::DimensionMismatch,
-        "missing-approval" => Status::MissingApproval,
-        "corrupt-approval" => Status::CorruptApproval,
-        "capture-incomplete" => Status::CaptureIncomplete,
-        "not-checked" => Status::NotChecked,
-        _ => return None,
-    })
-}
-
 impl GroupedStore {
     /// Seal the candidate file set AFTER all candidate writes (C08-grouped):
     /// hashes of the candidate artifacts plus the frame sidecar, the rendering
-    /// profile id, and `complete: true`. A crash between the artifact writes
-    /// leaves a manifest that is absent or disagrees about presence, and
-    /// [`Self::candidate_gap`] reports the gap instead of a gate verdict.
+    /// profile id, `run_id`, `written_unix_ns`, and `complete: true`.
     pub(crate) fn seal_candidate(
         &self,
         profile: &str,
@@ -64,15 +37,21 @@ impl GroupedStore {
             })?;
             Ok(sha256_hex(&bytes))
         };
+        let written_unix_ns = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| u64::try_from(d.as_nanos()).unwrap_or(u64::MAX));
+        let run_id = self.effective_run_id();
         let manifest = match self.artifacts {
             ArtifactSet::All => serde_json::json!({
                 "name": name, "ansi_sha256": hash(&actual.ansi)?, "txt_sha256": hash(&actual.txt)?,
                 "png_sha256": hash(&actual.png)?, "html_sha256": hash(&actual.html)?,
-                "frame_sha256": hash(&actual.frame_json)?, "profile": profile, "complete": true,
+                "frame_sha256": hash(&actual.frame_json)?, "profile": profile,
+                "run_id": run_id, "written_unix_ns": written_unix_ns, "complete": true,
             }),
             ArtifactSet::AnsiCursor => serde_json::json!({
                 "name": name, "ansi_sha256": hash(&actual.ansi)?,
-                "frame_sha256": hash(&actual.frame_json)?, "profile": profile, "complete": true,
+                "frame_sha256": hash(&actual.frame_json)?, "profile": profile,
+                "run_id": run_id, "written_unix_ns": written_unix_ns, "complete": true,
             }),
         };
         let manifest_json = serde_json::to_string_pretty(&manifest)
@@ -151,8 +130,7 @@ impl GroupedStore {
 
     /// `Some(reason)` when the candidate is incomplete evidence: any
     /// manifest member missing or empty, or the seal itself missing,
-    /// unparsable, unsealed, or naming another scenario. `None` means every
-    /// member is present — hash drift is staleness (recompute), not a gap.
+    /// unparsable, unsealed, or naming another scenario.
     pub(crate) fn candidate_gap(&self, name: &str) -> Result<Option<String>, SnapshotError> {
         let actual = artifact_paths(&self.actual_root, name);
         let required: &[(&PathBuf, &str)] = match self.artifacts {

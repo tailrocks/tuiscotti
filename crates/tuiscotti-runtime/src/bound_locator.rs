@@ -194,7 +194,8 @@ impl BoundLocator<'_> {
 
     /// Require at least `min` matches on [`BoundLocator::visible_now`] /
     /// [`BoundLocator::expect_visible`], returning the first match in
-    /// resolution order once `>= min` matches are present.
+    /// resolution order once `>= min` matches are present. Assertion-only:
+    /// [`BoundLocator::click`] refuses this policy with [`LocateError::Usage`].
     #[must_use]
     pub fn count_at_least(mut self, min: usize) -> Self {
         self.policy = MatchPolicy::CountAtLeast(min);
@@ -369,13 +370,18 @@ impl BoundLocator<'_> {
     /// # Errors
     ///
     /// Returns [`ActionError`] when resolution refuses (not found, ambiguous,
-    /// scrollback-only), delivery is refused (mouse reporting off, child
-    /// exited, session closed), or the reply times out (delivery then
-    /// unknown — do not retry).
+    /// scrollback-only, or [`MatchPolicy::CountAtLeast`]), delivery is refused
+    /// (mouse reporting off, child exited, session closed), or the reply times
+    /// out (delivery then unknown — do not retry).
     pub fn click(&self) -> Result<Span, ActionError> {
         let target = match self.policy {
-            MatchPolicy::Unique | MatchPolicy::CountAtLeast(_) => self.locator.clone(),
+            MatchPolicy::Unique => self.locator.clone(),
             MatchPolicy::Any => self.locator.clone().first(),
+            MatchPolicy::CountAtLeast(_) => {
+                return Err(ActionError::Locate(LocateError::Usage(
+                    "click() is not supported with count_at_least policy; use .first(), .last(), .nth(i), or .any()".to_string(),
+                )));
+            }
         };
         self.session
             .click_target(target, MouseButton::Left, MouseMods::NONE)

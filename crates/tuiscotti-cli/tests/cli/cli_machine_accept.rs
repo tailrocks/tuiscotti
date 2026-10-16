@@ -132,6 +132,22 @@ fn cli_accept_round_trip() {
         .to_string();
     assert!(err.contains("tuiscotti accept home"), "{err}");
 
+    // CI=1 refuses before touching classic store.
+    let ci_classic = run_cli(
+        &[
+            "accept",
+            "--store",
+            store_dir.to_str().expect("utf8 path"),
+            "home",
+        ],
+        &[("CI", "1")],
+        None,
+    )
+    .expect("run tuiscotti under CI=1");
+    assert_eq!(code(&ci_classic), Some(EXIT_OP_ERROR));
+    assert!(String::from_utf8_lossy(&ci_classic.stderr).contains("CI is set"));
+    assert!(!store_dir.join("approved").join("home.png").exists());
+
     // The CLI blesses exactly one name; the gate then matches.
     let out = run_cli(
         &[
@@ -144,12 +160,7 @@ fn cli_accept_round_trip() {
         None,
     )
     .expect("run tuiscotti");
-    assert_eq!(
-        code(&out).expect("exit code"),
-        0,
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+    assert_eq!(code(&out).expect("exit code"), 0);
     assert!(store_dir.join("approved").join("home.frame.json").is_file());
     assert!(store_dir.join("approved").join("home.png").is_file());
     let o2 = store
@@ -163,20 +174,12 @@ fn cli_accept_round_trip() {
 fn cli_accept_message_invocation_from_store_root() {
     let (tmp, store, profile, frame) = accept_setup().expect("accept setup");
     let store_dir = tmp.path().join("shots");
-
-    // The message's exact invocation (`tuiscotti accept <name>`, no --store)
-    // works from the store root.
     let o3 = store
         .check("away", &frame, &profile, &tuiscotti::VENDORED_FACES, 1.0)
         .expect("check");
     assert!(!o3.status.matched());
     let out = run_cli_cwd(&store_dir, &["accept", "away"]).expect("run tuiscotti in dir");
-    assert_eq!(
-        code(&out).expect("exit code"),
-        0,
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+    assert_eq!(code(&out).expect("exit code"), 0);
     let o4 = store
         .check("away", &frame, &profile, &tuiscotti::VENDORED_FACES, 1.0)
         .expect("re-check");
@@ -187,8 +190,6 @@ fn cli_accept_message_invocation_from_store_root() {
 fn cli_accept_nested_name() {
     let (tmp, store, profile, frame) = accept_setup().expect("accept setup");
     let store_dir = tmp.path().join("shots");
-
-    // Nested names bless through the same per-name path.
     let o5 = store
         .check(
             "pages/overview",
@@ -210,12 +211,7 @@ fn cli_accept_nested_name() {
         None,
     )
     .expect("run tuiscotti");
-    assert_eq!(
-        code(&out).expect("exit code"),
-        0,
-        "stderr: {}",
-        String::from_utf8_lossy(&out.stderr)
-    );
+    assert_eq!(code(&out).expect("exit code"), 0);
     let o6 = store
         .check(
             "pages/overview",
@@ -232,13 +228,11 @@ fn cli_accept_nested_name() {
 fn cli_accept_invalid() {
     let (tmp, store, profile, frame) = accept_setup().expect("accept setup");
     let store_dir = tmp.path().join("shots");
-    // Seed an approved name so the store layout matches the round trip.
     let _seed = store
         .check("home", &frame, &profile, &tuiscotti::VENDORED_FACES, 1.0)
         .expect("seed check");
     store.accept("home").expect("seed accept");
 
-    // Nothing to accept is an op error, never a silent pass.
     let out = run_cli(
         &[
             "accept",
@@ -251,13 +245,8 @@ fn cli_accept_invalid() {
     )
     .expect("run tuiscotti");
     assert_eq!(code(&out).expect("exit code"), EXIT_OP_ERROR);
-    assert!(
-        String::from_utf8_lossy(&out.stderr).contains("nothing to accept"),
-        "{:?}",
-        out.stderr
-    );
+    assert!(String::from_utf8_lossy(&out.stderr).contains("nothing to accept"));
 
-    // Name escapes are rejected before any copy.
     let out = run_cli(
         &[
             "accept",
@@ -271,7 +260,6 @@ fn cli_accept_invalid() {
     .expect("run tuiscotti");
     assert_eq!(code(&out).expect("exit code"), EXIT_OP_ERROR);
 
-    // No bulk/auto flags: --all is a usage error.
     let out = run_cli(
         &[
             "accept",
@@ -290,7 +278,6 @@ fn cli_accept_invalid() {
 #[test]
 fn cli_accept_rejects_frozen() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    // Genuine frozen root: canonical approval the frozen gate accepts.
     let screen = tuiscotti::Screen::blank(30, 6);
     let frozen = tmp.path().join("frozen");
     std::fs::create_dir(&frozen).expect("mkdir");
@@ -301,7 +288,6 @@ fn cli_accept_rejects_frozen() {
     .expect("canonical");
     tuiscotti::assert::check_frozen_snapshot(&frozen, "home", &screen)
         .expect("genuine frozen root");
-    // Decoy actuals: even with blessings available, a frozen root must refuse.
     let scratch = tuiscotti::snapshot::Store::new(&tmp.path().join("scratch"));
     let profile = tuiscotti::Profile::default_profile();
     let frame = tuiscotti::assert::frame_from_screen(&screen);
@@ -326,12 +312,7 @@ fn cli_accept_rejects_frozen() {
     )
     .expect("run tuiscotti");
     assert_eq!(code(&out).expect("exit code"), EXIT_OP_ERROR);
-    assert!(
-        String::from_utf8_lossy(&out.stderr).contains("rejects acceptance"),
-        "{:?}",
-        out.stderr
-    );
-    // Frozen roots are never written: no approved tree, approvals untouched.
+    assert!(String::from_utf8_lossy(&out.stderr).contains("rejects acceptance"));
     assert!(!frozen.join("approved").exists());
     assert_eq!(
         std::fs::read(frozen.join("home.canonical.txt")).expect("read"),
@@ -356,39 +337,43 @@ fn cli_accept_grouped_and_ansi_cursor_plus_render_from_ansi() {
         assert!(!o.matched());
     }
     let act_s = actual.to_str().expect("utf8");
-    let rev = run_cli(
-        &["review", "--dir", act_s, "--filter", "suite/a"],
-        &[],
-        None,
-    )
-    .expect("rev");
+    let rev_args = ["review", "--dir", act_s, "--filter", "suite/a"];
+    let rev = run_cli(&rev_args, &[], None).expect("rev");
     assert_eq!(code(&rev), Some(tuiscotti::proto::EXIT_VERIFY_FAIL));
     assert!(stdout(&rev).contains("FAIL suite/a") && !stdout(&rev).contains("suite/b"));
 
     let app_s = approved.to_str().expect("utf8");
-    let acc = run_cli(&["accept", "--store", app_s, "suite/*"], &[], None).expect("accept");
+    let no_act = run_cli(&["accept", "--store", app_s, "suite/*"], &[], None).expect("no_act");
+    assert_eq!(code(&no_act), Some(EXIT_OP_ERROR));
+
+    let acc_args = ["accept", "--store", app_s, "--actual", act_s, "suite/*"];
+    let ci_grp = run_cli(&acc_args, &[("CI", "1")], None).expect("ci_grp");
+    assert_eq!(code(&ci_grp), Some(EXIT_OP_ERROR));
+    assert!(String::from_utf8_lossy(&ci_grp.stderr).contains("CI is set"));
+    assert!(!approved.join("suite/a.ansi").exists());
+
+    let st_all = tuiscotti::grouped::GroupedStore::new(&approved).with_actual_root(&actual);
+    st_all
+        .check("suite/c", &frame, &profile, &tuiscotti::VENDORED_FACES, 1.0)
+        .expect("check all");
+    let mixed = run_cli(&acc_args, &[], None).expect("mixed");
+    assert_eq!(code(&mixed), Some(EXIT_OP_ERROR));
+    assert!(String::from_utf8_lossy(&mixed.stderr).contains("mix artifact sets"));
+    std::fs::remove_file(actual.join("suite/c.ansi")).expect("rm c");
+
+    let acc = run_cli(&acc_args, &[], None).expect("accept");
     assert_eq!(code(&acc), Some(0));
     assert!(approved.join("suite/a.ansi").is_file() && approved.join("suite/b.ansi").is_file());
     assert!(!approved.join("suite/a.png").exists());
 
     let in_ansi = approved.join("suite/a.ansi");
     let out_prefix = tmp.path().join("rendered/a");
-    let ren = run_cli(
-        &[
-            "render",
-            "--input",
-            in_ansi.to_str().expect("utf8"),
-            "--format",
-            "png",
-            "--format",
-            "html",
-            "--out",
-            out_prefix.to_str().expect("utf8"),
-        ],
-        &[],
-        None,
-    )
-    .expect("render from ansi");
+    let in_s = in_ansi.to_str().expect("utf8");
+    let out_s = out_prefix.to_str().expect("utf8");
+    let ren_args = [
+        "render", "--input", in_s, "--format", "png", "--format", "html", "--out", out_s,
+    ];
+    let ren = run_cli(&ren_args, &[], None).expect("render from ansi");
     assert_eq!(code(&ren), Some(0));
     assert!(tmp.path().join("rendered/a.png").is_file());
     assert!(tmp.path().join("rendered/a.html").is_file());

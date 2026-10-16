@@ -36,98 +36,32 @@ fn rgb_channels_equal(expected: &RgbaImage, actual: &RgbaImage) -> bool {
         .all(|(e, a)| e[..3] == a[..3])
 }
 
-/// Downsample large RGBA pairs to RGB for the diagnostic `rgb_hybrid_compare`
-/// pass. Each `step × step` tile keeps the pixel pair with the largest L1 RGB
-/// delta in that tile so single-pixel differences never average out to zero.
-/// Small images (`w * h <= 320 * 240`) stay at `step = 1` (1:1 copy).
-fn diagnostic_rgb_pair(expected: &RgbaImage, actual: &RgbaImage) -> (RgbImage, RgbImage) {
-    let (w, h) = (expected.width() as usize, expected.height() as usize);
-    let total = w * h;
-    let target = 160 * 100;
-    let step = if total <= 320 * 240 {
-        1
-    } else {
-        (total / target).isqrt().max(2)
-    };
-    let ea = expected.as_raw();
-    let eb = actual.as_raw();
-    if step == 1 {
-        let mut out_e = vec![0u8; total * 3];
-        let mut out_a = vec![0u8; total * 3];
-        for ((se, sa), (de, da)) in ea.as_chunks::<4>().0.iter().zip(eb.as_chunks::<4>().0).zip(
-            out_e
-                .as_chunks_mut::<3>()
-                .0
-                .iter_mut()
-                .zip(out_a.as_chunks_mut::<3>().0),
-        ) {
-            de.copy_from_slice(&se[..3]);
-            da.copy_from_slice(&sa[..3]);
-        }
-        let img_e = RgbImage::from_raw(expected.width(), expected.height(), out_e)
-            .unwrap_or_else(|| RgbImage::new(expected.width(), expected.height()));
-        let img_a = RgbImage::from_raw(actual.width(), actual.height(), out_a)
-            .unwrap_or_else(|| RgbImage::new(actual.width(), actual.height()));
-        return (img_e, img_a);
+/// Convert an RGBA image to a full-resolution RGB image via a single slice pass.
+fn rgba_to_rgb(img: &RgbaImage) -> RgbImage {
+    let (w, h) = (img.width(), img.height());
+    let total = (w as usize) * (h as usize);
+    let mut out = vec![0u8; total * 3];
+    for (src, dst) in img
+        .as_raw()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(out.as_chunks_mut::<3>().0)
+    {
+        dst.copy_from_slice(&src[..3]);
     }
-    let small_w = w.div_ceil(step);
-    let small_h = h.div_ceil(step);
-    let mut out_e = vec![0u8; small_w * small_h * 3];
-    let mut out_a = vec![0u8; small_w * small_h * 3];
-    for ty in 0..small_h {
-        let y0 = ty * step;
-        let y1 = (y0 + step).min(h);
-        for tx in 0..small_w {
-            let x0 = tx * step;
-            let x1 = (x0 + step).min(w);
-            let first = (y0 * w + x0) * 4;
-            let mut best_e = [ea[first], ea[first + 1], ea[first + 2]];
-            let mut best_a = [eb[first], eb[first + 1], eb[first + 2]];
-            let mut best_delta = 0u16;
-            for py in y0..y1 {
-                let row_start = (py * w + x0) * 4;
-                let row_end = (py * w + x1) * 4;
-                if ea[row_start..row_end] == eb[row_start..row_end] {
-                    continue;
-                }
-                for (se, sa) in ea[row_start..row_end]
-                    .as_chunks::<4>()
-                    .0
-                    .iter()
-                    .zip(eb[row_start..row_end].as_chunks::<4>().0)
-                {
-                    let delta = u16::from(se[0].abs_diff(sa[0]))
-                        + u16::from(se[1].abs_diff(sa[1]))
-                        + u16::from(se[2].abs_diff(sa[2]));
-                    if delta > best_delta {
-                        best_delta = delta;
-                        best_e = [se[0], se[1], se[2]];
-                        best_a = [sa[0], sa[1], sa[2]];
-                    }
-                }
-            }
-            let dst = (ty * small_w + tx) * 3;
-            out_e[dst..dst + 3].copy_from_slice(&best_e);
-            out_a[dst..dst + 3].copy_from_slice(&best_a);
-        }
-    }
-    let width_u32 = u32::try_from(small_w).unwrap_or(u32::MAX);
-    let height_u32 = u32::try_from(small_h).unwrap_or(u32::MAX);
-    let img_e = RgbImage::from_raw(width_u32, height_u32, out_e)
-        .unwrap_or_else(|| RgbImage::new(width_u32, height_u32));
-    let img_a = RgbImage::from_raw(width_u32, height_u32, out_a)
-        .unwrap_or_else(|| RgbImage::new(width_u32, height_u32));
-    (img_e, img_a)
+    RgbImage::from_raw(w, h, out).unwrap_or_else(|| RgbImage::new(w, h))
 }
 
-/// Hybrid structural+chroma similarity score over the RGB channels.
+/// Hybrid structural+chroma similarity score over the full-resolution RGB channels.
 /// Diagnostic material only: the score must never establish strict equality —
 /// callers cap it below 1.0 for non-identical pixels.
 fn hybrid_score(expected: &RgbaImage, actual: &RgbaImage) -> Result<f64, DiffError> {
     if rgb_channels_equal(expected, actual) {
         return Ok(1.0);
     }
-    let (expected_rgb, actual_rgb) = diagnostic_rgb_pair(expected, actual);
+    let expected_rgb = rgba_to_rgb(expected);
+    let actual_rgb = rgba_to_rgb(actual);
     let result = image_compare::rgb_hybrid_compare(&expected_rgb, &actual_rgb)
         .map_err(|e| DiffError(format!("comparison failed: {e}")))?;
     Ok(result.score)

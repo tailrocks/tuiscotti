@@ -92,6 +92,7 @@ pub struct GroupedStore {
     pub(crate) diff_root: PathBuf,
     pub(crate) report_path: Option<PathBuf>,
     pub(crate) artifacts: ArtifactSet,
+    pub(crate) run_id: Option<String>,
 }
 
 /// `root` with `suffix` appended to its last component
@@ -101,6 +102,26 @@ fn sibling(root: &Path, suffix: &str) -> PathBuf {
         Some(f) => root.with_file_name(format!("{}{suffix}", f.to_string_lossy())),
         None => PathBuf::from(format!("{}{suffix}", root.display())),
     }
+}
+
+fn default_process_run_id() -> &'static str {
+    static RUN_ID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    RUN_ID.get_or_init(|| {
+        if let Ok(id) = std::env::var("TUISCOTTI_RUN_ID")
+            && !id.trim().is_empty()
+        {
+            return id;
+        }
+        if let Ok(id) = std::env::var("NEXTEST_RUN_ID")
+            && !id.trim().is_empty()
+        {
+            return format!("nextest-{id}");
+        }
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        format!("pid-{}-{nanos}", std::process::id())
+    })
 }
 
 impl GroupedStore {
@@ -117,7 +138,28 @@ impl GroupedStore {
             diff_root: sibling(approved_root, ".diff"),
             report_path: None,
             artifacts: ArtifactSet::All,
+            run_id: None,
         }
+    }
+
+    /// Pin an explicit run identifier stamped into `<name>.manifest.json` on
+    /// [`Self::check`] and required by [`Self::accept_matching`].
+    #[must_use]
+    pub fn with_run_id(mut self, run_id: impl Into<String>) -> Self {
+        self.run_id = Some(run_id.into());
+        self
+    }
+
+    /// Explicitly configured run identifier, if any.
+    #[must_use]
+    pub fn run_id(&self) -> Option<&str> {
+        self.run_id.as_deref()
+    }
+
+    pub(crate) fn effective_run_id(&self) -> &str {
+        self.run_id
+            .as_deref()
+            .unwrap_or_else(|| default_process_run_id())
     }
 
     /// Select the committed artifact set ([`ArtifactSet::All`] or

@@ -78,6 +78,68 @@ here were renamed in G8 (see above).
 MSRV history: 1.97 during the early prototype window; current pin is
 1.98.1 (`rust-toolchain.toml`).
 
+## Behavior changes in P1–P8 (7,550-scenario visual suite refinements)
+
+- **Dependency floor (`ratatui 0.30`, `crossterm 0.29`)**:
+  `tuiscotti-core` now targets `ratatui = "0.30"` (and the workspace
+  uses `crossterm = "0.29"`), up from `=0.29.0` and `=0.28.1`.
+  `crossterm` is removed from `tuiscotti-core` normal dependencies.
+  Consumers still on `ratatui 0.29` must upgrade to `ratatui 0.30` or
+  stay on the previous commit.
+- **Bare `'f'` / `'F'` key parsing (`P1`)**: `parse_chord("f")` and
+  `Key::from_str("f")` now return `Key::Char('f')`, and `"F"` returns
+  `Key::Char('F')`. Function keys require an explicit number
+  (`"F1"`..`"F12"`).
+- **`Session::mouse_drag` DEC mode gate (`P8`)**: `mouse_drag` now
+  requires `DECSET 1002` (button-event motion) or `DECSET 1003`
+  (any-event motion) in addition to pointer encoding (`DECSET 1006` SGR
+  recommended). `DECSET 1000` (press/release only) is now rejected with
+  `TuiError::ModeNotEnabled("mouse drag reporting (DEC 1002/1003) not enabled by the application")`
+  (or `ActionError::Session(TuiError::ModeNotEnabled(...))`).
+- **`WaitError` multi-line `Display` (`P5`)**: `WaitError` (`Timeout`,
+  `Cancelled`, `Unsupported`, and `Closed` when `WaitEvidence` is
+  present) now formats a multi-line message ending with
+  `\n--- last screen (<cols>x<rows>) ---\n<bounded screen dump>`
+  (capped at 40 non-empty rows and 4096 bytes, or `<blank screen>`).
+  Code matching exact single-line `to_string()` equality should match
+  the first-line prefix or inspect `err.evidence()`.
+- **Unconditional host-path sanitization in `Provenance::now` and
+  `Frame::to_json`**: `argv[0]` is normalized to its basename and host
+  filesystem paths in `argv[1..]` and `source` are stripped to
+  basenames during `Provenance::now`, `Frame::to_json`, and
+  `Frame::to_json_pretty` (while preserving non-host slash arguments
+  such as `/`, `/api/v1`, or `/foo/`). In `ArtifactSet::All` stores,
+  frames whose provenance previously carried absolute host paths will
+  produce sanitized `<script id="tuiscotti-frame">` JSON inside `.html`
+  and should be re-accepted once.
+- **Recursive `proto::read_verdicts` and `Verdict::passed()`**:
+  `read_verdicts` now walks nested subdirectories recursively and
+  `Verdict::passed()` recognizes `"matched"` alongside `"pass"` and
+  `"ok"`.
+- **Explicit approval guards (`CI` refusal, candidate seal, `run_id`
+  freshness, single-segment `*`)**:
+  - `tuiscotti accept`, `Store::accept`, and
+    `GroupedStore::{accept, accept_matching, accept_all}` refuse when
+    `CI` is set in the environment (non-empty and not `"0"` or
+    `"false"`).
+  - Prefix filters in `tuiscotti accept`, `tuiscotti review --filter`,
+    and `GroupedStore::accept_matching` are segment-aware
+    (`showcase/pages/tab` matches `showcase/pages/tab` and
+    `showcase/pages/tab/...`, never `showcase/pages/tables/...`); `*`
+    matches within a single path segment (no `/`), and `**` matches
+    across `/`.
+  - `accept` / `accept_matching` / `accept_all` require a sealed
+    `<name>.manifest.json` whose recorded SHA-256 digests and artifact
+    mode match the candidate on disk (rejecting unsealed "ghost"
+    `.ansi` files), skip scenarios whose `.verdict.json` already
+    recorded `status == "matched"`, and `accept_matching` / `accept_all`
+    enforce a `run_id` freshness guard across multi-scenario selections
+    (`NEXTEST_RUN_ID`, `TUISCOTTI_RUN_ID`, or
+    `GroupedStore::with_run_id`).
+  - `tuiscotti accept` defaults `--actual` strictly to `<store>.actual`
+    for grouped stores; pass `--actual target/tuiscotti/actual`
+    explicitly when using a custom actual directory.
+
 ## Workflow then and now
 
 ```text
@@ -89,3 +151,4 @@ cargo nextest run --locked --offline --all-features   # writes actuals, fails mi
 tuiscotti accept --store <dir> <name_or_glob>        # explicit per-name or pattern, after review
 cargo nextest run --locked --offline --all-features   # green
 ```
+

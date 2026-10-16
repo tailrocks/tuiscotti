@@ -100,22 +100,30 @@ any mismatch (one changed channel fails; re-encoding passes).
 
 ### `review --dir <DIR> [--filter <PATTERN>]`
 
-Lists offline verdicts, optionally filtered by `<PATTERN>` (exact
-scenario name, prefix `group` / `group/`, or `*`/`**`/`?` glob; `::`
-is normalized to `/`). Exit 4 when any matching verdict fails, 0 on an
+Lists offline verdicts recursively under `<DIR>`, optionally filtered by
+`<PATTERN>` (exact scenario name, segment-aware prefix `group` /
+`group/`, or glob where `*` matches within a single path segment, `**`
+matches across `/`, and `?` matches a single non-`/` character; `::` is
+normalized to `/`). Exit 4 when any matching verdict fails, 0 on an
 empty or all-pass dir.
 
 ### `accept [--store <DIR>] [--actual <DIR>] [--artifacts <all|ansi-cursor>] <NAME>`
 
 Approves one classic snapshot (`actual/<NAME>` → `approved/<NAME>`) or
-every grouped scenario matching `<NAME>` (exact name, prefix
-`pages/overview`, or glob `pages/*`, via
-`GroupedStore::accept_matching`). Auto-detects classic vs grouped
-stores; `--actual` overrides the grouped actual-artifacts root (e.g.
-`target/tuiscotti/actual`), and `--artifacts <all|ansi-cursor>`
-explicitly selects the grouped artifact mode (auto-detected from the
-store when omitted). Fails loudly if zero scenarios match `<NAME>`.
-Frozen roots reject. `--store` defaults to `.`.
+every non-`matched` grouped scenario matching `<NAME>` (exact name,
+segment-aware prefix `pages/overview` matching `pages/overview/...` but
+not `pages/overview_extra/...`, single-segment glob `pages/*`, or
+multi-segment glob `pages/**`, via `GroupedStore::accept_matching`).
+Auto-detects classic vs grouped stores; for grouped stores `--actual`
+defaults strictly to `<store>.actual` and must be passed explicitly
+(e.g. `--actual target/tuiscotti/actual`) when tests write actuals to a
+custom directory. `--artifacts <all|ansi-cursor>` explicitly selects the
+grouped artifact mode (auto-detected from the store or candidate
+manifests when omitted). Requires a sealed `<name>.manifest.json` per
+candidate, enforces `run_id` freshness across pattern selections,
+refuses when `CI` is set in the environment, and fails loudly if zero
+candidates match `<NAME>`. Frozen roots reject. `--store` defaults to
+`.`.
 
 ### `report --dir <DIR> --out <FILE> [--title <T>]`
 
@@ -167,9 +175,10 @@ echo '{"type":"capabilities"}' | tuiscotti machine
 ## Removed commands
 
 `check`, `run`, `digest`, `accept --all`, and `report --store` do not
-exist (use `tuiscotti accept --store <dir> "*"` for explicit pattern
-matching on a grouped store, and `tuiscotti render --input <file.ansi>`
-for normalized `.ansi` captures; un-normalized raw PTY byte streams use
+exist (use `tuiscotti accept --store <dir> "**"` for explicit recursive
+pattern matching on a grouped store, or `"*"` within a single segment,
+and `tuiscotti render --input <file.ansi> --out <prefix>` for normalized
+`.ansi` captures; un-normalized raw PTY byte streams use
 `observe::Replay` / `tui_shell::Recording` in Rust). There are no
 shims: unknown subcommands exit 2. The op protocol (`machine`,
 `proto::execute`) is the scriptable surface — there are no `tools/*.py`

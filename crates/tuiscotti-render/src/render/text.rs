@@ -47,13 +47,15 @@ pub fn ansi_dump(frame: &Frame) -> String {
     let mut out = String::new();
     for y in 0..frame.rows {
         let mut cur = String::new();
+        let mut prev_sym = "";
         for x in 0..frame.cols {
             let Some(c) = frame.get(x, y) else { continue };
             if c.continuation {
                 continue;
             }
             let sgr = sgr_for(c);
-            if sgr != cur {
+            let boundary = !prev_sym.is_empty() && graphemes_join(prev_sym, &c.symbol);
+            if sgr != cur || boundary {
                 out.push_str("\x1b[0m");
                 if !sgr.is_empty() {
                     out.push_str("\x1b[");
@@ -63,10 +65,19 @@ pub fn ansi_dump(frame: &Frame) -> String {
                 cur = sgr;
             }
             out.push_str(&c.symbol);
+            prev_sym = &c.symbol;
         }
         out.push_str("\x1b[0m\n");
     }
     out
+}
+
+fn graphemes_join(a: &str, b: &str) -> bool {
+    use unicode_segmentation::UnicodeSegmentation;
+    let mut joined = String::with_capacity(a.len() + b.len());
+    joined.push_str(a);
+    joined.push_str(b);
+    joined.graphemes(true).count() != a.graphemes(true).count() + b.graphemes(true).count()
 }
 
 /// Normalized ANSI dump plus one canonical VT cursor trailer: `ESC[?25l` when

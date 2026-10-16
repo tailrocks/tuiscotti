@@ -162,10 +162,23 @@ multiple locales) drove eight durable design refinements:
   ASCII letter); function keys require explicit digits (`"F1"`..`"F12"`).
 - **P2 — SemVer caret ranges (`ratatui 0.30`, `crossterm 0.29`)**:
   workspace dependencies use standard SemVer caret ranges (`Cargo.lock`
-  pins exact resolution for reproducible CI), and `tuiscotti-core`'s
-  `ratatui` dependency targets `0.30` so downstream crates on
-  `ratatui 0.30` share one `Buffer`/`Terminal` adapter without
-  duplicate-crate type mismatches.
+  pins exact resolution for reproducible CI), `tuiscotti-core`'s
+  `ratatui` dependency targets `0.30`, and `crossterm` is removed from
+  `tuiscotti-core`.
+  - *Alternatives weighed*:
+    1. **(a) Standard SemVer caret ranges (`^`) on `ratatui = "0.30"` /
+       `crossterm = "0.29"` with `crossterm` dropped from `tuiscotti-core`
+       [chosen]**: downstream crates on current `ratatui 0.30` unify on a
+       single `ratatui`, `crossterm`, and `unicode-width` in `Cargo.lock`
+       with zero duplicate-crate `Buffer`/`Terminal` type mismatches and a
+       single `Frame` capture surface.
+    2. **(b) Per-major-version Cargo feature flags (`ratatui-029`,
+       `ratatui-030`) [rejected]**: violates Decision 10 (no legacy shims
+       or dual-version compatibility layers) and doubles the `ratatui`
+       adapter surface.
+    3. **(c) Separate `tuiscotti-ratatui` adapter crate [rejected]**:
+       splits the pure-view capture entrypoint across another crate
+       boundary without removing the version pin problem.
 - **P3 — Minimal `.ansi`-only grouped store (`ArtifactSet::AnsiCursor`)**:
   `GroupedStore::with_artifacts(ArtifactSet::AnsiCursor)` commits only
   `<name>.ansi` (via `render::ansi_dump_with_cursor`, which appends a
@@ -177,11 +190,25 @@ multiple locales) drove eight durable design refinements:
   fails or approval is missing — cutting passing-run I/O and repo
   footprint to 1 file per scenario while keeping full visual diff
   artifacts on failure.
+  - *Alternatives weighed*:
+    1. **(a) Closed `ArtifactSet` enum (`All` default, `AnsiCursor`
+       minimal mode) on `GroupedStore` [chosen]**: makes invalid artifact
+       combinations unrepresentable, keeps fail-closed manifest/seal
+       schemas explicit per mode, and preserves one `GroupedStore` API.
+    2. **(b) Per-artifact boolean builder flags (`with_png(bool)`,
+       `with_html(bool)`, `with_txt(bool)`) [rejected]**: permits invalid
+       combinations (e.g. disabling all gates or writing `.html` without
+       the `.png` it references) and explodes the state space for
+       `verify_candidate` and `accept`.
+    3. **(c) Pluggable gate trait or separate store struct [rejected]**:
+       fragments CLI auto-detection (`tuiscotti accept --artifacts`) and
+       duplicates candidate sealing, `run_id` freshness, and report logic.
 - **P4 — Multi-match `BoundLocator` policies (`MatchPolicy`)**:
   `BoundLocator` stays fail-closed (`MatchPolicy::Unique`) by default
   and adds explicit `.first()`, `.last()`, `.nth(i)`, `.any()`,
-  `.count_at_least(n)`, `.expect_count_at_least(n)`, and
-  `.expect_count_at_least_within(n, d)`
+  `.count_at_least(n)` (assertion-only; `.click()` rejected with
+  `ActionError::Locate(LocateError::Multiple { .. })`),
+  `.expect_count_at_least(n)`, and `.expect_count_at_least_within(n, d)`
   combinators so callers never drop down to detached `Locator::resolve`
   loops when waiting on repeated UI chrome.
 - **P5 — Bounded screen dump in `WaitError` `Display`**: `WaitError`'s
@@ -189,18 +216,39 @@ multiple locales) drove eight durable design refinements:
   bounded plain-text screen dump (up to 40 non-empty trailing-trimmed
   rows / 4 KiB, or `<blank screen>`) so `unwrap()` / `?` failures in CI
   logs show what was on screen immediately.
-- **P6 — Mismatch-only rasterization in `ArtifactSet::AnsiCursor`**:
+- **P6 — Mismatch-only rasterization and full-resolution pixel verdicts**:
   passing checks in `AnsiCursor` mode compare normalized `.ansi` bytes
   in memory and skip `swash` PNG/HTML rasterization entirely (~0.37 ms
-  per passing gate at 120×40).
+  per passing gate at 120×40), while mismatch rendering uses slice-based
+  glyph blending, fast diff PNG encoding, and full-resolution
+  `PixelVerdict::score`.
+  - *Alternatives weighed*:
+    1. **(a) Skip rasterization on pass in `AnsiCursor` mode + slice-based
+       glyph/diff loops + `CompressionType::Fast` / `FilterType::Sub` diff
+       PNG encoding + consumer `[profile.dev.package."*"] opt-level = 3`,
+       keeping full-resolution 1:1 `PixelVerdict::score` [chosen]**:
+       cuts passing-gate cost in `AnsiCursor` mode to ~0.37 ms and keeps
+       mismatch checks at `35–70 ms` under `opt-level = 3` without
+       changing `PixelVerdict::score` or `PerceptualPolicy::allows`
+       outcomes.
+    2. **(b) Downsampling `hybrid_score` inside `compare_png` for frames
+       above `320×240` [rejected]**: changes `PixelVerdict::score` and
+       therefore alters `pixel_threshold` and `PerceptualPolicy::allows`
+       pass/fail decisions in default (`ArtifactSet::All`) and classic
+       stores.
+    3. **(c) Replacing the `swash` rasterizer with `ab_glyph` or
+       `fontdue` [rejected]**: breaks byte-identical PNG determinism and
+       glyph shaping/fallback fidelity (`SHA256SUMS`).
 - **P7 — Scoped CLI `accept` / `review --filter` + `.ansi` rendering**:
   `tuiscotti accept` auto-detects classic vs grouped stores, accepts
-  exact names, prefixes, or `*`/`**`/`?` globs (`GroupedStore::accept_matching`),
-  supports `--actual` and `--artifacts all|ansi-cursor`, and fails
+  exact names, segment-aware prefixes, or `*` (single-segment) / `**`
+  (multi-segment) / `?` globs (`GroupedStore::accept_matching`),
+  enforces candidate manifest sealing and `run_id` freshness, refuses in
+  `CI`, supports `--actual` and `--artifacts all|ansi-cursor`, and fails
   loudly on zero matches. `tuiscotti review` adds `--filter <pattern>`,
-  and `tuiscotti render --input <file.ansi>` renders standalone `.ansi`
-  captures to `png`, `html`, `svg`, `txt`, `json`, `ansi`, or
-  `ansi-cursor`.
+  and `tuiscotti render --input <file.ansi> --out <prefix>` renders
+  standalone `.ansi` captures to `png`, `html`, `svg`, `txt`, `json`,
+  `ansi`, or `ansi-cursor`.
 - **P8 — Explicit DEC mouse mode contract & PTY clock guidance**:
   mouse methods document their exact DEC tracking (`1000`/`1002`/`1003`)
   and SGR encoding (`1006`) requirements and error strings, and PTY

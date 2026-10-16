@@ -128,7 +128,8 @@ fn pty_to_grouped_files() -> Result<(), Box<dyn std::error::Error>> {
         .with_artifacts(ArtifactSet::AnsiCursor)
         .with_actual_root(Path::new("target/tuiscotti/actual"))
         .with_expected_root(Path::new("target/tuiscotti/expected"))
-        .with_diff_root(Path::new("target/tuiscotti/diff"));
+        .with_diff_root(Path::new("target/tuiscotti/diff"))
+        .with_run_id("local-visual-run-1");
     let profile = Profile::default_profile();
     store
         .check("dashboard/hover_120x40", &frame, &profile, &VENDORED_FACES, 1.0)?
@@ -142,8 +143,9 @@ fn pty_to_grouped_files() -> Result<(), Box<dyn std::error::Error>> {
 ## CI wiring
 
 Gates run everywhere; approval happens only on a human workstation.
-There is no flag or variable that approves — the only way to break
-this rule is to run `accept` in CI. Don't.
+There is no flag or variable that approves — `accept` and `Store::accept`
+/ `GroupedStore::accept*` explicitly refuse when `CI` is set in the
+environment.
 
 ```yaml
 - name: Visual gates
@@ -168,10 +170,12 @@ Notes:
 - Determinism: same frame + same profile + same vendored font
   bytes = byte-identical PNGs (tested). Runners need no system fonts.
 - Review flow for a red run: download `visual-evidence`, open
-  `report.html`, reproduce locally if needed, then
-  `tuiscotti accept --store <dir> <name>` (or a prefix/glob filter
-  such as `tuiscotti accept --store snapshots/visual --actual target/tuiscotti/actual "dashboard/*"`)
-  locally and push the updated approved tree.
+  `report.html`, reproduce locally if needed, then run
+  `tuiscotti accept --store <dir> <name>` (or a segment-aware prefix,
+  single-segment `*` glob, or multi-segment `**` glob such as
+  `tuiscotti accept --store snapshots/visual --actual target/tuiscotti/actual "dashboard/*"`
+  or `"dashboard/**"`) locally on your workstation and push the updated
+  approved tree.
 - Parallel jobs are safe: per-name files + atomic renames.
   Concurrent jobs sharing one store directory only race on
   `report.html` (best-effort index); gate data never clobbers.

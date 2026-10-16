@@ -179,23 +179,6 @@ impl Locator {
         }
     }
 
-    /// Alias for [`Locator::expect_count_at_least`].
-    ///
-    /// # Errors
-    ///
-    /// Same failures as [`Locator::expect_count_at_least`].
-    pub fn count_at_least<F>(
-        &self,
-        observe: &mut F,
-        min: usize,
-        timeout: Duration,
-    ) -> Result<Vec<Span>, LocateError>
-    where
-        F: FnMut() -> Observation,
-    {
-        self.expect_count_at_least(observe, min, timeout)
-    }
-
     /// Single-shot presence check against one observation (no retry).
     ///
     /// # Errors

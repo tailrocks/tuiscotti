@@ -76,7 +76,12 @@ I/O. With `.with_artifacts(ArtifactSet::AnsiCursor)`:
   committed to git.
 - **On a passing check**: the candidate's normalized `.ansi` + cursor
   trailer is compared in memory against the approved `.ansi`. No PNG or
-  HTML rasterization runs (~0.37 ms per 120×40 check).
+  HTML rasterization runs (~0.37 ms per 120×40 check). The store writes
+  the sealed `<actual_root>/<name>.{ansi,manifest.json,verdict.json}`
+  and scrubs any stale mismatch-only files
+  (`<actual_root>/<name>.{txt,png,html,frame.json,png.fidelity.json}`,
+  `<expected_root>/<name>.{png,html}`, `<diff_root>/<name>.png`) left by
+  an earlier failing run.
 - **On a mismatch or missing approval**: `formats::ansi::frame_from_ansi`
   reconstructs the expected `Frame` (including cursor position/shape/blink)
   from the approved `.ansi`, and the store renders:
@@ -84,8 +89,21 @@ I/O. With `.with_artifacts(ArtifactSet::AnsiCursor)`:
     `.png.fidelity.json`, `.manifest.json`, `.verdict.json`),
   - `<expected_root>/<name>.{png,html}` (rebuilt from the approved `.ansi`),
   - `<diff_root>/<name>.png` (red-overlay pixel diff).
+- **Cross-cell grapheme cluster invariant (`frame_from_ansi`)**:
+  because `ansi_dump` concatenates adjacent same-style cell symbols on a
+  row without cell-boundary delimiters, synthetic `Frame`s that split a
+  single UAX #29 extended grapheme cluster across two adjacent
+  same-style cells (e.g. a regional-indicator flag pair in two `width=1`
+  cells, `'e'` followed by a separate cell holding only `U+0301`, an
+  emoji ZWJ sequence split across cells, or adjacent Hangul L+V jamo
+  cells) coalesce when re-segmented by `graphemes(true)`. Live terminal
+  captures (`termpane-vt`) cluster graphemes at capture time so this
+  does not arise in PTY captures, and `GroupedStore::accept` in
+  `AnsiCursor` mode enforces lossless round-trip
+  (`ansi_dump_with_cursor(&decoded) == bytes`), rejecting non-canonical
+  multi-cell splits before they can be blessed.
 
-### Scratch roots and acceptance
+### Scratch roots, `run_id` freshness, and acceptance
 
 Actuals (`<root>.actual/`), rebuilt expected renders
 (`<root>.expected/`), diff PNGs (`<root>.diff/`), and the report
@@ -94,17 +112,39 @@ override with `with_actual_root` / `with_expected_root` /
 `with_diff_root` / `with_report_path` (when `with_actual_root` ends in
 `actual` and `with_expected_root` was not explicitly called,
 `expected_root` automatically follows to the sibling `expected`
-directory). Missing approvals fail closed; names with absolute paths,
-`..`, empty segments, or backslashes are rejected (`InvalidName`).
+directory). Configure a logical test-run identifier via
+`GroupedStore::with_run_id(id)` (or let it default to `NEXTEST_RUN_ID` /
+`TUISCOTTI_RUN_ID` when set in the environment) so every candidate
+`<name>.manifest.json` is stamped with `run_id`. Missing approvals fail
+closed; names with absolute paths, `..`, empty segments, or backslashes
+are rejected (`InvalidName`).
 
-Acceptance is explicit:
+Acceptance is explicit and guarded:
+- **Refuses in CI**: `Store::accept`, `GroupedStore::{accept, accept_matching, accept_all}`,
+  and `tuiscotti accept` fail closed if `CI` is set in the environment
+  (non-empty and not `"0"` or `"false"`).
+- **Candidate seal & verdict check**: every accepted candidate must have
+  a valid `<name>.manifest.json` whose SHA-256 digests and artifact mode
+  match the files on disk (unsealed "ghost" `.ansi` files are rejected
+  with `CaptureIncomplete`). In pattern/bulk acceptance
+  (`accept_matching` / `accept_all`), scenarios whose `.verdict.json`
+  already recorded `status == "matched"` are skipped automatically so
+  only new or changed candidates are copied.
+- **`run_id` freshness guard**: when `GroupedStore::with_run_id` (or
+  `NEXTEST_RUN_ID` / `TUISCOTTI_RUN_ID`) is active, or when candidates
+  in `actual_root` carry `run_id` stamps from multiple test runs,
+  `accept_matching` and `accept_all` reject stale candidates whose
+  manifest `run_id` does not match the current/newest run (`StaleCandidate`).
 - `accept(name)` blesses one scenario (in `AnsiCursor` mode, validates
-  `<actual>/<name>.ansi` via `frame_from_ansi`, writes
-  `<approved>/<name>.ansi`, and removes any stale approved
-  `.txt`/`.png`/`.html`),
-- `accept_matching(filter)` blesses all scenarios in `actual_names()`
-  matching an exact name, prefix (`group` / `group/`), or `*`/`**`/`?`
-  glob (and errors when zero scenarios match),
+  `<actual>/<name>.ansi` via `frame_from_ansi` and lossless
+  `ansi_dump_with_cursor` round-trip, writes `<approved>/<name>.ansi`,
+  and removes any stale approved `.txt`/`.png`/`.html`),
+- `accept_matching(filter)` blesses all non-`matched` scenarios in
+  `actual_names()` matching an exact name, segment-aware prefix
+  (`group` / `group/`, where `pages/tab` matches `pages/tab/...` and
+  never `pages/tables/...`), or glob (`*` matches within a single path
+  segment without crossing `/`, `**` matches across `/`, and `?` matches
+  one non-`/` char), and errors when zero scenarios match,
 - `accept_all()` blesses every reviewed actual recursively and returns
   the accepted names.
 

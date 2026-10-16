@@ -364,16 +364,16 @@ fn press_letter_f_and_drag_rejects_press_release_only_mode() {
     .expect("READY appears");
 
     // P1: `press("f")`, `press("F")`, `press("shift+F")` send literal letters; `press("ctrl+f")` sends ^F;
-    // `F1` and `F12` send function-key escapes; `F0`, `F13`, and `fx` error cleanly.
+    // `F1` and `F12` send function-key escapes; `F0`, `F01`, `f01`, `F13`, and `fx` error cleanly.
     s.press("f").expect("press f");
     s.press("F").expect("press F");
     s.press("shift+F").expect("press shift+F");
     s.press("ctrl+f").expect("press ctrl+f");
     s.press("F1").expect("press F1");
     s.press("F12").expect("press F12");
-    assert!(s.press("F0").is_err(), "F0 must error");
-    assert!(s.press("F13").is_err(), "F13 must error");
-    assert!(s.press("fx").is_err(), "fx must error");
+    for bad in ["F0", "F01", "f01", "F13", "fx"] {
+        assert!(s.press(bad).is_err(), "{bad} must error");
+    }
     s.wait_predicate(
         |o| {
             contains(&o.screen, "fFF^F^[[OP^[[24~").expect("screen rows readable")

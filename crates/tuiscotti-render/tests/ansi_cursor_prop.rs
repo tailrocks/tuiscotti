@@ -256,3 +256,93 @@ fn external_ansi_corpus_round_trips_byte_identically_when_configured() {
         visible_cursors
     );
 }
+
+fn set_wide(frame: &mut Frame, x: u16, y: u16, sym: &str) {
+    frame.set(Cell {
+        x,
+        y,
+        symbol: sym.to_string(),
+        width: 2,
+        continuation: false,
+        fg: Color::Default,
+        bg: Color::Default,
+        mods: Mods::default(),
+        underline_color: Color::Default,
+    });
+    frame.set(Cell {
+        x: x + 1,
+        y,
+        symbol: String::new(),
+        width: 0,
+        continuation: true,
+        fg: Color::Default,
+        bg: Color::Default,
+        mods: Mods::default(),
+        underline_color: Color::Default,
+    });
+}
+
+fn set_narrow(frame: &mut Frame, x: u16, y: u16, sym: &str) {
+    frame.set(Cell {
+        x,
+        y,
+        symbol: sym.to_string(),
+        width: 1,
+        continuation: false,
+        fg: Color::Default,
+        bg: Color::Default,
+        mods: Mods::default(),
+        underline_color: Color::Default,
+    });
+}
+
+#[test]
+fn cross_cell_grapheme_clusters_round_trip_without_joining() {
+    // 1. Regional-indicator pair in two separate width-1 cells.
+    let mut ri = Frame::blank(4, 2, Provenance::default());
+    set_narrow(&mut ri, 0, 0, "\u{1F1FA}");
+    set_narrow(&mut ri, 1, 0, "\u{1F1F8}");
+
+    // 2. 'e' followed by a cell holding only U+0301 (combining acute accent).
+    let mut combining = Frame::blank(4, 2, Provenance::default());
+    set_narrow(&mut combining, 0, 0, "e");
+    set_narrow(&mut combining, 1, 0, "\u{0301}");
+
+    // 3. Emoji ZWJ sequence split across cells (3-cell split and 2-cell split).
+    let mut zwj_a = Frame::blank(6, 2, Provenance::default());
+    set_wide(&mut zwj_a, 0, 0, "\u{1F469}");
+    set_narrow(&mut zwj_a, 2, 0, "\u{200D}");
+    set_wide(&mut zwj_a, 3, 0, "\u{1F4BB}");
+
+    let mut zwj_b = Frame::blank(6, 2, Provenance::default());
+    set_wide(&mut zwj_b, 0, 0, "\u{1F469}\u{200D}");
+    set_wide(&mut zwj_b, 2, 0, "\u{1F4BB}");
+
+    // 4. Hangul L + V jamo in adjacent cells.
+    let mut hangul = Frame::blank(4, 2, Provenance::default());
+    set_wide(&mut hangul, 0, 0, "\u{1100}");
+    set_narrow(&mut hangul, 2, 0, "\u{1161}");
+
+    for (label, frame) in [
+        ("regional-indicator", ri),
+        ("e+combining", combining),
+        ("zwj-after", zwj_a),
+        ("zwj-before", zwj_b),
+        ("hangul-l-v", hangul),
+    ] {
+        frame
+            .validate()
+            .unwrap_or_else(|e| panic!("{label}: frame validate failed: {e}"));
+        let encoded = ansi_dump_with_cursor(&frame);
+        assert_normalized_sgr(&encoded)
+            .unwrap_or_else(|e| panic!("{label}: assert_normalized_sgr failed: {e}"));
+        let decoded = frame_from_ansi(&encoded, Provenance::default())
+            .unwrap_or_else(|e| panic!("{label}: frame_from_ansi failed: {e}"));
+        assert_eq!(decoded.cells, frame.cells, "{label}: cells round-trip");
+        assert_eq!(
+            ansi_dump_with_cursor(&decoded),
+            encoded,
+            "{label}: re-encoded bytes"
+        );
+    }
+}

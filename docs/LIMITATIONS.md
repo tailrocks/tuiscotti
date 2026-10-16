@@ -44,7 +44,23 @@ running the same unit commands. Until then: "compiles for
 - Blink phase is frozen visible; slow/rapid rates stay combined.
   Overline is dropped (O17). Raw-ANSI replay cannot observe cursor
   appearance (block/steady cursor) — use PTY captures for cursor
-  shape/blink assertions.
+  shape/blink assertions, or `render::ansi_dump_with_cursor` +
+  `formats::ansi::frame_from_ansi` for normalized `.ansi` captures with
+  a canonical VT cursor trailer.
+- **Normalized `.ansi` cross-cell grapheme cluster limitation
+  (`formats::ansi::frame_from_ansi`)**: `render::ansi_dump` emits
+  adjacent same-style cell symbols on a row without inter-cell
+  delimiters. If a synthetic `Frame` splits a single UAX #29 extended
+  grapheme cluster across two adjacent same-style cells (for example, two
+  regional-indicator flag codepoints in separate `width=1` cells, `'e'`
+  followed by a cell containing only `U+0301`, an emoji ZWJ sequence
+  split across cells, or adjacent Hangul L+V jamo cells),
+  `frame_from_ansi` re-segments the row with `graphemes(true)` and
+  coalesces those codepoints into a single grapheme cell. Live terminal
+  captures (`termpane-vt`) already cluster graphemes at capture time,
+  and `GroupedStore::accept` in `ArtifactSet::AnsiCursor` mode enforces
+  lossless round-trip (`ansi_dump_with_cursor(&decoded) == bytes`),
+  refusing to accept synthetic frames that do not round-trip.
 - No scrollback reflow on resize (emulator constraint).
 
 ## Emulator honesty gaps

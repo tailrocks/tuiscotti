@@ -1,12 +1,11 @@
 use super::{
-    ArtifactPaths, ArtifactSet, CheapActuals, GroupedOutcome, GroupedStore, first_difference,
-    fresh_grouped, missing_approved_names, run_byte_gates, run_html_gate, validate_name,
+    ArtifactPaths, ArtifactSet, CheapActuals, GroupedOutcome, GroupedStore, fresh_grouped,
+    missing_approved_names, run_byte_gates, run_html_gate, validate_name,
 };
-use crate::snapshot::{SnapshotError, Status, compare_cells, write_atomic};
+use crate::snapshot::{SnapshotError, Status, write_atomic};
 use std::path::{Path, PathBuf};
 use tuiscotti_core::frame::Frame;
 use tuiscotti_render::diff;
-use tuiscotti_render::formats::ansi::frame_from_ansi;
 use tuiscotti_render::profile::Profile;
 use tuiscotti_render::render::{self, Renderer};
 
@@ -158,6 +157,12 @@ impl GroupedStore {
     ) -> Result<GroupedOutcome, SnapshotError> {
         let cheap = self.write_cheap_actuals(name, actual)?;
         let mut grouped = fresh_grouped(name, &cheap, actual);
+        super::clean_stale_ansi_cursor_evidence(
+            &grouped.actual,
+            &self.expected_root,
+            &self.diff_root,
+            name,
+        )?;
         let profile_name = renderer.profile().name.clone();
 
         let Some(approved_ansi) = read_optional(&grouped.approved.ansi)? else {
@@ -185,39 +190,13 @@ impl GroupedStore {
         let (_, actual_png_bytes) =
             Self::render_actual_artifacts(renderer, name, actual, &grouped.actual)?;
 
-        let Ok(approved_str) = std::str::from_utf8(&approved_ansi) else {
-            grouped.outcome.status = Status::CorruptApproval;
-            grouped.outcome.note = format!(
-                "approved file {} is not valid UTF-8",
-                grouped.approved.ansi.display()
-            );
+        let Some(expected_frame) =
+            super::populate_ansi_cursor_mismatch(&mut grouped, actual, &approved_ansi, &cheap.ansi)
+        else {
             self.seal_candidate(&profile_name, name, &grouped.actual)?;
             self.seal_verdict(name, &grouped, pixel_threshold, &["ansi-cursor-byte-gate"])?;
             return Ok(grouped);
         };
-        let expected_frame = match frame_from_ansi(approved_str, actual.provenance.clone()) {
-            Ok(f) => f,
-            Err(e) => {
-                grouped.outcome.status = Status::CorruptApproval;
-                grouped.outcome.note = format!(
-                    "approved file {} is corrupt: {e}",
-                    grouped.approved.ansi.display()
-                );
-                self.seal_candidate(&profile_name, name, &grouped.actual)?;
-                self.seal_verdict(name, &grouped, pixel_threshold, &["ansi-cursor-byte-gate"])?;
-                return Ok(grouped);
-            }
-        };
-
-        grouped.outcome.digest_expected = Some(format!("{:016x}", expected_frame.digest()));
-        compare_cells(actual, &expected_frame, &mut grouped.outcome);
-        if matches!(grouped.outcome.status, Status::MissingApproval) {
-            grouped.outcome.status = Status::CellsDiffer;
-        }
-        grouped.outcome.note = format!(
-            "ansi+cursor differs: {}",
-            first_difference(&approved_ansi, cheap.ansi.as_bytes())
-        );
 
         let expected_paths = artifact_paths(&self.expected_root, name);
         let expected_artifacts = renderer

@@ -147,11 +147,13 @@ fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
         .check(name, &f1, &profile(), &VENDORED_FACES, 1.0)
         .expect("missing check");
     assert_eq!(o1.status(), Status::MissingApproval);
-    assert!(o1.actual.ansi.is_file());
-    assert!(o1.actual.frame_json.is_file());
-    assert!(o1.actual.png.is_file());
-    assert!(o1.actual.html.is_file());
-    assert!(!o1.actual.txt.exists(), "no .txt in AnsiCursor mode");
+    assert!(
+        o1.actual.ansi.is_file()
+            && o1.actual.frame_json.is_file()
+            && o1.actual.png.is_file()
+            && o1.actual.html.is_file()
+            && !o1.actual.txt.exists()
+    );
 
     // Plant legacy 4-artifact files in approved/ to verify accept cleans them up.
     for ext in ["txt", "png", "html"] {
@@ -166,8 +168,6 @@ fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
         tree_files(&approved).expect("tree_files"),
         vec![format!("{name}.ansi")]
     );
-
-    // Remove actual PNG/HTML before pass check to prove fast pass does not rasterize!
     std::fs::remove_file(&o1.actual.png).expect("rm png");
     std::fs::remove_file(&o1.actual.html).expect("rm html");
 
@@ -176,13 +176,11 @@ fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
         .check(name, &f1, &profile(), &VENDORED_FACES, 1.0)
         .expect("pass check");
     assert_eq!(o2.status(), Status::Matched);
-    assert_eq!(o2.ansi_match, Some(true));
-    assert_eq!(o2.txt_match, None);
-    assert_eq!(o2.html_match, None);
-    assert!(
-        !o2.actual.png.exists() && !o2.actual.html.exists(),
-        "fast pass must not render PNG/HTML"
+    assert_eq!(
+        (o2.ansi_match, o2.txt_match, o2.html_match),
+        (Some(true), None, None)
     );
+    assert!(!o2.actual.png.exists() && !o2.actual.html.exists());
 
     // 4. Cursor-only or cell mismatch decodes approved .ansi, renders expected & diff.
     let mut f2 = frame_with("minimal changed!");
@@ -190,30 +188,75 @@ fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
     let o3 = st
         .check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
         .expect("mismatch check");
-    assert_eq!(o3.status(), Status::CellsDiffer);
-    assert_eq!(o3.ansi_match, Some(false));
-    assert!(!o3.outcome.cell_diffs.is_empty());
-    assert!(o3.actual.png.is_file());
-    assert!(o3.actual.html.is_file());
+    assert_eq!(
+        (o3.status(), o3.ansi_match),
+        (Status::CellsDiffer, Some(false))
+    );
+    assert!(
+        !o3.outcome.cell_diffs.is_empty() && o3.actual.png.is_file() && o3.actual.html.is_file()
+    );
     let exp_png = o3.outcome.expected_png.as_ref().expect("expected_png set");
-    assert!(exp_png.is_file());
-    assert!(exp_png.starts_with(st.expected_root()));
     let diff_png = o3.outcome.diff_png.as_ref().expect("diff_png set");
-    assert!(diff_png.is_file());
-    assert!(diff_png.starts_with(st.diff_root()));
+    assert!(exp_png.is_file() && exp_png.starts_with(st.expected_root()));
+    assert!(diff_png.is_file() && diff_png.starts_with(st.diff_root()));
 
-    // 5. accept_matching supports prefix and glob filters and rejects 0 matches.
-    assert!(st.accept_matching("nonexistent/*").is_err());
-    let accepted = st
-        .accept_matching("holla/parity/*")
-        .expect("accept_matching");
-    assert_eq!(accepted, vec![name.to_string()]);
-    let o4 = st
-        .check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
-        .expect("recheck after accept_matching");
-    assert_eq!(o4.status(), Status::Matched);
+    // 4b. Re-running a passing check after a mismatch cleans up stale actual/expected/diff PNGs/HTML!
+    let o_repass = st
+        .check(name, &f1, &profile(), &VENDORED_FACES, 1.0)
+        .expect("repass check");
+    let fid = o_repass.actual.png.with_extension("png.fidelity.json");
+    assert_eq!(o_repass.status(), Status::Matched);
+    assert!(!o_repass.actual.png.exists() && !o_repass.actual.html.exists() && !fid.exists());
+    assert!(!exp_png.exists() && !diff_png.exists());
+
+    st.check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
+        .expect("mismatch check 2");
+    verify_accept_matching_and_ci(&st, name, &f2).expect("accept_matching and ci");
 }
 
+fn verify_accept_matching_and_ci(
+    st: &GroupedStore,
+    name: &str,
+    f2: &Frame,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let exact = "ansi_cursor::ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup";
+    if tuiscotti::grouped::is_ci_env() {
+        let res = st.accept_matching("holla/parity/**");
+        assert!(
+            res.is_err()
+                && res
+                    .err()
+                    .is_some_and(|e| e.to_string().contains("CI is set"))
+        );
+        let exe = std::env::current_exe()?;
+        let out = std::process::Command::new(exe)
+            .args(["--exact", exact, "--nocapture"])
+            .env_remove("CI")
+            .env("TUISCOTTI_SKIP_CI_SUBTEST", "1")
+            .output()?;
+        assert!(out.status.success(), "child failed");
+        return Ok(());
+    }
+    if std::env::var_os("TUISCOTTI_SKIP_CI_SUBTEST").is_none() {
+        let exe = std::env::current_exe()?;
+        let out = std::process::Command::new(exe)
+            .args(["--exact", exact, "--nocapture"])
+            .env("CI", "1")
+            .output()?;
+        assert!(out.status.success(), "CI=1 child failed");
+    }
+    assert!(st.accept_matching("nonexistent/*").is_err());
+    assert!(st.accept_matching("holla/parity/*").is_err());
+    assert!(st.accept_matching("holla/parity/disc").is_err());
+    assert_eq!(st.accept_matching("holla/parity/**")?, vec![name]);
+    let o4 = st.check(name, f2, &profile(), &VENDORED_FACES, 1.0)?;
+    assert_eq!(o4.status(), Status::Matched);
+    assert!(st.accept_matching("holla/parity/**")?.is_empty());
+    Ok(())
+}
+
+/// Spawn `/bin/sh -c printf ...` in a real PTY and stamp synthetic host paths
+/// into `Provenance` to verify end-to-end path sanitization.
 #[cfg(feature = "pty")]
 fn capture_live_binary(banner: &str) -> Result<Frame, Box<dyn std::error::Error>> {
     use std::time::Duration;
@@ -237,6 +280,8 @@ fn capture_live_binary(banner: &str) -> Result<Frame, Box<dyn std::error::Error>
     Ok(frame)
 }
 
+/// Spawns `/bin/sh -c printf` over a real PTY and verifies `ArtifactSet::AnsiCursor`
+/// writes zero host-specific absolute paths across all artifact roots.
 #[test]
 #[cfg(feature = "pty")]
 fn e2e_real_binary_through_ansi_cursor_store_with_zero_absolute_paths() {
