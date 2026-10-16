@@ -87,11 +87,14 @@ MSRV history: 1.97 during the early prototype window; current pin is
    `crossterm` is removed from `tuiscotti-core` normal dependencies.
    Consumers still on `ratatui 0.29` must upgrade to `ratatui 0.30` or
    stay on the previous commit.
-2. **Bare `'f'` / `'F'` / `'-'` key parsing and `-`-joined chords (`P1`)**:
+2. **Bare `'f'` / `'F'` / `'-'` / `'+'` key parsing and `-`-joined chords (`P1`)**:
    `parse_chord("f")` and `Key::from_str("f")` now return `Key::Char('f')`,
    `"F"` returns `Key::Char('F')`, `"-"` returns `Key::Char('-')`, and
-   `"backtab"` parses as `Shift+Tab`. Function keys require an explicit
-   number in `"F1"`..`"F12"` (`"F0"`, `"F01"`, `"F13"` are rejected).
+   `"backtab"` parses as `Shift+Tab`. Bare `"+"`, trailing `"+"` after
+   modifiers (`"ctrl++"`, `"ctrl-+"`), and `"plus"` (`"ctrl+plus"`) now
+   parse as `Key::Char('+')` (while malformed `"++"` or trailing-modifier
+   `"Ctrl+"` still fail). Function keys require an explicit number in
+   `"F1"`..`"F12"` (`"F0"`, `"F01"`, `"F13"` are rejected).
 3. **`Session::mouse_drag` DEC mode gate (`P8`)**: `mouse_drag` now
    requires `DECSET 1002` (button-event motion) or `DECSET 1003`
    (any-event motion) in addition to pointer encoding (`DECSET 1006` SGR
@@ -121,14 +124,26 @@ MSRV history: 1.97 during the early prototype window; current pin is
    `Frame::to_json`)**: `argv[0]` is normalized to its basename and host
    filesystem paths in `argv[1..]` and `source` are stripped to
    basenames during `Provenance::now`, `Frame::to_json`, and
-   `Frame::to_json_pretty` — including trailing-slash multi-segment host
-   directories (`/Users/alice/proj/`, `C:\Users\alice\proj\`),
-   container/CI roots (`/srv/`, `/workspace/`, `/builds/`, `/github/`,
-   `/app/`), and runtime `HOME` / `current_dir` / `TMPDIR` /
-   `CARGO_HOME` / `CARGO_TARGET_DIR` prefixes, while preserving `/` and
-   single-segment `/foo/` or non-host slash arguments like `/api/v1`. In
-   `ArtifactSet::All` stores, frames whose provenance previously carried
-   absolute host paths will produce sanitized
+   `Frame::to_json_pretty`:
+   - Trailing-slash multi-segment host directories
+     (`/Users/alice/proj/`, `C:\Users\alice\proj\`), container/CI roots
+     (`/srv/`, `/workspace/`, `/builds/`, `/github/`, `/app/`), and
+     runtime `HOME` / `current_dir` / `TMPDIR` / `CARGO_HOME` /
+     `CARGO_TARGET_DIR` prefixes are stripped to their basename.
+   - Single-segment values directly under a Unix root or Windows drive
+     root (`/foo`, `/foo/`, `C:\proj`, `C:\config.toml`) and `/` are
+     preserved verbatim, whereas multi-segment Windows drive paths
+     (`C:\Users\alice\proj\`, `D:/data/x.bin`) and UNC paths
+     (`\\server\share\file.txt`, `\\é\x`) are reduced to their basename.
+   - Multi-segment `/...` values with 3 or more segments whose final
+     segment has an ASCII alphanumeric file extension (`name.ext`, via
+     `last_segment_looks_like_file`) are also treated as host file paths
+     and reduced to `name.ext` (for example `/custom/mount/view.rs` →
+     `view.rs` and `/api/v1/users.json` → `users.json`, while
+     extensionless routes such as `/api/v1` and `/api/v1/users` are
+     preserved verbatim).
+   In `ArtifactSet::All` stores, frames whose provenance previously
+   carried absolute host paths will produce sanitized
    `<script id="tuiscotti-frame">` JSON inside `.html` and should be
    re-accepted once.
 8. **Explicit approval guards (`CI` refusal, candidate seal, `run_id`

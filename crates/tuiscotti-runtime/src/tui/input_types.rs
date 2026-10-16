@@ -118,9 +118,9 @@ pub enum KeyEventKind {
 /// `Ctrl`/`Control`/`Ctl`, `Alt`/`Opt`/`Meta`, `Shift`,
 /// `Super`/`Cmd`/`Win`/`Command`. The final segment names the key:
 /// `Enter`/`Return`, `Tab`, `BackTab` (`Shift+Tab`), `Backspace`/`BS`,
-/// `Esc`/`Escape`, `Space`, arrows, `Home`/`End`, `PageUp`/`PgUp`,
-/// `PageDown`/`PgDn`, `Insert`/`Ins`, `Delete`/`Del`, `F1`..`F12`, or any
-/// single character.
+/// `Esc`/`Escape`, `Space`, `Plus` (or `"+"` / `"ctrl++"` / `"ctrl-+"`),
+/// arrows, `Home`/`End`, `PageUp`/`PgUp`, `PageDown`/`PgDn`,
+/// `Insert`/`Ins`, `Delete`/`Del`, `F1`..`F12`, or any single character.
 ///
 /// # Errors
 ///
@@ -132,7 +132,7 @@ pub fn parse_chord(text: &str) -> Result<(Key, KeyMods), TuiError> {
     }
     let mut mods = KeyMods::NONE;
     let mut rest = text;
-    while rest.chars().count() > 1 || rest == "+" {
+    while rest.chars().count() > 1 {
         let Some(idx) = rest.find(['+', '-']) else {
             break;
         };
@@ -161,6 +161,7 @@ pub fn parse_chord(text: &str) -> Result<(Key, KeyMods), TuiError> {
         "backspace" | "bs" => Key::Backspace,
         "esc" | "escape" => Key::Escape,
         "space" => Key::Char(' '),
+        "plus" => Key::Char('+'),
         "up" => Key::Up,
         "down" => Key::Down,
         "left" => Key::Left,
@@ -285,6 +286,11 @@ mod tests {
             ("-", (Key::Char('-'), KeyMods::NONE)),
             ("ctrl+-", (Key::Char('-'), KeyMods::CTRL)),
             ("ctrl--", (Key::Char('-'), KeyMods::CTRL)),
+            ("+", (Key::Char('+'), KeyMods::NONE)),
+            ("ctrl++", (Key::Char('+'), KeyMods::CTRL)),
+            ("ctrl-+", (Key::Char('+'), KeyMods::CTRL)),
+            ("plus", (Key::Char('+'), KeyMods::NONE)),
+            ("ctrl+plus", (Key::Char('+'), KeyMods::CTRL)),
             ("F1", (Key::F(1), KeyMods::NONE)),
             ("F12", (Key::F(12), KeyMods::NONE)),
             ("f12", (Key::F(12), KeyMods::NONE)),
@@ -307,7 +313,7 @@ mod tests {
                 .to_string();
             assert!(err.contains("bad function key"), "{bad_fn}: {err}");
         }
-        for bad_spec in ["fx", "foo-bar"] {
+        for bad_spec in ["fx", "foo-bar", "++", "Ctrl+"] {
             assert!(parse_chord(bad_spec).is_err(), "{bad_spec} must fail");
         }
     }

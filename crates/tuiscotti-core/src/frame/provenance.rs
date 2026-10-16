@@ -184,7 +184,10 @@ fn last_segment_looks_like_file(trimmed: &str) -> bool {
 fn looks_like_host_path(s: &str) -> bool {
     if is_windows_host_path(s) {
         let trimmed = s.trim_end_matches(['/', '\\']);
-        return trimmed.len() > 3 && trimmed[3..].contains(['/', '\\']);
+        return trimmed
+            .strip_prefix("\\\\")
+            .or_else(|| trimmed.get(3..))
+            .is_some_and(|r| r.contains(['/', '\\']));
     }
     if !s.starts_with('/') {
         return false;
@@ -193,7 +196,7 @@ fn looks_like_host_path(s: &str) -> bool {
     if trimmed.is_empty() {
         return false;
     }
-    if s.ends_with('/') && !trimmed[1..].contains('/') {
+    if s.ends_with('/') && !trimmed.strip_prefix('/').unwrap_or(trimmed).contains('/') {
         return false;
     }
     UNIX_HOST_PREFIXES.iter().any(|p| trimmed.starts_with(p))
@@ -246,6 +249,8 @@ mod tests {
                 "/Users/alice/proj/".to_string(),
                 "--out=/Users/alice/proj/".to_string(),
                 "C:\\Users\\alice\\proj\\".to_string(),
+                "\\\\é\\x".to_string(),
+                "\\\\server\\share\\file.txt".to_string(),
                 "/srv/ci/work/app/config.toml".to_string(),
                 "/custom/mount/view.rs".to_string(),
                 "--port".to_string(),
@@ -266,6 +271,8 @@ mod tests {
                 "proj",
                 "--out=proj",
                 "proj",
+                "x",
+                "file.txt",
                 "config.toml",
                 "view.rs",
                 "--port",
@@ -279,6 +286,15 @@ mod tests {
 
         let trailing_src = Provenance::now("ci-80x24", "/Users/alice/src/", Vec::new());
         assert_eq!(trailing_src.source, "src");
+
+        let unc_src = Provenance::now("p", "\\\\é\\x", Vec::new());
+        assert_eq!(unc_src.source, "x");
+        let unc_frame = Frame::blank(4, 2, unc_src);
+        let round = Frame::from_json(&unc_frame.to_json());
+        assert!(round.is_ok(), "UNC multi-byte round-trip failed");
+        if let Ok(decoded) = round {
+            assert_eq!(decoded.provenance.source, "x");
+        }
 
         let frame = Frame::blank(
             10,
