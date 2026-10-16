@@ -47,20 +47,17 @@ running the same unit commands. Until then: "compiles for
   shape/blink assertions, or `render::ansi_dump_with_cursor` +
   `formats::ansi::frame_from_ansi` for normalized `.ansi` captures with
   a canonical VT cursor trailer.
-- **Normalized `.ansi` cross-cell grapheme cluster limitation
-  (`formats::ansi::frame_from_ansi`)**: `render::ansi_dump` emits
-  adjacent same-style cell symbols on a row without inter-cell
-  delimiters. If a synthetic `Frame` splits a single UAX #29 extended
-  grapheme cluster across two adjacent same-style cells (for example, two
-  regional-indicator flag codepoints in separate `width=1` cells, `'e'`
-  followed by a cell containing only `U+0301`, an emoji ZWJ sequence
-  split across cells, or adjacent Hangul L+V jamo cells),
-  `frame_from_ansi` re-segments the row with `graphemes(true)` and
-  coalesces those codepoints into a single grapheme cell. Live terminal
-  captures (`termpane-vt`) already cluster graphemes at capture time,
-  and `GroupedStore::accept` in `ArtifactSet::AnsiCursor` mode enforces
-  lossless round-trip (`ansi_dump_with_cursor(&decoded) == bytes`),
-  refusing to accept synthetic frames that do not round-trip.
+- **Normalized `.ansi` cross-cell grapheme clusters
+  (`formats::ansi::frame_from_ansi`)**: `render::ansi_dump` inserts an
+  `ESC[0m` reset (followed by the active cell SGR) whenever two adjacent
+  cells' symbols on a row would otherwise join into a single UAX #29
+  extended grapheme cluster (e.g. adjacent regional-indicator flag
+  cells, `'e'` followed by a cell containing `U+0301`, an emoji ZWJ
+  sequence split across single-grapheme cells, or adjacent Hangul L+V
+  jamo cells), so `frame_from_ansi` decodes each cell without joining.
+  In addition, `GroupedStore::accept` in `ArtifactSet::AnsiCursor` mode
+  enforces lossless round-trip (`ansi_dump_with_cursor(&decoded) == text`)
+  and rejects any `.ansi` candidate that does not round-trip identically.
 - No scrollback reflow on resize (emulator constraint).
 
 ## Emulator honesty gaps
@@ -113,7 +110,11 @@ pattern:
    or `Tui::new(cmd).env("APP_TICK_MS", "0")` (or a key-driven step
    mode) — so wall-clock timestamps, spinners, and periodic ticks
    freeze or advance only on explicit input during visual baseline
-   runs.
+   runs. Note: on Unix, the underlying PTY spawner (`portable-pty` via
+   `termpane`) populates `SHELL` from the user's `passwd` entry when
+   `SHELL` is unset in the child environment, so callers that render or
+   branch on `$SHELL` should pass `.env("SHELL", "/bin/sh")` alongside
+   `.env_clear(true)`.
 2. **Wait-side semantic readiness + short quiet window**: wait for an
    explicit application readiness marker first
    (`session.get_by_text("Ready").any().expect_visible()?` or

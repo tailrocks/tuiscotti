@@ -173,7 +173,12 @@ impl Tui {
 
     /// Start the child with an empty environment (then apply `.env(...)`).
     /// Unlike the default path, no implicit `TERM` is added: a cleared
-    /// environment carries exactly what the caller sets.
+    /// environment carries what the caller sets.
+    ///
+    /// Note: on Unix, the underlying PTY spawner (`portable-pty` via
+    /// `termpane`) populates `SHELL` from the user's `passwd` entry when
+    /// `SHELL` is unset in the child environment; callers whose UI renders or
+    /// branches on `$SHELL` should also pass `.env("SHELL", "/bin/sh")`.
     #[must_use]
     pub fn env_clear(mut self, clear: bool) -> Self {
         self.env_clear = clear;

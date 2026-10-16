@@ -2,8 +2,7 @@
 # (root `mise.toml` matches both the Renovate `mise` manager file patterns and
 # the Velnor Rust-unit watch list `mise.toml`/`mise.lock`.)
 #
-# mr-boxington 1.20.0 = latest stable verified 2026-09-29 via
-# `mise ls-remote mr-boxington` (trailing entries ...1.18.0, 1.19.0, 1.20.0).
+# mr-boxington 1.21.1 = latest stable verified via `mise ls-remote mr-boxington`.
 # Pinned exact, never floating `latest` (G7).
 # rust 1.98.1 keeps the Mise pin consistent with rust-toolchain.toml
 # (`mise ls-remote rust` lists 1.98.1; `rust` is a mise core backend).
@@ -13,10 +12,10 @@
 # versions as the old cargo: source builds, but CI-fresh-runner installs
 # download binaries instead of compiling from source in every crate job.
 [tools]
-mr-boxington = "1.20.0"
+mr-boxington = "1.21.1"
 rust = "1.98.1"
 "github:asamarts/alint" = "0.15.2"
-"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.146"
+"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.148"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 
 [tasks.alint]

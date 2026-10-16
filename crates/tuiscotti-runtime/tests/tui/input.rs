@@ -350,7 +350,6 @@ fn press_letter_f_and_drag_rejects_press_release_only_mode() {
     let s = Tui::new([
         "/bin/sh",
         "-c",
-        // Enable DECSET 1000 (PressRelease only, no motion tracking) + 1006 SGR.
         "printf '\\033[?1000h\\033[?1006hREADY\\r\\n'; stty raw -echo; cat -v",
     ])
     .size(60, 8)
@@ -363,28 +362,26 @@ fn press_letter_f_and_drag_rejects_press_release_only_mode() {
     )
     .expect("READY appears");
 
-    // P1: `press("f")`, `press("F")`, `press("shift+F")` send literal letters; `press("ctrl+f")` sends ^F;
-    // `F1` and `F12` send function-key escapes; `F0`, `F01`, `f01`, `F13`, and `fx` error cleanly.
-    s.press("f").expect("press f");
-    s.press("F").expect("press F");
-    s.press("shift+F").expect("press shift+F");
-    s.press("ctrl+f").expect("press ctrl+f");
-    s.press("F1").expect("press F1");
-    s.press("F12").expect("press F12");
-    for bad in ["F0", "F01", "f01", "F13", "fx"] {
-        assert!(s.press(bad).is_err(), "{bad} must error");
+    for spec in [
+        "f", "F", "shift+F", "shift-F", "ctrl+f", "ctrl-f", "alt-0", "backtab", "BackTab", "alt--",
+        "-", "F1", "F12",
+    ] {
+        s.press(spec).expect("press chord");
+    }
+    assert!(matches!(s.press("ctrl--"), Err(TuiError::Unsupported(_))));
+    for bad in ["F0", "F01", "f01", "F13", "fx", "foo-bar"] {
+        assert!(matches!(s.press(bad), Err(TuiError::Chord(_))), "{bad}");
     }
     s.wait_predicate(
         |o| {
-            contains(&o.screen, "fFF^F^[[OP^[[24~").expect("screen rows readable")
-                || contains(&o.screen, "fFF^F").expect("screen rows readable")
+            contains(&o.screen, "fFFF^F^F^[0^[[Z^[[Z^[-").expect("screen rows readable")
+                || contains(&o.screen, "fFFF^F^F").expect("screen rows readable")
         },
         deadline(5),
         &cancel(),
     )
-    .expect("fFF^F echoed");
+    .expect("chords echoed");
 
-    // DEC 1000 (PressRelease) does not track motion, so `mouse_drag` must fail with ModeNotEnabled.
     let err = s
         .mouse_drag(MouseButton::Left, 5, 0, MouseMods::NONE)
         .expect_err("mouse_drag requires DEC 1002/1003");

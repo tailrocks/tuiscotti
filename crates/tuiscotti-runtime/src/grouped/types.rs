@@ -93,6 +93,7 @@ pub struct GroupedStore {
     pub(crate) report_path: Option<PathBuf>,
     pub(crate) artifacts: ArtifactSet,
     pub(crate) run_id: Option<String>,
+    pub(crate) review_evidence: Option<bool>,
 }
 
 /// `root` with `suffix` appended to its last component
@@ -139,6 +140,7 @@ impl GroupedStore {
             report_path: None,
             artifacts: ArtifactSet::All,
             run_id: None,
+            review_evidence: None,
         }
     }
 
@@ -174,6 +176,34 @@ impl GroupedStore {
     #[must_use]
     pub fn artifacts(&self) -> ArtifactSet {
         self.artifacts
+    }
+
+    /// Enable or disable rasterizing PNG/HTML/diff review evidence on
+    /// mismatches or missing approvals in [`ArtifactSet::AnsiCursor`] mode.
+    ///
+    /// When not explicitly configured, defaults to `true` unless
+    /// `TUISCOTTI_REVIEW_EVIDENCE` is set to `"0"` or `"false"`
+    /// (case-insensitive). Disabling review evidence during bulk determinism
+    /// sweeps or initial migrations skips PNG/HTML rasterization while still
+    /// writing the sealed `.ansi` + `.frame.json` candidate and full cell
+    /// verdict.
+    #[must_use]
+    pub fn with_review_evidence(mut self, enabled: bool) -> Self {
+        self.review_evidence = Some(enabled);
+        self
+    }
+
+    /// Whether [`ArtifactSet::AnsiCursor`] checks render PNG/HTML/diff review
+    /// evidence on mismatches or missing approvals.
+    #[must_use]
+    pub fn review_evidence(&self) -> bool {
+        if let Some(enabled) = self.review_evidence {
+            return enabled;
+        }
+        !matches!(
+            std::env::var("TUISCOTTI_REVIEW_EVIDENCE").ok().as_deref(),
+            Some(v) if v == "0" || v.eq_ignore_ascii_case("false")
+        )
     }
 
     /// Override the actual-artifacts root. When `expected_root` has not been

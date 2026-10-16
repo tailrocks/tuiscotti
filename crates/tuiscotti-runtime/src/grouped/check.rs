@@ -187,33 +187,37 @@ impl GroupedStore {
         }
 
         grouped.ansi_match = Some(false);
-        let (_, actual_png_bytes) =
-            Self::render_actual_artifacts(renderer, name, actual, &grouped.actual)?;
-
         let Some(expected_frame) =
             super::populate_ansi_cursor_mismatch(&mut grouped, actual, &approved_ansi, &cheap.ansi)
         else {
+            if self.review_evidence() {
+                Self::render_actual_artifacts(renderer, name, actual, &grouped.actual)?;
+            }
             self.seal_candidate(&profile_name, name, &grouped.actual)?;
             self.seal_verdict(name, &grouped, pixel_threshold, &["ansi-cursor-byte-gate"])?;
             return Ok(grouped);
         };
 
-        let expected_paths = artifact_paths(&self.expected_root, name);
-        let expected_artifacts = renderer
-            .render_artifacts(&expected_frame, name)
-            .map_err(SnapshotError::from)?;
-        write_atomic(&expected_paths.png, &expected_artifacts.png)?;
-        write_atomic(&expected_paths.html, expected_artifacts.html.as_bytes())?;
-        grouped.outcome.expected_png = Some(expected_paths.png);
-        grouped.outcome.expected_png_bytes = Some(expected_artifacts.png.clone());
+        if self.review_evidence() {
+            let (_, actual_png_bytes) =
+                Self::render_actual_artifacts(renderer, name, actual, &grouped.actual)?;
+            let expected_paths = artifact_paths(&self.expected_root, name);
+            let expected_artifacts = renderer
+                .render_artifacts(&expected_frame, name)
+                .map_err(SnapshotError::from)?;
+            write_atomic(&expected_paths.png, &expected_artifacts.png)?;
+            write_atomic(&expected_paths.html, expected_artifacts.html.as_bytes())?;
+            grouped.outcome.expected_png = Some(expected_paths.png);
+            grouped.outcome.expected_png_bytes = Some(expected_artifacts.png.clone());
 
-        let verdict = diff::compare_png(&expected_artifacts.png, &actual_png_bytes)?;
-        if verdict.dims_equal {
-            grouped.outcome.pixel_score = Some(verdict.score);
-            if verdict.score < 1.0 {
-                let diff_path = sibling_diff(&self.diff_root, name);
-                write_atomic(&diff_path, &verdict.diff_png)?;
-                grouped.outcome.diff_png = Some(diff_path);
+            let verdict = diff::compare_png(&expected_artifacts.png, &actual_png_bytes)?;
+            if verdict.dims_equal {
+                grouped.outcome.pixel_score = Some(verdict.score);
+                if verdict.score < 1.0 {
+                    let diff_path = sibling_diff(&self.diff_root, name);
+                    write_atomic(&diff_path, &verdict.diff_png)?;
+                    grouped.outcome.diff_png = Some(diff_path);
+                }
             }
         }
 
@@ -277,7 +281,8 @@ impl GroupedStore {
     }
 
     /// Missing-approval path: render fresh actuals anyway (reviewable
-    /// evidence), note the gap, and seal so reports reuse this verdict.
+    /// evidence, unless disabled in `AnsiCursor` mode), note the gap, and seal
+    /// so reports reuse this verdict.
     fn seal_missing_approval(
         &self,
         renderer: &mut Renderer,
@@ -287,7 +292,9 @@ impl GroupedStore {
         pixel_threshold: f64,
         missing: &[&str],
     ) -> Result<(), SnapshotError> {
-        Self::render_actual_artifacts(renderer, name, actual, &grouped.actual)?;
+        if self.artifacts != ArtifactSet::AnsiCursor || self.review_evidence() {
+            Self::render_actual_artifacts(renderer, name, actual, &grouped.actual)?;
+        }
         grouped.outcome.note = format!(
             "missing approved artifact(s) for `{name}`: {}",
             missing.join(" ")

@@ -111,12 +111,13 @@ pub enum KeyEventKind {
     Up,
 }
 
-/// Parse a typed chord such as `"Ctrl+P"`, `"Alt+Enter"`, `"Shift+F5"`,
-/// `"F1"`, or a bare `"a"`.
+/// Parse a typed chord such as `"Ctrl+P"`, `"ctrl-f"`, `"Alt+Enter"`,
+/// `"alt-0"`, `"Shift+F5"`, `"backtab"`, `"F1"`, or a bare `"a"` / `"-"`.
 ///
-/// Modifiers (case-insensitive, any order): `Ctrl`/`Control`/`Ctl`,
-/// `Alt`/`Opt`/`Meta`, `Shift`, `Super`/`Cmd`/`Win`/`Command`. The final
-/// segment names the key: `Enter`/`Return`, `Tab`, `Backspace`/`BS`,
+/// Modifiers (case-insensitive, any order, joined by `+` or `-`):
+/// `Ctrl`/`Control`/`Ctl`, `Alt`/`Opt`/`Meta`, `Shift`,
+/// `Super`/`Cmd`/`Win`/`Command`. The final segment names the key:
+/// `Enter`/`Return`, `Tab`, `BackTab` (`Shift+Tab`), `Backspace`/`BS`,
 /// `Esc`/`Escape`, `Space`, arrows, `Home`/`End`, `PageUp`/`PgUp`,
 /// `PageDown`/`PgDn`, `Insert`/`Ins`, `Delete`/`Del`, `F1`..`F12`, or any
 /// single character.
@@ -126,16 +127,17 @@ pub enum KeyEventKind {
 /// Returns `TuiError::Chord` for empty/unknown modifiers or keys.
 pub fn parse_chord(text: &str) -> Result<(Key, KeyMods), TuiError> {
     let bad = |m: String| TuiError::Chord(m);
-    let mut parts: Vec<&str> = text.split('+').collect();
-    if parts.is_empty() {
+    if text.is_empty() {
         return Err(bad("empty chord".to_string()));
     }
-    let name = parts.pop().unwrap_or_default();
-    if name.is_empty() {
-        return Err(bad(format!("empty key in chord {text:?}")));
-    }
     let mut mods = KeyMods::NONE;
-    for m in parts {
+    let mut rest = text;
+    while rest.chars().count() > 1 || rest == "+" {
+        let Some(idx) = rest.find(['+', '-']) else {
+            break;
+        };
+        let m = &rest[..idx];
+        rest = &rest[idx + 1..];
         match m.to_ascii_lowercase().as_str() {
             "ctrl" | "control" | "ctl" => mods.ctrl = true,
             "alt" | "opt" | "meta" => mods.alt = true,
@@ -145,9 +147,17 @@ pub fn parse_chord(text: &str) -> Result<(Key, KeyMods), TuiError> {
             other => return Err(bad(format!("unknown modifier {other:?} in chord {text:?}"))),
         }
     }
+    let name = rest;
+    if name.is_empty() {
+        return Err(bad(format!("empty key in chord {text:?}")));
+    }
     let key = match name.to_ascii_lowercase().as_str() {
         "enter" | "return" => Key::Enter,
         "tab" => Key::Tab,
+        "backtab" => {
+            mods.shift = true;
+            Key::Tab
+        }
         "backspace" | "bs" => Key::Backspace,
         "esc" | "escape" => Key::Escape,
         "space" => Key::Char(' '),
@@ -229,13 +239,13 @@ impl MouseMods {
 pub enum Signal {
     /// SIGINT.
     Int,
-    /// SIGTERM.
+    /// Termination signal (`SIGTERM`).
     Term,
-    /// SIGKILL.
+    /// Kill signal (`SIGKILL`).
     Kill,
-    /// SIGQUIT.
+    /// Quit signal (`SIGQUIT`).
     Quit,
-    /// SIGHUP.
+    /// Hangup signal (`SIGHUP`).
     Hup,
     /// Raw signal number.
     Custom(i32),
@@ -261,42 +271,35 @@ mod tests {
 
     #[test]
     fn parse_chord_distinguishes_letter_f_from_function_keys() {
-        assert_eq!(
-            parse_chord("f").expect("f"),
-            (Key::Char('f'), KeyMods::NONE)
-        );
-        assert_eq!(
-            parse_chord("F").expect("F"),
-            (Key::Char('F'), KeyMods::NONE)
-        );
-        assert_eq!(
-            parse_chord("ctrl+f").expect("ctrl+f"),
-            (Key::Char('f'), KeyMods::CTRL)
-        );
-        assert_eq!(
-            parse_chord("shift+F").expect("shift+F"),
-            (Key::Char('F'), KeyMods::SHIFT)
-        );
-        assert_eq!(
-            parse_chord("Alt+F").expect("Alt+F"),
-            (Key::Char('F'), KeyMods::ALT)
-        );
-        let (k, m) = parse_chord("Ctrl+Shift+f").expect("Ctrl+Shift+f");
-        assert_eq!(k, Key::Char('f'));
-        assert!(m.ctrl && m.shift && !m.alt);
-        assert_eq!(parse_chord("F1").expect("F1"), (Key::F(1), KeyMods::NONE));
-        assert_eq!(
-            parse_chord("F12").expect("F12"),
-            (Key::F(12), KeyMods::NONE)
-        );
-        assert_eq!(
-            parse_chord("f12").expect("f12"),
-            (Key::F(12), KeyMods::NONE)
-        );
-        assert_eq!(
-            parse_chord("Ctrl+F5").expect("Ctrl+F5"),
-            (Key::F(5), KeyMods::CTRL)
-        );
+        for (spec, expected) in [
+            ("f", (Key::Char('f'), KeyMods::NONE)),
+            ("F", (Key::Char('F'), KeyMods::NONE)),
+            ("ctrl+f", (Key::Char('f'), KeyMods::CTRL)),
+            ("ctrl-f", (Key::Char('f'), KeyMods::CTRL)),
+            ("alt-0", (Key::Char('0'), KeyMods::ALT)),
+            ("shift+F", (Key::Char('F'), KeyMods::SHIFT)),
+            ("shift-F", (Key::Char('F'), KeyMods::SHIFT)),
+            ("Alt+F", (Key::Char('F'), KeyMods::ALT)),
+            ("backtab", (Key::Tab, KeyMods::SHIFT)),
+            ("BackTab", (Key::Tab, KeyMods::SHIFT)),
+            ("-", (Key::Char('-'), KeyMods::NONE)),
+            ("ctrl+-", (Key::Char('-'), KeyMods::CTRL)),
+            ("ctrl--", (Key::Char('-'), KeyMods::CTRL)),
+            ("F1", (Key::F(1), KeyMods::NONE)),
+            ("F12", (Key::F(12), KeyMods::NONE)),
+            ("f12", (Key::F(12), KeyMods::NONE)),
+            ("Ctrl+F5", (Key::F(5), KeyMods::CTRL)),
+        ] {
+            assert_eq!(parse_chord(spec).expect(spec), expected, "{spec}");
+        }
+        for spec in ["Ctrl+Shift+f", "ctrl-shift-f"] {
+            let (k, m) = parse_chord(spec).expect("ctrl+shift+f");
+            assert_eq!(k, Key::Char('f'));
+            assert!(m.ctrl && m.shift && !m.alt);
+        }
+        let (bt_k, bt_m) = parse_chord("ctrl+backtab").expect("ctrl+backtab");
+        assert_eq!(bt_k, Key::Tab);
+        assert!(bt_m.ctrl && bt_m.shift && !bt_m.alt);
 
         for bad_fn in ["F0", "F01", "f01", "F13"] {
             let err = parse_chord(bad_fn)
@@ -304,7 +307,8 @@ mod tests {
                 .to_string();
             assert!(err.contains("bad function key"), "{bad_fn}: {err}");
         }
-        let fx = parse_chord("fx").expect_err("fx is unknown").to_string();
-        assert!(fx.contains("unknown key"), "{fx}");
+        for bad_spec in ["fx", "foo-bar"] {
+            assert!(parse_chord(bad_spec).is_err(), "{bad_spec} must fail");
+        }
     }
 }

@@ -71,7 +71,13 @@ impl GroupedStore {
                 )));
             }
             write_atomic(&approved.ansi, &bytes)?;
-            for stale in [&approved.txt, &approved.png, &approved.html] {
+            let approved_fidelity = approved.png.with_extension("png.fidelity.json");
+            for stale in [
+                &approved.txt,
+                &approved.png,
+                &approved.html,
+                &approved_fidelity,
+            ] {
                 match std::fs::remove_file(stale) {
                     Ok(()) => {}
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}

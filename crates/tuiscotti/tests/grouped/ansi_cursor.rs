@@ -155,8 +155,8 @@ fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
             && !o1.actual.txt.exists()
     );
 
-    // Plant legacy 4-artifact files in approved/ to verify accept cleans them up.
-    for ext in ["txt", "png", "html"] {
+    // Plant legacy 4-artifact + fidelity files in approved/ to verify accept cleans them up.
+    for ext in ["txt", "png", "html", "png.fidelity.json"] {
         let p = approved.join(format!("{name}.{ext}"));
         std::fs::create_dir_all(p.parent().expect("parent")).expect("mkdir");
         std::fs::write(&p, b"legacy").expect("write legacy");
@@ -319,43 +319,24 @@ fn e2e_real_binary_through_ansi_cursor_store_with_zero_absolute_paths() {
         .check(name, &f_v2, &profile(), &VENDORED_FACES, 1.0)
         .expect("mismatch check");
     assert_eq!(o_mismatch.status(), Status::CellsDiffer);
-    assert!(o_mismatch.actual.png.is_file());
-    assert!(o_mismatch.actual.html.is_file());
-    assert!(
-        o_mismatch
-            .outcome
-            .expected_png
-            .as_ref()
-            .expect("expected_png")
-            .is_file()
-    );
-    assert!(
-        o_mismatch
-            .outcome
-            .diff_png
-            .as_ref()
-            .expect("diff_png")
-            .is_file()
-    );
+    assert!(o_mismatch.actual.png.is_file() && o_mismatch.actual.html.is_file());
+    let out = &o_mismatch.outcome;
+    assert!(out.expected_png.as_ref().expect("exp").is_file());
+    assert!(out.diff_png.as_ref().expect("diff").is_file());
 
     let tmp_prefix = dir.path().to_string_lossy().into_owned();
-    let expected_root = st.expected_root();
-    for root in [
+    let roots = [
         st.approved_root(),
         st.actual_root(),
-        expected_root,
+        st.expected_root(),
         st.diff_root(),
-    ] {
+    ];
+    for root in roots {
         for rel in tree_files(root).expect("tree_files") {
             let full = root.join(&rel);
-            let bytes = std::fs::read(&full).expect("read artifact");
-            let text = String::from_utf8_lossy(&bytes);
-            for forbidden in ["/Users/alice", &tmp_prefix, "/private/var", "/var/folders"] {
-                assert!(
-                    !text.contains(forbidden),
-                    "artifact {} leaked host path {forbidden:?}",
-                    full.display()
-                );
+            let text = String::from_utf8_lossy(&std::fs::read(&full).expect("read")).into_owned();
+            for bad in ["/Users/alice", &tmp_prefix, "/private/var", "/var/folders"] {
+                assert!(!text.contains(bad), "{} leaked {bad:?}", full.display());
             }
         }
     }
@@ -365,4 +346,44 @@ fn e2e_real_binary_through_ansi_cursor_store_with_zero_absolute_paths() {
         .check(name, &f_v2, &profile(), &VENDORED_FACES, 1.0)
         .expect("pass check 2");
     assert_eq!(o_pass2.status(), Status::Matched);
+}
+
+#[test]
+fn ansi_cursor_without_review_evidence_skips_rasterization_and_accepts() {
+    let (_dir, st) = tmp_store("no_review_ev").expect("tmp_store");
+    let st = st
+        .with_artifacts(ArtifactSet::AnsiCursor)
+        .with_review_evidence(false);
+    assert!(!st.review_evidence());
+
+    let name = "fast/sweep/page";
+    let f1 = frame_with("v1");
+    let o_miss = st
+        .check(name, &f1, &profile(), &VENDORED_FACES, 1.0)
+        .expect("missing check");
+    assert_eq!(o_miss.status(), Status::MissingApproval);
+    assert!(o_miss.actual.ansi.is_file() && o_miss.actual.frame_json.is_file());
+    assert!(!o_miss.actual.png.exists() && !o_miss.actual.html.exists());
+    st.accept(name).expect("accept v1");
+
+    let f2 = frame_with("v2");
+    let o_diff = st
+        .check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
+        .expect("mismatch check");
+    assert_eq!(o_diff.status(), Status::CellsDiffer);
+    assert!(!o_diff.outcome.cell_diffs.is_empty());
+    assert!(!o_diff.actual.png.exists() && !o_diff.actual.html.exists());
+    assert!(o_diff.outcome.expected_png.is_none() && o_diff.outcome.diff_png.is_none());
+    if tuiscotti::grouped::is_ci_env() {
+        st.accept(name).expect("accept v2");
+    } else {
+        assert_eq!(
+            st.accept_matching("fast/sweep/*").expect("accept_matching"),
+            vec![name.to_string()]
+        );
+    }
+    let o_pass = st
+        .check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
+        .expect("recheck");
+    assert_eq!(o_pass.status(), Status::Matched);
 }
