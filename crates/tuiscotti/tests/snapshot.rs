@@ -5,6 +5,9 @@ use ratatui::widgets::Paragraph;
 use tuiscotti::snapshot::Store;
 use tuiscotti::{Profile, Provenance};
 
+mod common;
+use common::rerun_without_ci;
+
 #[path = "snapshot/lifecycle.rs"]
 mod lifecycle;
 #[path = "snapshot/safety.rs"]

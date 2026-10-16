@@ -100,14 +100,22 @@ impl Store {
     }
 
     /// Explicitly approve one snapshot: actual → approved (atomic).
-    /// There is deliberately no environment-variable auto-accept.
+    /// There is deliberately no environment-variable auto-accept, and
+    /// approval is refused when `CI` is set.
     ///
     /// # Errors
     ///
-    /// Returns `SnapshotError` when actual artifacts are missing or writes fail.
+    /// Returns `SnapshotError` when `CI` is set, actual artifacts are missing,
+    /// or writes fail.
     pub fn accept(&self, name: &str) -> Result<(), SnapshotError> {
         // F1: every path below joins `name` — reject escapes before any copy.
         crate::grouped::validate_name(name)?;
+        if crate::grouped::is_ci_env() {
+            return Err(SnapshotError(
+                "refusing `accept` because CI is set: approving snapshots is local only"
+                    .to_string(),
+            ));
+        }
         for (src, dst) in [
             (self.actual_frame(name), self.approved_frame(name)),
             (self.actual_png(name), self.approved_png(name)),

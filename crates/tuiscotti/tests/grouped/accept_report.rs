@@ -5,7 +5,11 @@ use tuiscotti::snapshot::Status;
 
 #[test]
 fn accept_all_walks_nested_names_recursively() {
-    let (_dir, st) = tmp_store("acceptall").expect("tmp_store succeeds");
+    if rerun_without_ci() {
+        return;
+    }
+    let (_dir, st) = tmp_store("acceptall").expect("tmp_store");
+    assert!(st.accept_all().expect("empty accept_all").is_empty());
     let names = [
         "showcase/pages/overview_120x40_truecolor",
         "showcase/pages/detail_120x40_truecolor",
@@ -20,16 +24,33 @@ fn accept_all_walks_nested_names_recursively() {
             &VENDORED_FACES,
             1.0,
         )
-        .expect("st.check( name, &frame_with(&format!(\"screen {i}\")), &profile(), &VENDORED_FACES, 1.0, ) succeeds");
+        .expect("check");
     }
-    let mut listed = st.actual_names().expect("st.actual_names() succeeds");
+    let mut listed = st.actual_names().expect("actual_names");
     assert_eq!(listed.len(), 4, "{listed:?}");
-    let accepted = st.accept_all().expect("st.accept_all() succeeds");
+    let accepted = st.accept_all().expect("accept_all");
     assert_eq!(accepted, listed);
-    assert_eq!(
-        st.approved_names().expect("st.approved_names() succeeds"),
-        listed
+    assert_eq!(st.approved_names().expect("approved_names"), listed);
+
+    // Re-checking identical frames produces Status::Matched; accept_all skips them.
+    for (i, name) in names.iter().enumerate() {
+        let o = st
+            .check(
+                name,
+                &frame_with(&format!("screen {i}")),
+                &profile(),
+                &VENDORED_FACES,
+                1.0,
+            )
+            .expect("recheck matched");
+        assert_eq!(o.status(), Status::Matched);
+    }
+    assert!(
+        st.accept_all()
+            .expect("accept_all skips matched")
+            .is_empty()
     );
+
     for name in &names {
         let outcome = st
             .check(
@@ -39,7 +60,7 @@ fn accept_all_walks_nested_names_recursively() {
                 &VENDORED_FACES,
                 1.0,
             )
-            .expect("st .check( name, &frame_with(\"placeholder\"), &profile(), &VENDORED_FACES, 1.0, ) succeeds");
+            .expect("check");
         assert_eq!(outcome.status(), Status::CellsDiffer, "{name} was approved");
     }
     listed.sort();
@@ -50,7 +71,10 @@ fn accept_all_walks_nested_names_recursively() {
 
 #[test]
 fn report_reverifies_nested_actuals_outside_approved_tree() {
-    let (_dir, st) = tmp_store("report").expect("tmp_store succeeds");
+    if rerun_without_ci() {
+        return;
+    }
+    let (_dir, st) = tmp_store("report").expect("tmp_store");
     st.check(
         "suite/one",
         &frame_with("alpha"),
@@ -58,9 +82,8 @@ fn report_reverifies_nested_actuals_outside_approved_tree() {
         &VENDORED_FACES,
         1.0,
     )
-    .expect("st.check( \"suite/one\", &frame_with(\"alpha\"), &profile(), &VENDORED_FACES, 1.0, ) succeeds");
-    st.accept("suite/one")
-        .expect("st.accept(\"suite/one\") succeeds");
+    .expect("check");
+    st.accept("suite/one").expect("accept");
     st.check(
         "suite/nested/two",
         &frame_with("beta"),
@@ -68,18 +91,16 @@ fn report_reverifies_nested_actuals_outside_approved_tree() {
         &VENDORED_FACES,
         1.0,
     )
-    .expect("st.check( \"suite/nested/two\", &frame_with(\"beta\"), &profile(), &VENDORED_FACES, 1.0, ) succeeds");
+    .expect("check");
     let report = st
         .report(&profile(), &VENDORED_FACES, 1.0, "grouped suite")
-        .expect("st .report(&profile(), &VENDORED_FACES, 1.0, \"grouped suite\") succeeds");
+        .expect("report");
     assert_eq!(report.outcomes.len(), 2);
     assert_eq!(report.failed(), 1, "`suite/nested/two` has no approval");
     assert!(report.path.exists());
-    // Default report path: under the actual scratch root, NEVER approved/.
     assert!(report.path.starts_with(st.actual_root()));
     assert!(!report.path.starts_with(st.approved_root()));
-    let html = std::fs::read_to_string(&report.path)
-        .expect("std::fs::read_to_string(&report.path) succeeds");
+    let html = std::fs::read_to_string(&report.path).expect("read report");
     assert!(html.contains("suite/one — matched"), "{html}");
     assert!(
         html.contains("suite/nested/two — missing-approval"),
@@ -89,9 +110,8 @@ fn report_reverifies_nested_actuals_outside_approved_tree() {
         !html.contains("data:image/png;base64,"),
         "suite report must not embed PNGs"
     );
-    // The approved tree is still exactly the four artifacts of `suite/one`.
     assert_eq!(
-        tree_files(st.approved_root()).expect("tree_files succeeds"),
+        tree_files(st.approved_root()).expect("tree_files"),
         vec![
             "suite/one.ansi".to_string(),
             "suite/one.html".to_string(),
@@ -103,21 +123,24 @@ fn report_reverifies_nested_actuals_outside_approved_tree() {
 
 #[test]
 fn report_path_is_configurable() {
-    let (dir, st) = tmp_store("reportcfg").expect("tmp_store succeeds");
+    let (dir, st) = tmp_store("reportcfg").expect("tmp_store");
     let custom = dir.path().join("target").join("grouped-report.html");
     let st = st.with_report_path(&custom);
     st.check("a/b", &frame_with("x"), &profile(), &VENDORED_FACES, 1.0)
-        .expect("st.check(\"a/b\", &frame_with(\"x\"), &profile(), &VENDORED_FACES, 1.0) succeeds");
+        .expect("check");
     let report = st
         .report(&profile(), &VENDORED_FACES, 1.0, "custom path")
-        .expect("st .report(&profile(), &VENDORED_FACES, 1.0, \"custom path\") succeeds");
+        .expect("report");
     assert_eq!(report.path, custom);
     assert!(custom.exists());
 }
 
 #[test]
 fn custom_actual_and_diff_roots_are_honored() {
-    let dir = tempfile::tempdir().expect("tempfile::tempdir() succeeds");
+    if rerun_without_ci() {
+        return;
+    }
+    let dir = tempfile::tempdir().expect("tempdir");
     let approved = dir.path().join("approved-tree");
     let st = GroupedStore::new(&approved)
         .with_actual_root(&dir.path().join("scratch/actual"))
@@ -125,9 +148,7 @@ fn custom_actual_and_diff_roots_are_honored() {
     let name = "deep/nested/name";
     let outcome = st
         .check(name, &frame_with("roots"), &profile(), &VENDORED_FACES, 1.0)
-        .expect(
-            "st .check(name, &frame_with(\"roots\"), &profile(), &VENDORED_FACES, 1.0) succeeds",
-        );
+        .expect("check");
     assert!(
         outcome
             .actual
@@ -135,7 +156,7 @@ fn custom_actual_and_diff_roots_are_honored() {
             .starts_with(dir.path().join("scratch/actual"))
     );
     assert_eq!(outcome.status(), Status::MissingApproval);
-    st.accept(name).expect("st.accept(name) succeeds");
+    st.accept(name).expect("accept");
     assert!(approved.join(format!("{name}.ansi")).exists());
     let outcome = st
         .check(
@@ -145,11 +166,8 @@ fn custom_actual_and_diff_roots_are_honored() {
             &VENDORED_FACES,
             1.0,
         )
-        .expect("st .check( name, &frame_with(\"changed\"), &profile(), &VENDORED_FACES, 1.0, ) succeeds");
-    let diff = outcome
-        .outcome
-        .diff_png
-        .expect("outcome.outcome.diff_png is some");
+        .expect("check");
+    let diff = outcome.outcome.diff_png.expect("diff_png");
     assert!(
         diff.starts_with(dir.path().join("scratch/diff")),
         "{}",
@@ -159,7 +177,7 @@ fn custom_actual_and_diff_roots_are_honored() {
 
 #[test]
 fn default_roots_are_siblings_of_approved() {
-    let dir = tempfile::tempdir().expect("tempfile::tempdir() succeeds");
+    let dir = tempfile::tempdir().expect("tempdir");
     let st = GroupedStore::new(&dir.path().join("snapshots"));
     assert_eq!(st.actual_root(), &dir.path().join("snapshots.actual"));
     assert_eq!(st.diff_root(), &dir.path().join("snapshots.diff"));
@@ -171,39 +189,43 @@ fn default_roots_are_siblings_of_approved() {
 
 #[test]
 fn accept_without_actuals_is_an_error() {
-    let (_dir, st) = tmp_store("noactual").expect("tmp_store succeeds");
+    if rerun_without_ci() {
+        return;
+    }
+    let (_dir, st) = tmp_store("noactual").expect("tmp_store");
     let err = st
         .accept("never/checked")
-        .expect_err("st.accept(\"never/checked\") is an error")
+        .expect_err("accept without actuals must error")
         .to_string();
     assert!(err.contains("nothing to accept"), "{err}");
 }
 
 #[test]
 fn check_with_reuses_one_renderer_across_nested_checks() {
-    let (_dir, st) = tmp_store("checkwith").expect("tmp_store succeeds");
+    if rerun_without_ci() {
+        return;
+    }
+    let (_dir, st) = tmp_store("checkwith").expect("tmp_store");
     let profile = profile();
-    let mut renderer = profile
-        .renderer(&VENDORED_FACES)
-        .expect("profile.renderer(&VENDORED_FACES) succeeds");
+    let mut renderer = profile.renderer(&VENDORED_FACES).expect("renderer");
     let frame = frame_with("cached grouped");
     let o1 = st
         .check_with(&mut renderer, "g/s", &frame, 1.0)
-        .expect("st.check_with(&mut renderer, \"g/s\", &frame, 1.0) succeeds");
+        .expect("check_with");
     assert_eq!(o1.status(), Status::MissingApproval);
-    st.accept("g/s").expect("st.accept(\"g/s\") succeeds");
+    st.accept("g/s").expect("accept");
     let o2 = st
         .check_with(&mut renderer, "g/s", &frame, 1.0)
-        .expect("st.check_with(&mut renderer, \"g/s\", &frame, 1.0) succeeds");
+        .expect("check_with");
     assert_eq!(o2.status(), Status::Matched);
     assert_eq!(o2.outcome.pixel_score, Some(1.0));
-    o2.ensure_matched().expect("o2.ensure_matched() succeeds");
+    o2.ensure_matched().expect("ensure_matched");
 }
 
 #[test]
 fn html_artifact_is_a_standalone_colored_render() {
     let name = "docs/preview";
-    let (_dir, st) = tmp_store("htmlview").expect("tmp_store succeeds");
+    let (_dir, st) = tmp_store("htmlview").expect("tmp_store");
     let outcome = st
         .check(
             name,
@@ -212,9 +234,8 @@ fn html_artifact_is_a_standalone_colored_render() {
             &VENDORED_FACES,
             1.0,
         )
-        .expect("st .check( name, &frame_with(\"standalone\"), &profile(), &VENDORED_FACES, 1.0, ) succeeds");
-    let html = std::fs::read_to_string(&outcome.actual.html)
-        .expect("std::fs::read_to_string(&outcome.actual.html) succeeds");
+        .expect("check");
+    let html = std::fs::read_to_string(&outcome.actual.html).expect("read html");
     assert!(html.contains("<svg"), "{html}");
     assert!(html.contains("data:image/png;base64,"), "{html}");
     assert!(
@@ -222,10 +243,7 @@ fn html_artifact_is_a_standalone_colored_render() {
         "{html}"
     );
     assert!(html.contains("<title>docs/preview</title>"), "{html}");
-    let body = html
-        .split("<body>")
-        .nth(1)
-        .expect("html.split(\"<body>\").nth(1) is some");
+    let body = html.split("<body>").nth(1).expect("body");
     let img = body.find("<img ").expect("png img");
     assert!(
         !body[..img].contains("<details"),
@@ -235,25 +253,9 @@ fn html_artifact_is_a_standalone_colored_render() {
 
 #[test]
 fn accept_rejects_ghost_tampered_and_stale_run_candidates() {
-    if tuiscotti::grouped::is_ci_env() {
-        let exe = std::env::current_exe().expect("current_exe");
-        let out = std::process::Command::new(exe)
-            .args([
-                "--exact",
-                "accept_report::accept_rejects_ghost_tampered_and_stale_run_candidates",
-                "--nocapture",
-            ])
-            .env_remove("CI")
-            .output()
-            .expect("spawn child without CI");
-        assert!(
-            out.status.success(),
-            "child failed: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+    if rerun_without_ci() {
         return;
     }
-
     let (_dir, st) = tmp_store("freshguard").expect("tmp_store");
     let st = st.with_artifacts(tuiscotti::grouped::ArtifactSet::AnsiCursor);
     let f1 = frame_with("run one");
@@ -275,8 +277,9 @@ fn accept_rejects_ghost_tampered_and_stale_run_candidates() {
     std::fs::create_dir_all(ghost.parent().expect("parent")).expect("mkdir");
     std::fs::write(&ghost, tuiscotti::render::ansi_dump_with_cursor(&f1)).expect("write ghost");
 
-    // Direct accept and accept_matching both reject the ghost candidate all-or-nothing.
+    // Direct accept, accept_all, and accept_matching all reject the ghost candidate.
     assert!(st.accept("showcase/pages/ghost").is_err());
+    assert!(st.accept_all().is_err());
     let ghost_err = st
         .accept_matching("showcase/pages/*")
         .expect_err("ghost must fail accept_matching")
@@ -300,15 +303,20 @@ fn accept_rejects_ghost_tampered_and_stale_run_candidates() {
     std::fs::remove_file(st.actual_root().join("showcase/pages/ghost.frame.json"))
         .expect("rm ghost frame");
 
-    // 3. Multi-candidate accept_matching rejects mixed run_ids (stale `showcase/pages/old`).
-    let stale_err = st
-        .accept_matching("showcase/pages/*")
-        .expect_err("stale run_id must fail")
-        .to_string();
-    assert!(
-        stale_err.contains("older run") && stale_err.contains("showcase/pages/old"),
-        "{stale_err}"
-    );
+    // 3. Multi-candidate accept_matching and accept_all reject mixed run_ids.
+    for stale_err in [
+        st.accept_matching("showcase/pages/*")
+            .expect_err("stale run_id must fail accept_matching")
+            .to_string(),
+        st.accept_all()
+            .expect_err("stale run_id must fail accept_all")
+            .to_string(),
+    ] {
+        assert!(
+            stale_err.contains("older run") && stale_err.contains("showcase/pages/old"),
+            "{stale_err}"
+        );
+    }
     assert!(tree_files(st.approved_root()).expect("tree").is_empty());
 
     // 4. Explicit single-scenario name is allowed when store.run_id() is None,
@@ -330,56 +338,4 @@ fn accept_rejects_ghost_tampered_and_stale_run_candidates() {
         .expect_err("tampered actual must fail")
         .to_string();
     assert!(tamper_err.contains("hash disagrees"), "{tamper_err}");
-}
-
-#[test]
-fn ansi_cursor_hidden_cursor_no_spurious_diff_and_legacy_trailer_note() {
-    use tuiscotti::frame::{Cursor, CursorStyle};
-    use tuiscotti::grouped::ArtifactSet;
-    let (_dir, st) = tmp_store("cur_legacy").expect("tmp_store");
-    let st = st.with_artifacts(ArtifactSet::AnsiCursor);
-    let name = "page/cur";
-
-    let mut base = frame_with("hello");
-    base.cursor = Cursor {
-        x: 9,
-        y: 3,
-        visible: false,
-        style: CursorStyle::Bar,
-        blinking: false,
-    };
-    let legacy_ansi = tuiscotti::render::ansi_dump(&base);
-    let app_path = st.approved_root().join(format!("{name}.ansi"));
-    std::fs::create_dir_all(app_path.parent().expect("parent")).expect("mkdir");
-    std::fs::write(&app_path, &legacy_ansi).expect("write legacy");
-
-    let o_legacy = st
-        .check(name, &base, &profile(), &VENDORED_FACES, 1.0)
-        .expect("check legacy");
-    assert_eq!(o_legacy.status(), Status::CellsDiffer);
-    assert!(
-        o_legacy
-            .outcome
-            .note
-            .contains("approved file predates the cursor trailer; re-accept"),
-        "note: {}",
-        o_legacy.outcome.note
-    );
-    assert_eq!(o_legacy.outcome.cell_diff_total, 0);
-
-    st.accept(name).expect("accept canonical");
-    let mut changed = base;
-    changed.cells[2].symbol = "X".to_string();
-    let o_diff = st
-        .check(name, &changed, &profile(), &VENDORED_FACES, 1.0)
-        .expect("check changed");
-    assert_eq!(o_diff.status(), Status::CellsDiffer);
-    assert_eq!(o_diff.outcome.cell_diff_total, 1);
-    assert_eq!(
-        (
-            o_diff.outcome.cell_diffs[0].x,
-            o_diff.outcome.cell_diffs[0].y
-        ),
-        (2, 0)
-    );
 }

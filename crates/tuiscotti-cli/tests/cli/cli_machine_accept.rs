@@ -231,7 +231,18 @@ fn cli_accept_invalid() {
     let _seed = store
         .check("home", &frame, &profile, &tuiscotti::VENDORED_FACES, 1.0)
         .expect("seed check");
-    store.accept("home").expect("seed accept");
+    let seed = run_cli(
+        &[
+            "accept",
+            "--store",
+            store_dir.to_str().expect("utf8 path"),
+            "home",
+        ],
+        &[],
+        None,
+    )
+    .expect("seed accept via cli");
+    assert_eq!(code(&seed), Some(0));
 
     let out = run_cli(
         &[

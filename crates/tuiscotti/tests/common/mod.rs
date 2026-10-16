@@ -45,3 +45,33 @@ fn is_ci() -> bool {
         Some(_) => true,
     }
 }
+
+/// Re-execute the current test in a child process with `CI` removed when the
+/// outer test runner (`cargo test` / `cargo nextest` on GitHub Actions) set
+/// `CI` in the ambient environment.
+pub(crate) fn rerun_without_ci() -> bool {
+    if !tuiscotti::grouped::is_ci_env() {
+        return false;
+    }
+    let exact = std::thread::current()
+        .name()
+        .unwrap_or_default()
+        .to_string();
+    assert!(!exact.is_empty(), "libtest sets test thread name");
+    let exe = env::current_exe().unwrap_or_default();
+    assert!(!exe.as_os_str().is_empty(), "current_exe failed");
+    let out = std::process::Command::new(exe)
+        .args(["--exact", &exact, "--nocapture"])
+        .env_remove("CI")
+        .output();
+    assert!(out.is_ok(), "spawn child without CI failed");
+    if let Ok(out) = out {
+        assert!(
+            out.status.success(),
+            "child `{exact}` failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr),
+        );
+    }
+    true
+}

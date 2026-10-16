@@ -1,6 +1,6 @@
 //! README grouped store + fallback chain (split from `readme_lock.rs`; shared helpers live in the root).
 
-use super::home_frame;
+use super::{home_frame, rerun_without_ci};
 use tuiscotti::{Profile, VENDORED_FACES};
 
 // ---------------------------------------------------------------------------
@@ -21,6 +21,9 @@ fn readme_grouped_store() {
         Ok(())
     }
 
+    if rerun_without_ci() {
+        return;
+    }
     let tmp = tempfile::tempdir().expect("tempdir");
     let store = tuiscotti::grouped::GroupedStore::new(&tmp.path().join("snapshots"));
     // Documented defaults live outside the approved tree.

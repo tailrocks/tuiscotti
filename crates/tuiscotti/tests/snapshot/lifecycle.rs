@@ -18,6 +18,9 @@ fn missing_approval_fails_closed_but_writes_actuals() {
 
 #[test]
 fn accept_then_match_round_trip() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("accept").expect("tmp store");
     let frame = frame_with("stable screen");
     let o1 = st
@@ -35,6 +38,9 @@ fn accept_then_match_round_trip() {
 
 #[test]
 fn changed_snapshot_reports_cells_and_diff_image() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("changed").expect("tmp store");
     let _outcome = st
         .check(
@@ -70,6 +76,9 @@ fn changed_snapshot_reports_cells_and_diff_image() {
 
 #[test]
 fn check_writes_fidelity_sidecar_next_to_actual_png() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("fidelity").expect("tmp store");
     let frame = frame_with("crab 🦀");
     let outcome = st

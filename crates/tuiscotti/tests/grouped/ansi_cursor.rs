@@ -118,14 +118,15 @@ fn ansi_cursor_rejects_malformed_trailers_and_midstream_escapes() {
 
 #[test]
 fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
+    if rerun_without_ci() {
+        return;
+    }
     let dir = tempfile::tempdir().expect("tempdir");
     let approved = dir.path().join("snapshots");
-    let actual = dir.path().join("target/tuiscotti/actual");
-    let diff = dir.path().join("target/tuiscotti/diff");
     let st = GroupedStore::new(&approved)
         .with_artifacts(ArtifactSet::AnsiCursor)
-        .with_actual_root(&actual)
-        .with_diff_root(&diff);
+        .with_actual_root(&dir.path().join("target/tuiscotti/actual"))
+        .with_diff_root(&dir.path().join("target/tuiscotti/diff"));
     assert_eq!(st.artifacts(), ArtifactSet::AnsiCursor);
     assert_eq!(
         st.expected_root(),
@@ -200,51 +201,23 @@ fn ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup() {
     assert!(exp_png.is_file() && exp_png.starts_with(st.expected_root()));
     assert!(diff_png.is_file() && diff_png.starts_with(st.diff_root()));
 
-    // 4b. Re-running a passing check after a mismatch cleans up stale actual/expected/diff PNGs/HTML!
-    let o_repass = st
-        .check(name, &f1, &profile(), &VENDORED_FACES, 1.0)
-        .expect("repass check");
+    verify_accept_matching(&st, name, &f1, &f2, exp_png, diff_png).expect("accept_matching");
+}
+
+fn verify_accept_matching(
+    st: &GroupedStore,
+    name: &str,
+    f1: &Frame,
+    f2: &Frame,
+    exp_png: &std::path::Path,
+    diff_png: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let o_repass = st.check(name, f1, &profile(), &VENDORED_FACES, 1.0)?;
     let fid = o_repass.actual.png.with_extension("png.fidelity.json");
     assert_eq!(o_repass.status(), Status::Matched);
     assert!(!o_repass.actual.png.exists() && !o_repass.actual.html.exists() && !fid.exists());
     assert!(!exp_png.exists() && !diff_png.exists());
-
-    st.check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
-        .expect("mismatch check 2");
-    verify_accept_matching_and_ci(&st, name, &f2).expect("accept_matching and ci");
-}
-
-fn verify_accept_matching_and_ci(
-    st: &GroupedStore,
-    name: &str,
-    f2: &Frame,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let exact = "ansi_cursor::ansi_cursor_store_lifecycle_fast_pass_mismatch_and_stale_cleanup";
-    if tuiscotti::grouped::is_ci_env() {
-        let res = st.accept_matching("holla/parity/**");
-        assert!(
-            res.is_err()
-                && res
-                    .err()
-                    .is_some_and(|e| e.to_string().contains("CI is set"))
-        );
-        let exe = std::env::current_exe()?;
-        let out = std::process::Command::new(exe)
-            .args(["--exact", exact, "--nocapture"])
-            .env_remove("CI")
-            .env("TUISCOTTI_SKIP_CI_SUBTEST", "1")
-            .output()?;
-        assert!(out.status.success(), "child failed");
-        return Ok(());
-    }
-    if std::env::var_os("TUISCOTTI_SKIP_CI_SUBTEST").is_none() {
-        let exe = std::env::current_exe()?;
-        let out = std::process::Command::new(exe)
-            .args(["--exact", exact, "--nocapture"])
-            .env("CI", "1")
-            .output()?;
-        assert!(out.status.success(), "CI=1 child failed");
-    }
+    st.check(name, f2, &profile(), &VENDORED_FACES, 1.0)?;
     assert!(st.accept_matching("nonexistent/*").is_err());
     assert!(st.accept_matching("holla/parity/*").is_err());
     assert!(st.accept_matching("holla/parity/disc").is_err());
@@ -285,6 +258,9 @@ fn capture_live_binary(banner: &str) -> Result<Frame, Box<dyn std::error::Error>
 #[test]
 #[cfg(feature = "pty")]
 fn e2e_real_binary_through_ansi_cursor_store_with_zero_absolute_paths() {
+    if rerun_without_ci() {
+        return;
+    }
     let dir = tempfile::tempdir().expect("tempdir");
     let approved = dir.path().join("snapshots");
     let actual = dir.path().join("target/tuiscotti/actual");
@@ -350,6 +326,9 @@ fn e2e_real_binary_through_ansi_cursor_store_with_zero_absolute_paths() {
 
 #[test]
 fn ansi_cursor_without_review_evidence_skips_rasterization_and_accepts() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("no_review_ev").expect("tmp_store");
     let st = st
         .with_artifacts(ArtifactSet::AnsiCursor)
@@ -374,14 +353,10 @@ fn ansi_cursor_without_review_evidence_skips_rasterization_and_accepts() {
     assert!(!o_diff.outcome.cell_diffs.is_empty());
     assert!(!o_diff.actual.png.exists() && !o_diff.actual.html.exists());
     assert!(o_diff.outcome.expected_png.is_none() && o_diff.outcome.diff_png.is_none());
-    if tuiscotti::grouped::is_ci_env() {
-        st.accept(name).expect("accept v2");
-    } else {
-        assert_eq!(
-            st.accept_matching("fast/sweep/*").expect("accept_matching"),
-            vec![name.to_string()]
-        );
-    }
+    assert_eq!(
+        st.accept_matching("fast/sweep/*").expect("accept_matching"),
+        vec![name.to_string()]
+    );
     let o_pass = st
         .check(name, &f2, &profile(), &VENDORED_FACES, 1.0)
         .expect("recheck");

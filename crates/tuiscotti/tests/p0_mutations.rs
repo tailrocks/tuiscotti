@@ -13,6 +13,9 @@ use tuiscotti::grouped::GroupedStore;
 use tuiscotti::snapshot::Store;
 use tuiscotti::{Profile, Provenance};
 
+mod common;
+use common::rerun_without_ci;
+
 #[path = "p0_mutations/evidence.rs"]
 mod evidence;
 #[path = "p0_mutations/integrity.rs"]

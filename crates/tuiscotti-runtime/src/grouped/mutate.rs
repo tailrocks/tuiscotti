@@ -31,10 +31,16 @@ impl GroupedStore {
     ///
     /// # Errors
     ///
-    /// Returns `SnapshotError` when actual artifacts are missing, unsealed,
-    /// invalid, or writes fail.
+    /// Returns `SnapshotError` when `CI` is set, actual artifacts are missing,
+    /// unsealed, invalid, or writes fail.
     pub fn accept(&self, name: &str) -> Result<(), SnapshotError> {
         validate_name(name)?;
+        if is_ci_env() {
+            return Err(SnapshotError(
+                "refusing `accept` because CI is set: approving snapshots is local only"
+                    .to_string(),
+            ));
+        }
         let actual = artifact_paths(&self.actual_root, name);
         let approved = artifact_paths(&self.approved_root, name);
         if !actual.ansi.exists() {
@@ -45,51 +51,7 @@ impl GroupedStore {
         }
         self.inspect_candidate_for_accept(name)?;
         if self.artifacts == ArtifactSet::AnsiCursor {
-            let bytes = std::fs::read(&actual.ansi).map_err(|e| {
-                SnapshotError(format!(
-                    "nothing to accept for `{name}` (.ansi {}: {e})",
-                    actual.ansi.display()
-                ))
-            })?;
-            let text = std::str::from_utf8(&bytes).map_err(|e| {
-                SnapshotError(format!(
-                    "cannot accept `{name}` (.ansi {} is not valid UTF-8: {e})",
-                    actual.ansi.display()
-                ))
-            })?;
-            let prov = Provenance::now("tuiscotti", "accept", Vec::new());
-            let decoded = frame_from_ansi(text, prov).map_err(|e| {
-                SnapshotError(format!(
-                    "cannot accept `{name}` (.ansi {} is not a valid frame: {e})",
-                    actual.ansi.display()
-                ))
-            })?;
-            if tuiscotti_render::render::ansi_dump_with_cursor(&decoded) != text {
-                return Err(SnapshotError(format!(
-                    "cannot accept `{name}` (.ansi {} does not round-trip losslessly)",
-                    actual.ansi.display()
-                )));
-            }
-            write_atomic(&approved.ansi, &bytes)?;
-            let approved_fidelity = approved.png.with_extension("png.fidelity.json");
-            for stale in [
-                &approved.txt,
-                &approved.png,
-                &approved.html,
-                &approved_fidelity,
-            ] {
-                match std::fs::remove_file(stale) {
-                    Ok(()) => {}
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(e) => {
-                        return Err(SnapshotError(format!(
-                            "cannot remove stale approved artifact {}: {e}",
-                            stale.display()
-                        )));
-                    }
-                }
-            }
-            return Ok(());
+            return Self::accept_ansi_cursor(name, &actual.ansi, &approved);
         }
         for (src, dst, label) in [
             (&actual.ansi, &approved.ansi, ".ansi"),
@@ -108,18 +70,72 @@ impl GroupedStore {
         Ok(())
     }
 
-    /// Accept every scenario with actual artifacts, recursively. Returns the
-    /// accepted names (sorted).
+    fn accept_ansi_cursor(
+        name: &str,
+        actual_ansi: &std::path::Path,
+        approved: &super::ArtifactPaths,
+    ) -> Result<(), SnapshotError> {
+        let bytes = std::fs::read(actual_ansi).map_err(|e| {
+            SnapshotError(format!(
+                "nothing to accept for `{name}` (.ansi {}: {e})",
+                actual_ansi.display()
+            ))
+        })?;
+        let text = std::str::from_utf8(&bytes).map_err(|e| {
+            SnapshotError(format!(
+                "cannot accept `{name}` (.ansi {} is not valid UTF-8: {e})",
+                actual_ansi.display()
+            ))
+        })?;
+        let prov = Provenance::now("tuiscotti", "accept", Vec::new());
+        let decoded = frame_from_ansi(text, prov).map_err(|e| {
+            SnapshotError(format!(
+                "cannot accept `{name}` (.ansi {} is not a valid frame: {e})",
+                actual_ansi.display()
+            ))
+        })?;
+        if tuiscotti_render::render::ansi_dump_with_cursor(&decoded) != text {
+            return Err(SnapshotError(format!(
+                "cannot accept `{name}` (.ansi {} does not round-trip losslessly)",
+                actual_ansi.display()
+            )));
+        }
+        write_atomic(&approved.ansi, &bytes)?;
+        let fid = approved.png.with_extension("png.fidelity.json");
+        for stale in [&approved.txt, &approved.png, &approved.html, &fid] {
+            match std::fs::remove_file(stale) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    return Err(SnapshotError(format!(
+                        "cannot remove stale approved artifact {}: {e}",
+                        stale.display()
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Accept every scenario with actual artifacts via [`Self::accept_matching`]`("**")`
+    /// (enforcing `CI` refusal, candidate seal/verdict checks, `run_id` freshness,
+    /// and skipping already-[`Status::Matched`] scenarios).
     ///
     /// # Errors
     ///
-    /// Returns `SnapshotError` when listing actuals or any accept fails.
+    /// Returns `SnapshotError` when `CI` is set, listing actuals fails, any
+    /// candidate is unsealed/unverified/stale, or any accept fails.
     pub fn accept_all(&self) -> Result<Vec<String>, SnapshotError> {
-        let names = self.actual_names()?;
-        for name in &names {
-            self.accept(name)?;
+        if is_ci_env() {
+            return Err(SnapshotError(
+                "refusing `accept_all` because CI is set: approving snapshots is local only"
+                    .to_string(),
+            ));
         }
-        Ok(names)
+        if self.actual_names()?.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.accept_matching("**")
     }
 
     /// Accept every scenario in [`Self::actual_names`] matching `filter` (exact
@@ -341,43 +357,28 @@ mod tests {
 
     #[test]
     fn filter_matches_whole_segments_and_distinguishes_single_vs_double_star() {
-        assert!(name_matches_filter(
-            "showcase/pages/tab",
-            "showcase/pages/tab"
-        ));
-        assert!(name_matches_filter(
-            "showcase/pages/tab/80x24",
-            "showcase/pages/tab"
-        ));
-        assert!(!name_matches_filter(
-            "showcase/pages/tables/80x24/truecolor",
-            "showcase/pages/tab"
-        ));
-
-        assert!(name_matches_filter("pages/lists", "pages/*"));
-        assert!(!name_matches_filter("pages/lists/80x24", "pages/*"));
-
-        assert!(name_matches_filter("pages/lists", "pages/**"));
-        assert!(name_matches_filter(
-            "pages/lists/80x24/truecolor",
-            "pages/**"
-        ));
-
-        assert!(name_matches_filter(
-            "showcase/truecolor",
-            "showcase/**/truecolor"
-        ));
-        assert!(name_matches_filter(
-            "showcase/pages/truecolor",
-            "showcase/**/truecolor"
-        ));
-        assert!(name_matches_filter(
-            "showcase/pages/tables/80x24/truecolor",
-            "showcase/**/truecolor"
-        ));
-        assert!(!name_matches_filter(
-            "showcase/other_truecolor",
-            "showcase/**/truecolor"
-        ));
+        for (name, pat, expected) in [
+            ("showcase/pages/tab", "showcase/pages/tab", true),
+            ("showcase/pages/tab/80x24", "showcase/pages/tab", true),
+            (
+                "showcase/pages/tables/80x24/truecolor",
+                "showcase/pages/tab",
+                false,
+            ),
+            ("pages/lists", "pages/*", true),
+            ("pages/lists/80x24", "pages/*", false),
+            ("pages/lists", "pages/**", true),
+            ("pages/lists/80x24/truecolor", "pages/**", true),
+            ("showcase/truecolor", "showcase/**/truecolor", true),
+            ("showcase/pages/truecolor", "showcase/**/truecolor", true),
+            (
+                "showcase/pages/tables/80x24/truecolor",
+                "showcase/**/truecolor",
+                true,
+            ),
+            ("showcase/other_truecolor", "showcase/**/truecolor", false),
+        ] {
+            assert_eq!(name_matches_filter(name, pat), expected, "{name} vs {pat}");
+        }
     }
 }

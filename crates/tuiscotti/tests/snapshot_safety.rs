@@ -9,6 +9,9 @@ use tuiscotti::snapshot::{Status, Store};
 
 use tuiscotti::{Profile, Provenance, VENDORED_FACES};
 
+mod common;
+use common::rerun_without_ci;
+
 fn prov() -> Provenance {
     Provenance {
         tool: "tuiscotti".into(),
@@ -36,6 +39,9 @@ fn tmp_store(tag: &str) -> Result<(tempfile::TempDir, Store), String> {
 
 #[test]
 fn concurrent_different_names_are_safe() {
+    if rerun_without_ci() {
+        return;
+    }
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("conc");
     let results = std::thread::scope(|s| {
@@ -73,6 +79,9 @@ fn concurrent_different_names_are_safe() {
 
 #[test]
 fn same_name_concurrent_checks_are_safe() {
+    if rerun_without_ci() {
+        return;
+    }
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("samesame");
     let frame = frame_with("shared");
@@ -117,6 +126,9 @@ fn same_name_concurrent_checks_are_safe() {
 
 #[test]
 fn missing_approved_png_fails_closed_with_missing_approval_panel() {
+    if rerun_without_ci() {
+        return;
+    }
     // C06: expected bytes come from disk or the check fails. A missing
     // approved PNG is MissingApproval — never regenerated in memory —
     // and the report shows the "missing approval" panel, not a
@@ -173,6 +185,9 @@ fn check_seals_candidate_manifest_and_verify_accepts_it() {
 
 #[test]
 fn interrupted_candidate_reports_capture_incomplete_not_match() {
+    if rerun_without_ci() {
+        return;
+    }
     // C08: actual frame without its PNG (interrupted write) reports
     // CaptureIncomplete from both verify_candidate and report_with —
     // the report must not silently re-render the gap back to Matched.
@@ -203,6 +218,9 @@ fn interrupted_candidate_reports_capture_incomplete_not_match() {
 
 #[test]
 fn store_report_reverifies_actuals_and_rewrites_report_html() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("storereport").expect("tmp store");
     let _outcome = st
         .check(
@@ -254,6 +272,9 @@ fn store_report_on_empty_store_writes_empty_index() {
 
 #[test]
 fn check_with_reuses_one_renderer_across_checks() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("checkwith").expect("tmp store");
     let profile = profile();
     let mut renderer = profile.renderer(&VENDORED_FACES).expect("build renderer");

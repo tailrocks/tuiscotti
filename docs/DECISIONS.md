@@ -207,10 +207,12 @@ multiple locales) drove eight durable design refinements:
   `BoundLocator` stays fail-closed (`MatchPolicy::Unique`) by default
   and adds explicit `.first()`, `.last()`, `.nth(i)`, `.any()`,
   `.count_at_least(n)` (assertion-only; `.click()` rejected with
-  `ActionError::Locate(LocateError::Multiple { .. })`),
+  `ActionError::Locate(LocateError::Usage(..))`),
   `.expect_count_at_least(n)`, and `.expect_count_at_least_within(n, d)`
   combinators so callers never drop down to detached `Locator::resolve`
-  loops when waiting on repeated UI chrome.
+  loops when waiting on repeated UI chrome (`Locator::count_at_least`
+  was removed from unbound `Locator` in favor of
+  `Locator::expect_count_at_least` and `BoundLocator::count_at_least`).
 - **P5 — Bounded screen dump in `WaitError` `Display`**: `WaitError`'s
   `Display` implementation appends the revision, grid dimensions, and a
   bounded plain-text screen dump (up to 40 non-empty trailing-trimmed

@@ -6,6 +6,9 @@ use ratatui::widgets::Paragraph;
 use tuiscotti::grouped::GroupedStore;
 use tuiscotti::{Profile, Provenance};
 
+mod common;
+use common::rerun_without_ci;
+
 #[path = "grouped/accept_report.rs"]
 mod accept_report;
 #[path = "grouped/ansi_cursor.rs"]

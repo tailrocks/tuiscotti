@@ -5,6 +5,9 @@ use tuiscotti::snapshot::Status;
 
 #[test]
 fn missing_accept_match_round_trip_nested_name() {
+    if rerun_without_ci() {
+        return;
+    }
     let name = "showcase/pages/overview_120x40_truecolor";
     let (_dir, st) = tmp_store("snapshots").expect("tmp_store succeeds");
     let frame = frame_with("hello grouped");
@@ -102,6 +105,9 @@ fn ansi_and_txt_and_html_are_byte_deterministic() {
 
 #[test]
 fn check_seals_manifest_and_verdict_that_report_reuses_verbatim() {
+    if rerun_without_ci() {
+        return;
+    }
     let name = "sealed/one";
     let (_dir, st) = tmp_store("sealed").expect("tmp_store succeeds");
     let frame = frame_with("sealed verdict");
@@ -162,6 +168,9 @@ fn check_seals_manifest_and_verdict_that_report_reuses_verbatim() {
 
 #[test]
 fn stale_verdict_after_accept_recomputes_instead_of_reuse() {
+    if rerun_without_ci() {
+        return;
+    }
     let name = "stale/one";
     let (_dir, st) = tmp_store("stale").expect("tmp_store succeeds");
     let frame = frame_with("stale verdict");
@@ -188,6 +197,9 @@ fn stale_verdict_after_accept_recomputes_instead_of_reuse() {
 
 #[test]
 fn interrupted_candidate_reports_missing_approval_never_pixel_verdict() {
+    if rerun_without_ci() {
+        return;
+    }
     let name = "broken/one";
     let (_dir, st) = tmp_store("broken").expect("tmp_store succeeds");
     let frame = frame_with("interrupted");

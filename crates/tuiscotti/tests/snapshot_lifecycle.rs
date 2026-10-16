@@ -7,6 +7,9 @@ use tuiscotti::snapshot::{Status, Store};
 
 use tuiscotti::{Profile, Provenance, VENDORED_FACES};
 
+mod common;
+use common::rerun_without_ci;
+
 fn prov() -> Provenance {
     Provenance {
         tool: "tuiscotti".into(),
@@ -48,6 +51,9 @@ fn missing_approval_fails_closed_but_writes_actuals() {
 
 #[test]
 fn accept_then_match_round_trip() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("accept").expect("tmp store");
     let frame = frame_with("stable screen");
     let o1 = st
@@ -65,6 +71,9 @@ fn accept_then_match_round_trip() {
 
 #[test]
 fn changed_snapshot_reports_cells_and_diff_image() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("changed").expect("tmp store");
     let _outcome = st
         .check(
@@ -100,6 +109,9 @@ fn changed_snapshot_reports_cells_and_diff_image() {
 
 #[test]
 fn check_writes_fidelity_sidecar_next_to_actual_png() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("fidelity").expect("tmp store");
     let frame = frame_with("crab 🦀");
     let outcome = st
@@ -176,6 +188,9 @@ fn report_links_png_files_not_base64() {
 
 #[test]
 fn corrupt_approved_png_is_an_explicit_error() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("badpng").expect("tmp store");
     let _outcome = st
         .check("home", &frame_with("x"), &profile(), &VENDORED_FACES, 1.0)
@@ -193,6 +208,9 @@ fn corrupt_approved_png_is_an_explicit_error() {
 
 #[test]
 fn dimension_mismatch_status() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("dims").expect("tmp store");
     let _outcome = st
         .check("home", &frame_with("x"), &profile(), &VENDORED_FACES, 1.0)
@@ -207,6 +225,9 @@ fn dimension_mismatch_status() {
 
 #[test]
 fn relaxed_threshold_still_gates_dimensions() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("threshold").expect("tmp store");
     let frame = frame_with("same");
     let _outcome = st

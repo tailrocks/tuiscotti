@@ -98,6 +98,14 @@ const UNIX_HOST_PREFIXES: &[&str] = &[
     "/bin/",
     "/sbin/",
     "/root/",
+    "/srv/",
+    "/workspace/",
+    "/workspaces/",
+    "/builds/",
+    "/github/",
+    "/app/",
+    "/work/",
+    "/runner/",
 ];
 
 const HOST_PATH_SEGMENTS: &[&str] = &[
@@ -119,22 +127,91 @@ fn is_windows_host_path(s: &str) -> bool {
             && (bytes[2] == b'/' || bytes[2] == b'\\'))
 }
 
-fn looks_like_host_path(s: &str) -> bool {
-    if is_windows_host_path(s) {
-        return !s.ends_with(['/', '\\']);
+fn matches_runtime_env_prefix(trimmed: &str) -> bool {
+    for var in [
+        "HOME",
+        "TMPDIR",
+        "CARGO_HOME",
+        "CARGO_TARGET_DIR",
+        "GITHUB_WORKSPACE",
+        "CI_PROJECT_DIR",
+        "RUNNER_WORKSPACE",
+    ] {
+        if let Ok(val) = std::env::var(var) {
+            let root = val.trim_end_matches(['/', '\\']);
+            if root.starts_with('/')
+                && root.len() > 1
+                && (trimmed == root
+                    || trimmed
+                        .strip_prefix(root)
+                        .is_some_and(|rest| rest.starts_with('/')))
+            {
+                return true;
+            }
+        }
     }
-    if !s.starts_with('/') || s.ends_with('/') {
+    if let Ok(cwd) = std::env::current_dir()
+        && let Some(root) = cwd.to_str()
+    {
+        let root = root.trim_end_matches(['/', '\\']);
+        if root.starts_with('/')
+            && root.len() > 1
+            && (trimmed == root
+                || trimmed
+                    .strip_prefix(root)
+                    .is_some_and(|rest| rest.starts_with('/')))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn last_segment_looks_like_file(trimmed: &str) -> bool {
+    let segments: Vec<&str> = trimmed.split('/').filter(|seg| !seg.is_empty()).collect();
+    if segments.len() < 3 {
         return false;
     }
-    UNIX_HOST_PREFIXES.iter().any(|p| s.starts_with(p))
-        || HOST_PATH_SEGMENTS.iter().any(|seg| s.contains(seg))
+    let Some(last) = segments.last() else {
+        return false;
+    };
+    let Some((stem, ext)) = last.rsplit_once('.') else {
+        return false;
+    };
+    !stem.is_empty() && !ext.is_empty() && ext.chars().all(|c| c.is_ascii_alphanumeric())
+}
+
+fn looks_like_host_path(s: &str) -> bool {
+    if is_windows_host_path(s) {
+        let trimmed = s.trim_end_matches(['/', '\\']);
+        return trimmed.len() > 3 && trimmed[3..].contains(['/', '\\']);
+    }
+    if !s.starts_with('/') {
+        return false;
+    }
+    let trimmed = s.trim_end_matches('/');
+    if trimmed.is_empty() {
+        return false;
+    }
+    if s.ends_with('/') && !trimmed[1..].contains('/') {
+        return false;
+    }
+    UNIX_HOST_PREFIXES.iter().any(|p| trimmed.starts_with(p))
+        || HOST_PATH_SEGMENTS.iter().any(|seg| trimmed.contains(seg))
+        || matches_runtime_env_prefix(trimmed)
+        || last_segment_looks_like_file(trimmed)
 }
 
 fn file_name_only(s: &str) -> String {
-    if !s.contains(['/', '\\']) || s.ends_with(['/', '\\']) {
+    if !s.contains(['/', '\\']) {
         return s.to_string();
     }
-    s.rsplit(['/', '\\'])
+    let trimmed = s.trim_end_matches(['/', '\\']);
+    if trimmed.is_empty() {
+        return s.to_string();
+    }
+    trimmed
+        .rsplit(['/', '\\'])
         .find(|seg| !seg.is_empty())
         .unwrap_or(s)
         .to_string()
@@ -166,6 +243,11 @@ mod tests {
                 "/Users/alice/work/repo/target/debug/my-bin".to_string(),
                 "--config=/Users/alice/.config/app.toml".to_string(),
                 "/var/folders/tmp/input.txt".to_string(),
+                "/Users/alice/proj/".to_string(),
+                "--out=/Users/alice/proj/".to_string(),
+                "C:\\Users\\alice\\proj\\".to_string(),
+                "/srv/ci/work/app/config.toml".to_string(),
+                "/custom/mount/view.rs".to_string(),
                 "--port".to_string(),
                 "8080".to_string(),
                 "/".to_string(),
@@ -181,6 +263,11 @@ mod tests {
                 "my-bin",
                 "--config=app.toml",
                 "input.txt",
+                "proj",
+                "--out=proj",
+                "proj",
+                "config.toml",
+                "view.rs",
                 "--port",
                 "8080",
                 "/",
@@ -189,6 +276,9 @@ mod tests {
                 "--route=/api/v1",
             ]
         );
+
+        let trailing_src = Provenance::now("ci-80x24", "/Users/alice/src/", Vec::new());
+        assert_eq!(trailing_src.source, "src");
 
         let frame = Frame::blank(
             10,

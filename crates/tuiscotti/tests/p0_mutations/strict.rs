@@ -105,6 +105,9 @@ fn c03_exact_decoded_rgba_comparison_with_explicit_alpha_policy() {
 // -------------------- C04: perceptual diagnostics vs exact verdicts
 #[test]
 fn c04_similarity_score_must_not_establish_strict_equality() {
+    if rerun_without_ci() {
+        return;
+    }
     // Part 1: score >= 1.0 must imply decoded-pixel identity — never
     // score 1.0 with differing pixels.
     let mut a = gradient_rgb();

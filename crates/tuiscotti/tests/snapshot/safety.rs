@@ -5,6 +5,9 @@ use tuiscotti::snapshot::{Status, Store, write_atomic};
 
 #[test]
 fn concurrent_different_names_are_safe() {
+    if rerun_without_ci() {
+        return;
+    }
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("conc");
     let results = std::thread::scope(|s| {
@@ -61,6 +64,9 @@ fn report_links_png_files_not_base64() {
 
 #[test]
 fn corrupt_approved_png_is_an_explicit_error() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("badpng").expect("tmp store");
     let _outcome = st
         .check("home", &frame_with("x"), &profile(), &VENDORED_FACES, 1.0)
@@ -78,6 +84,9 @@ fn corrupt_approved_png_is_an_explicit_error() {
 
 #[test]
 fn dimension_mismatch_status() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("dims").expect("tmp store");
     let _outcome = st
         .check("home", &frame_with("x"), &profile(), &VENDORED_FACES, 1.0)
@@ -149,6 +158,9 @@ fn symlink_plants_at_tmp_names_fail_closed_without_following() {
 
 #[test]
 fn relaxed_threshold_still_gates_dimensions() {
+    if rerun_without_ci() {
+        return;
+    }
     let (_dir, st) = tmp_store("threshold").expect("tmp store");
     let frame = frame_with("same");
     let _outcome = st
@@ -165,6 +177,9 @@ fn relaxed_threshold_still_gates_dimensions() {
 
 #[test]
 fn same_name_concurrent_checks_are_safe() {
+    if rerun_without_ci() {
+        return;
+    }
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().join("samesame");
     let frame = frame_with("shared");

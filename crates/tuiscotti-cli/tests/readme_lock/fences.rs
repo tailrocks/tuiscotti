@@ -1,6 +1,6 @@
 //! README fences: quickstart, bulk, accept, interactive TUI (split from `readme_lock.rs`; shared helpers live in the root).
 
-use super::home_frame;
+use super::{home_frame, rerun_without_ci};
 use tuiscotti::snapshot::{Status, Store};
 use tuiscotti::{Profile, VENDORED_FACES};
 
@@ -10,6 +10,9 @@ use tuiscotti::{Profile, VENDORED_FACES};
 
 #[test]
 fn readme_quickstart_pure_view() {
+    if rerun_without_ci() {
+        return;
+    }
     let tmp = tempfile::tempdir().expect("tempdir");
     let store = Store::new(&tmp.path().join("visual"));
     let profile = Profile::default_profile();
@@ -49,6 +52,9 @@ fn readme_bulk_renderer_reuse() {
         Ok(())
     }
 
+    if rerun_without_ci() {
+        return;
+    }
     let tmp = tempfile::tempdir().expect("tempdir");
     let store = Store::new(&tmp.path().join("visual"));
     let profile = Profile::default_profile();
@@ -80,6 +86,9 @@ fn readme_accept_flow() {
         Ok(())
     }
 
+    if rerun_without_ci() {
+        return;
+    }
     let tmp = tempfile::tempdir().expect("tempdir");
     let store = Store::new(&tmp.path().join("visual"));
     let profile = Profile::default_profile();
