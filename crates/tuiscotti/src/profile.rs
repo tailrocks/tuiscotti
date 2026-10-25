@@ -1,8 +1,8 @@
 //! Named render profile with an immutable built-in font registry (D02, GOAL 13.2).
 //!
-//! One logical profile exists: [`PROFILE_NAME`] (`tuiscotti-pinned-v1`).
-//! [`resolve_profile`] maps that name to its immutable settings; every other
-//! name is an [`ProfileError::UnknownProfile`] rejection. No custom font
+//! One logical profile exists: `PROFILE_NAME` (`tuiscotti-pinned-v1`).
+//! `resolve_profile` maps that name to its immutable settings; every other
+//! name is a `ProfileError::UnknownProfile` rejection. No custom font
 //! paths and no network font loading exist on this path.
 //!
 //! Font-byte source decision (GOAL 13.2, first branch checked 2026-10-25

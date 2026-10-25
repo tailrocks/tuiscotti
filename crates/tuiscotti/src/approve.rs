@@ -27,8 +27,8 @@
 //!   10-12 ("if the sample has an image").
 //! - It validates the candidate test-ID grammar only on first approval
 //!   (absent baseline). When a baseline is present, no test-ID or gate
-//!   cross-comparison runs at all: the present-baseline diff
-//!   ([`FrozenStore::compare_present`]) classifies observed evidence shapes
+//!   cross-comparison runs at all: the present-baseline `FrozenStore`
+//!   comparison classifies observed evidence shapes
 //!   (snapshot state, render contracts, decoded pixels) without comparing
 //!   ID or gate enums. The operation targets the candidate test ID; the
 //!   baseline path derives from that ID.
@@ -110,8 +110,8 @@
 //! [`ApproveError::code`] and the process codes from
 //! [`ApproveError::exit_code`] are the mapping inputs for that command.
 //!
-//! Design notes: approval reuses the frozen differ through
-//! [`FrozenStore::compare_present`] instead of duplicating it, so check and
+//! Design notes: approval reuses the frozen differ through `FrozenStore`
+//! instead of duplicating it, so check and
 //! accept cannot disagree on the change set. Small byte-level helpers
 //! (digest shape, root resolution, symlink guard, SHA-256) mirror `check.rs`
 //! without sharing code, because only lock and comparison helpers are
