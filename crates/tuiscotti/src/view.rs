@@ -46,6 +46,24 @@ pub enum ViewError {
         /// Buffer-local row of the missing cell.
         y: u32,
     },
+    /// A column covered by a wide leading cell carries its own grapheme
+    /// instead of continuing that cell.
+    CoveredCellOccupied {
+        /// Buffer-local column of the occupying cell.
+        x: u32,
+        /// Buffer-local row of the occupying cell.
+        y: u32,
+    },
+    /// A wide leading cell is wider than the columns left in its row, so its
+    /// continuation would fall outside the grid.
+    LeadingCellOverhang {
+        /// Buffer-local column of the overhanging leading cell.
+        x: u32,
+        /// Buffer-local row of the overhanging leading cell.
+        y: u32,
+        /// Terminal columns the leading cell claims.
+        width: u16,
+    },
     /// The upstream validated constructor rejected the converted snapshot.
     Snapshot(SnapshotError),
 }
@@ -59,6 +77,18 @@ impl Display for ViewError {
             }
             Self::CellOutOfBounds { x, y } => {
                 write!(f, "buffer has no cell at ({x}, {y})")
+            }
+            Self::CoveredCellOccupied { x, y } => {
+                write!(
+                    f,
+                    "covered cell at ({x}, {y}) carries its own grapheme instead of continuing the wide cell"
+                )
+            }
+            Self::LeadingCellOverhang { x, y, width } => {
+                write!(
+                    f,
+                    "wide leading cell at ({x}, {y}) claims {width} columns past the row end"
+                )
             }
             Self::Snapshot(error) => write!(f, "{error}"),
         }
@@ -464,10 +494,13 @@ fn resolve_cursor(
 /// Buffer coordinates normalize to the snapshot origin: the snapshot holds
 /// `area.width` by `area.height` cells starting at the buffer area origin.
 /// Continuation cells resolve from Ratatui layout rules: a wide leading cell
-/// covers its following columns, and covered blank cells convert as
-/// continuations. A following cell that carries its own symbol starts a new
-/// grapheme. Invalid leading and continuation combinations reach the upstream
-/// validated constructor, which rejects them with coordinates.
+/// covers its following columns, and covered placeholder cells convert as
+/// continuations. A covered column that carries its own grapheme, or a wide
+/// leading cell that overhangs the row end, is an invalid leading and
+/// continuation combination: conversion rejects it here with coordinates,
+/// because the upstream validated constructor accepts individually valid
+/// cells and cannot see the coverage mismatch. It stays as the backstop for
+/// every other malformed combination.
 fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
     let area = buffer.area;
     let mut cells = Vec::new();
@@ -483,14 +516,28 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
                     y: u32::from(y),
                 })?;
             let symbol = cell.symbol();
-            if covered > 0 && symbol == " " {
-                covered -= 1;
-                cells.push(continuation_cell(cell)?);
+            if covered > 0 {
+                if symbol == " " || symbol.is_empty() {
+                    covered -= 1;
+                    cells.push(continuation_cell(cell)?);
+                } else {
+                    return Err(ViewError::CoveredCellOccupied {
+                        x: u32::from(x),
+                        y: u32::from(y),
+                    });
+                }
             } else {
                 let width = cell.cell_width();
                 if width == 0 {
                     cells.push(continuation_cell(cell)?);
                 } else {
+                    if width > area.width - col {
+                        return Err(ViewError::LeadingCellOverhang {
+                            x: u32::from(x),
+                            y: u32::from(y),
+                            width,
+                        });
+                    }
                     cells.push(leading_cell(cell, symbol, width)?);
                     covered = width.saturating_sub(1);
                 }
@@ -537,8 +584,8 @@ fn assemble_snapshot(
 ///
 /// # Errors
 ///
-/// Returns [`ViewError`] when the grid is empty or the converted snapshot
-/// fails upstream validation.
+/// Returns [`ViewError`] when the grid is empty, a wide-cell layout is
+/// invalid, or the converted snapshot fails upstream validation.
 ///
 /// # Examples
 ///
@@ -603,7 +650,8 @@ where
 /// # Errors
 ///
 /// Returns [`ViewError`] when the buffer area is empty, an area coordinate
-/// overflows, or the converted snapshot fails upstream validation.
+/// overflows, a wide-cell layout is invalid, or the converted snapshot fails
+/// upstream validation.
 ///
 /// # Examples
 ///

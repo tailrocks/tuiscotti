@@ -22,7 +22,7 @@ use tui_test::{
     SnapshotCell, SnapshotColor, SnapshotCursorShape, SnapshotError, SnapshotMetadata,
     SnapshotParts, SnapshotScope, SnapshotSource, SnapshotUnderline, TerminalSnapshot,
 };
-use tuiscotti::view::{ViewCursor, ViewSettings, capture_view, snapshot_from_buffer};
+use tuiscotti::view::{ViewCursor, ViewError, ViewSettings, capture_view, snapshot_from_buffer};
 
 /// Stand-in for an application production view function.
 ///
@@ -338,6 +338,45 @@ fn c04_overflowing_wide_character_stays_blank() {
     let cell = snapshot.cell_at(9, 0).expect("last column cell exists");
     assert_eq!(cell.text(), " ");
     assert!(!cell.is_continuation());
+}
+
+/// A narrow grapheme hand-written into a wide cell's covered column is an
+/// invalid leading and continuation combination. The cells are individually
+/// valid, so the upstream constructor would accept them; conversion rejects
+/// the buffer itself with a typed error naming the covered coordinates.
+#[test]
+fn c04_grapheme_in_covered_column_fails_closed() {
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 4, 1));
+    buffer.set_stringn(0, 0, "東", 4, Style::default());
+    buffer[(1, 0)].set_symbol("x");
+    let settings = ViewSettings::builtin().with_cursor(hidden_cursor());
+    let result = snapshot_from_buffer(&buffer, &settings);
+    assert!(
+        matches!(result, Err(ViewError::CoveredCellOccupied { x: 1, y: 0 })),
+        "narrow grapheme in a covered column fails closed"
+    );
+}
+
+/// A wide leading cell hand-written into the last column overhangs the row:
+/// its continuation would fall outside the grid. Conversion rejects the
+/// buffer itself with a typed error naming the leading coordinates.
+#[test]
+fn c04_wide_leading_cell_overhanging_row_end_fails_closed() {
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 3, 1));
+    buffer[(2, 0)].set_symbol("東");
+    let settings = ViewSettings::builtin().with_cursor(hidden_cursor());
+    let result = snapshot_from_buffer(&buffer, &settings);
+    assert!(
+        matches!(
+            result,
+            Err(ViewError::LeadingCellOverhang {
+                x: 2,
+                y: 0,
+                width: 2
+            })
+        ),
+        "wide leading cell overhanging the row end fails closed"
+    );
 }
 
 #[test]
