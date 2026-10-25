@@ -377,6 +377,7 @@ fn ci_refusal_probed(
         "CI refusal writes nothing"
     );
     true
+}
 /// Rewrite a pixels candidate's stored contract identity to a foreign
 /// platform, keeping its own test ID in agreement with that contract.
 #[expect(clippy::expect_used, reason = "rework validation fixture")]
