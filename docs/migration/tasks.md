@@ -19,7 +19,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | U10 | Quiet intervals, request cancellation | upstream writer | done ([draft PR 281](https://github.com/microsoft/tui-test/pull/281)) | `goal/u10-request-waits` | U02 head (`364719a`, parent PR #278) |
 | D01 | Reduced crates, Ratatui adapter | downstream writer | todo | `goal/tui-test-extension` | U02 head (patched) |
 | D02 | Sample format, render profiles | downstream writer | done | `goal/tui-test-extension` | D01 + U03/U04/U05/U11 heads |
-| D03 | Comparison and candidate evidence | downstream writer | done (fix verified; atomic-save hardening in progress) | `goal/tui-test-extension` | D02 + qual-stack `fb72d00` |
+| D03 | Comparison and candidate evidence | downstream writer | done | `goal/tui-test-extension` | D02 + qual-stack `fb72d00` |
 | D04 | Approval and frozen checking | downstream writer | todo | `goal/tui-test-extension` | D03 head |
 | D05 | Offline CLI | downstream writer | todo | `goal/tui-test-extension` | D04 head |
 | D06 | Test and example migration | downstream writer | todo | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
