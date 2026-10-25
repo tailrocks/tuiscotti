@@ -1643,6 +1643,202 @@ fn is_hex_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
+// ---------------------------------------------------------------------------
+// D04 approval-lock region (GOAL Section 15). Only approval-lock items live
+// in this region: the lock file name, the acquisition deadline, the
+// fresh-file lock guard, and its unit tests. No comparison, evidence, or
+// store-path logic changes here.
+// ---------------------------------------------------------------------------
+
+/// File name of the per-root approval lock inside the baseline root.
+///
+/// The lock file is created fresh by its holder with exclusive creation, so
+/// a holder never opens a pre-existing file as its lock. It exists only
+/// while the approval transaction runs and is removed on release. Presence
+/// of the file carries no cross-process meaning: locks are not portable, so
+/// no cross-process before-or-after file semantics follow from it.
+pub(crate) const APPROVAL_LOCK_FILE: &str = ".tuiscotti-approval.lock";
+
+/// How long approval waits for a held lock before it reports a timeout.
+pub(crate) const APPROVAL_LOCK_TIMEOUT_SECS: u64 = 30;
+
+/// Poll interval while approval waits for a held lock to release.
+const APPROVAL_LOCK_POLL: std::time::Duration = std::time::Duration::from_millis(5);
+
+/// A held per-root approval lock.
+///
+/// The guard owns the exclusively created lock file: creation and removal
+/// bracket the transaction, so no stale lock file survives a completed or
+/// failed transaction. A process that dies mid-transaction can leave the
+/// empty file behind; its presence alone never grants the lock, and an
+/// operator removes it.
+pub(crate) struct ApprovalFileLock {
+    path: std::path::PathBuf,
+}
+
+/// Why approval lock acquisition failed.
+#[derive(Debug)]
+pub(crate) enum ApprovalLockError {
+    /// Another holder kept the lock past the acquisition deadline.
+    Timeout,
+    /// The lock file could not be created, read, or removed.
+    Io(std::io::Error),
+}
+
+impl std::fmt::Display for ApprovalLockError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Timeout => write!(formatter, "approval lock deadline passed"),
+            Self::Io(source) => write!(formatter, "approval lock I/O failed: {source}"),
+        }
+    }
+}
+
+impl std::error::Error for ApprovalLockError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Timeout => None,
+            Self::Io(source) => Some(source),
+        }
+    }
+}
+
+impl From<std::io::Error> for ApprovalLockError {
+    fn from(source: std::io::Error) -> Self {
+        Self::Io(source)
+    }
+}
+
+impl ApprovalFileLock {
+    /// Acquire the approval lock for a canonical baseline root.
+    ///
+    /// The lock file is created exclusively: when a regular file already
+    /// exists, this call waits for the deadline instead of opening the held
+    /// file, then reports [`ApprovalLockError::Timeout`]. A directory or
+    /// symlink at the lock path fails immediately. This call never creates
+    /// directories; the root must already exist.
+    pub(crate) fn acquire(
+        baseline_root: &std::path::Path,
+        timeout: std::time::Duration,
+    ) -> Result<Self, ApprovalLockError> {
+        let path = baseline_root.join(APPROVAL_LOCK_FILE);
+        let start = std::time::Instant::now();
+        loop {
+            match create_lock_file(&path) {
+                Ok(()) => return Ok(Self { path }),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    if !held_lock_is_a_file(&path)? {
+                        return Err(ApprovalLockError::Io(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!(
+                                "approval lock path {} is not a regular file",
+                                path.display()
+                            ),
+                        )));
+                    }
+                    if start.elapsed() >= timeout {
+                        return Err(ApprovalLockError::Timeout);
+                    }
+                    std::thread::sleep(APPROVAL_LOCK_POLL);
+                }
+                Err(error) => return Err(ApprovalLockError::Io(error)),
+            }
+        }
+    }
+}
+
+impl Drop for ApprovalFileLock {
+    fn drop(&mut self) {
+        drop(std::fs::remove_file(&self.path));
+    }
+}
+
+/// True when the path blocking lock creation is a regular file: a held
+/// lock that may release. Anything else at the lock path (a directory, a
+/// symlink, or a raced removal) is never waited on: directories and links
+/// fail fast, and a disappearance retries creation.
+fn held_lock_is_a_file(path: &std::path::Path) -> Result<bool, ApprovalLockError> {
+    match std::fs::symlink_metadata(path) {
+        Ok(meta) => Ok(meta.file_type().is_file()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(ApprovalLockError::Io(error)),
+    }
+}
+
+/// Create the lock file exclusively with owner-only permissions on Unix.
+///
+/// `create_new` fails when the path already exists, so a second holder can
+/// never reuse the first holder's file as its own lock. The handle closes
+/// on return; the file's existence is the lock signal.
+fn create_lock_file(path: &std::path::Path) -> Result<(), std::io::Error> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    options.open(path).map(|_| ())
+}
+
+#[cfg(test)]
+mod approval_lock_tests {
+    use super::{APPROVAL_LOCK_FILE, ApprovalFileLock};
+    use std::time::Duration;
+
+    /// A fresh directory for lock tests, removed on drop.
+    fn lock_dir() -> tempfile::TempDir {
+        tempfile::tempdir().expect("lock test directory creates")
+    }
+
+    #[test]
+    fn acquire_creates_a_fresh_lock_file() {
+        let dir = lock_dir();
+        let expected = dir.path().join(APPROVAL_LOCK_FILE);
+        assert!(!expected.exists(), "no lock file before acquisition");
+        let _lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
+            .expect("first acquisition succeeds");
+        assert!(expected.exists(), "lock file exists while held");
+    }
+
+    #[test]
+    fn release_removes_the_lock_file() {
+        let dir = lock_dir();
+        let expected = dir.path().join(APPROVAL_LOCK_FILE);
+        let lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
+            .expect("acquisition succeeds");
+        drop(lock);
+        assert!(!expected.exists(), "lock file is gone after release");
+    }
+
+    #[test]
+    fn held_lock_times_out_instead_of_opening_the_file() {
+        let dir = lock_dir();
+        let _held = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
+            .expect("first acquisition succeeds");
+        let started = std::time::Instant::now();
+        let outcome = ApprovalFileLock::acquire(dir.path(), Duration::from_millis(120));
+        assert!(
+            matches!(outcome, Err(super::ApprovalLockError::Timeout)),
+            "a held lock reports a timeout"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "the wait stops at its deadline"
+        );
+    }
+
+    #[test]
+    fn release_frees_the_lock_for_the_next_holder() {
+        let dir = lock_dir();
+        let first = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
+            .expect("first acquisition succeeds");
+        drop(first);
+        let second = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5));
+        assert!(second.is_ok(), "the next holder acquires a fresh file");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::validate_test_id;

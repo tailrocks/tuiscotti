@@ -16,6 +16,7 @@
 //! the purposeful modules below (`tui`, `command`, `locate`, `proto`, ...),
 //! which also preserve every pre-G6 path used out of crate.
 
+pub mod approve;
 pub mod check;
 pub mod error;
 // D01 migration path: pure-view capture into the single upstream snapshot
@@ -31,6 +32,7 @@ pub mod render_profile;
 pub mod report;
 pub mod sample;
 
+pub use approve::{ACCEPT_SCHEMA, AcceptOutcome, ApprovalStore, ApproveError, EVIDENCE_SCHEMA};
 pub use check::{
     CHECK_SCHEMA, CheckError, CheckFailure, CheckOutcome, CheckSuccess, FrozenStore,
     MISSING_BASELINE, MismatchReason, validate_test_id,
