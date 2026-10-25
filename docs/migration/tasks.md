@@ -21,8 +21,8 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | D02 | Sample format, render profiles | downstream writer | done | `goal/tui-test-extension` | D01 + U03/U04/U05/U11 heads |
 | D03 | Comparison and candidate evidence | downstream writer | done | `goal/tui-test-extension` | D02 + qual-stack `fb72d00` |
 | D04 | Approval and frozen checking | downstream writer | done | `goal/tui-test-extension` | D03 head |
-| D05 | Offline CLI | downstream writer | under review | `goal/tui-test-extension` | D04 head |
-| D06 | Test and example migration | downstream writer | todo | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
+| D05 | Offline CLI | downstream writer | done | `goal/tui-test-extension` | D04 head |
+| D06 | Test and example migration | downstream writer | review | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
 | D07 | Code removal and documentation | downstream writer | todo | `goal/tui-test-extension` | D06 head |
 | V01 | Full checks and last code review | code reviewer | todo | both repos | D07 head |
 | R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283, U04 #284, U05 #285, U08 #286) | one branch per U task | accepted heads |

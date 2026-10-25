@@ -711,6 +711,14 @@ impl FrozenStore {
     fn missing_baseline_path(&self, joined: &Path) -> Result<PathBuf, CheckError> {
         let mut cursor = joined;
         loop {
+            // Nothing from the baseline root down exists: no symlink can
+            // redirect the path, and the root itself was safely resolved, so
+            // the lexical path is the missing baseline path. Without this
+            // stop, a missing root under a symlinked parent (every macOS
+            // tempdir) would fail here instead of reporting `Missing`.
+            if cursor == self.baselines {
+                return Ok(joined.to_path_buf());
+            }
             let Some(parent) = cursor.parent() else {
                 return Err(CheckError::InvalidStorePath {
                     detail: "baseline path has no resolvable ancestor".to_string(),

@@ -105,6 +105,33 @@ The standing Rust rule now routes all Cargo through `/Users/donbeave/.local/bin/
 - Upstream checkouts (`repos/upstream*`) can never build via the guard: their committed `.cargo/config.toml` carries an `[env]` table (simdutf backend vars), which the guard rejects categorically. No bypass, no config edits upstream. Upstream merge validation therefore runs compilation-through-downstream-dependency (`cargo check -p tuiscotti` compiles the patched `tui-test-rs`), plus each task branch's own CI on its draft PR. Upstream test suites on merged stacks are re-run only where a guard exception is granted.
 - `cargo metadata` / `cargo tree` (needed at D07) are NOT in the guard's supported set (`build/check/clippy/fmt/doc/run/nextest` only); D07 must request a policy ruling or use `nextest`-reachable equivalents.
 
+## D-D06-1: Session versus Engine surface split
+
+GOAL 17 asks for direct `tui_test::Session` use plus the accepted
+`spawn_with` + `LaunchOptions`, `mouse_checked`/`paste`/`focus`,
+`write_bytes`, and `wait_quiet` methods. Those two requirements land on two
+upstream types: the runtime `tui_test::Session` owns lifecycle, upstream
+locators, snapshots, `write_bytes`, and quiet waits, while `spawn_with`
+with `LaunchOptions` and the checked input methods live only on
+`tui-test::Engine` (the runtime `Session` keeps its engine private and
+exposes no checked-input path). Downstream migration tests and examples use
+`Session` wherever it reaches and `Engine` only for `spawn_with` and
+checked input. No tuiscotti session, locator, input, or wait helper remains
+in the migrated tests. The live/PTY migration suite is `#![cfg(unix)]`,
+following the U09 precedent: Windows CI gives vacuous passage there.
+
+## D-D06-2: Missing baseline root under a symlinked parent
+
+`FrozenStore` documents that a missing baseline root makes every check
+`Missing`, but `missing_baseline_path` walked to the first existing
+ancestor and demanded it sit inside the root. With a missing root under a
+symlinked parent (every macOS tempdir), the walk stopped above the root and
+reported `InvalidStorePath` instead. D06 fixes this at the walk: reaching
+the baseline root itself with nothing existing below it returns the lexical
+path, which is safe because no symlink can redirect a nonexistent path and
+the root was resolved by `resolve_root`. D03, D04, and D05 suites re-run
+green with the fix; no D03 test changes.
+
 ## D-QUAL-2: Qual-stack merge fixups and validation
 
 Assembling `goal/qual-stack` (U07 `b0da622`, U08 `6175db3`, U09 `46a2864`, U10 `1742fba` merges) needed two fixups, both stack-assembly commits, not task work: `2482ff5` removed a leftover `<<<<<<< HEAD` marker in `session.rs`; `049fb8c` added the missing `last_output: None` field to the `spawn_with` `TermState` initializer (U10 added the field; the U08-side initializer was merged without it; E0063 caught by the guard-compliant downstream check). Validation: `cargo check -p tuiscotti --locked --offline` green through the guard (compiles `tui-test-rs` at the stack head). The stack is otherwise frozen; D06+ patch against it.
