@@ -86,3 +86,67 @@ Heads fetched read-only to `refs/remotes/origin/pr-NNN`. No branch was changed. 
 - Downstream `cargo check --workspace --locked`: PASS.
 - Downstream `cargo test --workspace --locked --no-fail-fast -- --test-threads=4`: all suites pass except one pre-existing failure:
   - `xtask --test enforcement`, `mise_fallback_resolves_real_binary_never_shim`: FAILED. Class `ENVIRONMENT`. Cause: `mise lock` cannot resolve `java@temurin-27.0.0+35` metadata for `macos-x64` from the external registry. Unrelated to this goal. No correction added to any upstream PR. Full failure output: `docs/migration/evidence/p01-xtask-enforcement-failure.log`.
+
+## D07 removal record (downstream writer, branch `goal/tui-test-extension`)
+
+Base: D06 head `5afe5d7`. Method: `git rm` of the seven removed crates
+plus `crates/tuiscotti/tests/cargo_bin_unified.rs`; facade narrowed to
+`view`, `sample`, `check`, `approve`, `report`, `error`, `render_profile`;
+`error.rs` re-typed over kept modules only; manifests pruned (no
+`[features]` table anywhere downstream).
+
+Source lines (`.rs`, `wc -l`; source vs tests/examples/fixtures counted
+independently):
+
+| Crate | Before src | Before tests/examples/fixtures | After src | After tests/examples/fixtures |
+|---|---|---|---|---|
+| tuiscotti | 6528 | 5973 | 6426 | 6012 (incl. new `no_duplicate_engine.rs`; `cargo_bin_unified.rs` deleted) |
+| tuiscotti-cli | 1053 | 1482 | 1053 | 1482 |
+| tuiscotti-core | 5396 | 60 | removed | removed |
+| tuiscotti-render | 8169 | 348 | removed | removed |
+| tuiscotti-runtime | 21453 | 2148 | removed | removed |
+| tuiscotti-insta | 2395 | 1110 | removed | removed |
+| tuiscotti-fixtures | 1403 | 3300 | removed | removed |
+| tuiscotti-bench | 1333 | 80 | removed | removed |
+| xtask | 3036 | 412 | removed | removed |
+
+Direct workspace dependencies (root `Cargo.toml`): 17 before
+(`anyhow`, `base64`, `clap`, `crossterm`, `fs2`, `swash`, `image`,
+`image-compare`, `insta`, `serde`, `serde_json`, `sha2`, `ratatui`,
+`unicode-segmentation`, `unicode-width`, `termpane`, `tempfile`) →
+9 after (`base64`, `clap`, `fs2`, `image`, `serde`, `serde_json`,
+`sha2`, `ratatui`, `tempfile`).
+
+`Cargo.lock`: 290 packages before → 256 after. Workspace-local
+packages after: exactly `tuiscotti`, `tuiscotti-cli`, and the patched
+`tui-test-rs`. No `termpane` package exists anywhere in the after
+graph; PTY arrives transitively through upstream `portable-pty`.
+Graph proven from manifest + lockfile analysis (direct vs transitive
+`tui-test` deps listed in `docs/ARCHITECTURE.md`); `cargo
+metadata`/`cargo tree` are denied by the Rust guard (D-GUARD-1), and
+that deviation is recorded here for the V01 reviewer to re-run with
+real metadata if policy permits.
+
+Generated CI: detector-driven from workspace members via
+`.velnor/config.toml` (no per-crate source entries), so removing the
+members removes the seven deleted lanes (`-core`, `-render`,
+`-runtime`, `-insta`, `-fixtures`, `-bench`, `xtask`, each ×
+default/no-default) and leaves `tuiscotti`, `tuiscotti-cli`
+(× default/no-default, where no-default is now identical), plus
+`actionlint`/`plan`. Regeneration is pending (no `velnor` binary in
+this environment); the committed `.github/workflows/ci.yml` still
+lists the removed lanes until regenerated. Removed-contract checks
+are replaced, not deleted: `cargo_bin_unified` (piped capture/runner
+contract) is replaced by `no_duplicate_engine` (five C18 tripwire
+tests), and the nextest `terminal-e2e` group now matches only
+`binary(session_migration)`.
+
+Deliberately kept although section 3.3 names nearby concepts:
+`crates/tuiscotti/src/profile.rs` (it implements the section-3.1
+pinned-profile responsibility over the upstream renderer — the
+"local renderer" removal target was the glyph rasterizer, which is
+gone); `fs2` + `tempfile` (approval locking and test scratch dirs,
+not removed contracts); `ApprovalStore`/`FrozenStore` names (new
+D03/D04 workflow types, not the removed `Store`/`GroupedStore`
+systems); the `test-overrides` concept is gone entirely (no feature
+table remains).
