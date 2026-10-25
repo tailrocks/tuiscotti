@@ -79,14 +79,15 @@ All faces below are single-face files; the face index is 0 in every row (checked
 | Upstream `crates/tui-test/assets/jetbrains-mono/JetBrainsMono-Regular.ttf` (+ Bold, Italic, BoldItalic under `-styles`) | [JetBrains Mono](https://www.jetbrains.com/lp/mono/) | 2.305 (nameID 5) | 0 | (pinned by upstream release; bytes are `pub(crate)`) | OFL 1.1 (upstream tree) |
 | Downstream `assets/fonts/JetBrainsMonoNerdFontMono-Regular.ttf` (+ Bold, Italic, BoldItalic) | [JetBrains Mono](https://www.jetbrains.com/lp/mono/) patched by [Nerd Fonts Mono](https://github.com/ryanoasis/nerd-fonts) | 2.304 + Nerd Fonts 3.5.1 (nameID 5) | 0 | Regular `f2a5ea6cfab397445ffab00c0370927b66d61e560a05db5db271b42006381c1a`; Bold `bfcf9a917276ffc058867d87cbc8a5b2f1ab0f4b710e9170dc02763ccb80bd4b`; Italic `31efd6ead98746f5b0afa1ee6dba60267ad48db36428360bee327bec10621f97`; BoldItalic `9dba502e00e35209f6ed2a151c7376c051657b067cdebbc6e52d06cb9002cf31` | `assets/fonts/LICENSE-JetBrainsMono.txt` (OFL 1.1) |
 | Downstream `assets/fonts/NotoSansSymbols-subset.ttf` | [google/fonts](https://github.com/google/fonts) at `8b0a1d0f`, `ofl/notosanssymbols/NotoSansSymbols[wght].ttf` instantiated at wght 400, pyftsubset ranges per `assets/fonts/FONTS.md` | variable-font instance (name table subset) | 0 | `6f9cc93e71f8676361c5db286368be046e75d42c0b841afbf3f50da6bb0a2b8a` | OFL (Noto; see `assets/fonts/FONTS.md`) |
+| Downstream `assets/fonts/DejaVuSansMNerdFontMono-Regular.ttf` (D02 fallback slot 3: symbol font) | [DejaVu Sans Mono](https://dejavu-fonts.github.io/) patched by [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) (Mono variant) | DejaVu 2.37 + Nerd Fonts 3.5.1 (nameID 5) | 0 | `9b55ade625f2d3f2a273ed16d9db2d924ad6236222920f9fd1324941cdc3c712` (2814292 bytes) | `assets/fonts/LICENSE-DejaVuSansMono.txt` |
 | Downstream `assets/fonts/NotoSansSymbols2-subset.ttf` | [google/fonts](https://github.com/google/fonts) at `7b6724ac`, `ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf` | subset (name table subset) | 0 | `e1d177a40af910100eceb0e825331e55f0cfd005bc0f26087fd4e58fbe60e6c5` | OFL (Noto; see `assets/fonts/FONTS.md`) |
 | Downstream `assets/fonts/NotoSansCJKjp-subset.otf` | [noto-cjk](https://github.com/notofonts/noto-cjk) at `165c01b4`, `Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf` | subset (name table subset) | 0 | `777bee41f0c6076c00ad919384359a6e396b8822cf9056041fca8fcf2759d897` (678988 bytes) | `assets/fonts/LICENSE-Noto.txt` |
 
 U04 decides whether upstream exposes bundled bytes publicly; otherwise downstream keeps the licensed assets above under version control. Do not fetch fonts during a test, render, or approval.
 
-- Upstream bundled symbol font: used per D02 fallback order position 3.
+- Downstream DejaVu Nerd Mono serves fallback position 3: upstream exposes no public symbol-font bytes (`nerd_font::FONT_DATA` is `pub(crate)`), and the Noto subsets cover no Private Use Area codepoint, so the upstream font is unavailable and the Noto faces would leave the PUA rule vacuous.
 - Mandatory unsupported-glyph case: `U+1F980` (crab), expected missing from pinned fonts.
-- Fallback order: styled JetBrains Mono face, JetBrains Mono regular, upstream bundled symbol font, pinned CJK subset. Private Use Area icons select the symbol font first.
+- Fallback order: styled JetBrains Mono face, JetBrains Mono regular, DejaVu symbol font, pinned CJK subset. Private Use Area icons select the symbol font first.
 
 ## Previous behavior disposition
 
