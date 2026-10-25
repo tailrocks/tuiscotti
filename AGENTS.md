@@ -14,16 +14,13 @@ Shared working agreement: keep this section byte-identical across projects. Proj
 - Before every PR merge, read all reviews, comments, replies, and unresolved or outdated threads. Use independent subagents to verify findings against code, tests, docs, and recorded decisions.
 - For accepted feedback: fix, verify, commit, push, and reply with the fixing commit URL before resolving. For rejected feedback: reply with evidence and rationale before resolving. Re-fetch feedback at the final head SHA. Merge only with zero unaddressed feedback and all required checks and approvals satisfied. Only explicit, PR-specific human authorization permits ignoring identified feedback.
 - Keep instructions lean; explanations, plans, and progress belong in documentation, not here.
-- Testing proves real behavior, never a coverage percentage. Coverage is a gap-finding signal, not a KPI; a passing suite must mean the product works, not that lines executed.
-- No test without a reviewed plan first. State what real functionality each test proves, including positive and negative scenarios; fewer tests with real coverage beat millions of brittle unit tests.
-- A red test must mean clearly broken, never abstraction churn. Prefer integration and functional tests over mocked hypotheticals; if a one-line change breaks a hundred mock expectations, consolidate toward real coverage.
-- Every new test must be seen failing for the right reason before it passes; an unobserved red proves nothing.
-- When an issue escapes, analyze why the current tests missed it before writing anything. Spawn an architect subagent to rethink the coverage conceptually, then design the test or refactor current tests to cover the gap. Never append a narrow regression test as the first move.
-- Testing proves real behavior, never a coverage percentage. Coverage is a gap-finding signal, not a KPI; a passing suite must mean the product works, not that lines executed.
-- No test without a reviewed plan first. State what real functionality each test proves, including positive and negative scenarios; fewer tests with real coverage beat millions of brittle unit tests.
-- A red test must mean clearly broken, never abstraction churn. Prefer integration and functional tests over mocked hypotheticals; if a one-line change breaks a hundred mock expectations, consolidate toward real coverage.
-- Every new test must be seen failing for the right reason before it passes; an unobserved red proves nothing.
-- When an issue escapes, analyze why the current tests missed it before writing anything. Spawn an architect subagent to rethink the coverage conceptually, then design the test or refactor current tests to cover the gap. Never append a narrow regression test as the first move.
+- Tests are not forbidden. Write them only where these rules require them: to prove required functionality works and keeps working.
+- Never write a test without a reviewed plan first: state what behavior it proves, which positive and negative scenarios it covers, and why existing tests cannot cover it.
+- Prefer fewer high-signal tests over many narrow ones. Never write a test for coverage numbers or KPIs, and never judge a suite by count or coverage %.
+- Test functional/integration-first through public APIs with real cases, never internals; never mock owned code (fakes only at unowned I/O); if a small change breaks many mocks, consolidate toward real coverage instead of repairing them.
+- A red test must mean something is clearly broken or an expected change under analysis, never a reshaped abstraction or bad mock; prove each test fails on broken code and passes on fixed code, keep it hermetic and deterministic, and quarantine flakes.
+- When an issue escapes, do not just append a test; analyze why current tests missed it and rethink coverage conceptually (seek independent review for significant escapes) before writing or refactoring the test.
+- Run narrow tests per change and the full relevant suite before done; keep the loop fast enough to run every time.
 
 ## This project (tuiscotti)
 
