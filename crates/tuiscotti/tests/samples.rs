@@ -50,6 +50,10 @@ const CJK: &str = "東";
 const CRAB: &str = "\u{1F980}";
 /// A Private Use Area icon the symbol coverage serves.
 const PUA_ICON: &str = "\u{E61C}";
+/// Discriminating Private Use Area icon for the "symbol font first" rule:
+/// present in the symbol font but absent from `JetBrains Mono` Nerd Font
+/// Mono 3.5.1, so a successful render proves the symbol slot serves it.
+const PUA_SYMBOL_FIRST: &str = "\u{F6C5}";
 
 /// Black canvas the profile renders onto for these fixtures.
 const CANVAS: [u8; 4] = [0, 0, 0, 255];
@@ -439,6 +443,13 @@ fn metric_cases() -> Vec<(&'static str, Vec<SnapshotCell>, u32, u32, u32)> {
         (
             "pua-icon",
             vec![plain_cell(PUA_ICON, 1), plain_cell(" ", 1)],
+            2,
+            0,
+            1,
+        ),
+        (
+            "pua-icon-symbol-first",
+            vec![plain_cell(PUA_SYMBOL_FIRST, 1), plain_cell(" ", 1)],
             2,
             0,
             1,

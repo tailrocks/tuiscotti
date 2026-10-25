@@ -8,8 +8,8 @@
 //! Font-byte source decision (GOAL 13.2, first branch checked 2026-10-25
 //! against the U02+U03+U04+U05+U11 upstream patch stack): the upstream public
 //! API supplies NO licensed bundled font bytes. The bundled `JetBrains Mono`
-//! faces are `pub(crate)` (`REGULAR_FONTS`, `STYLED_FONTS` in upstream
-//! `render/raster/font.rs`) and the bundled Nerd symbol font is `pub(crate)`
+//! faces are private to the module (`REGULAR_FONTS`, `STYLED_FONTS` in
+//! upstream `render/font.rs`) and the bundled Nerd symbol font is `pub(crate)`
 //! (`FONT_DATA` in upstream `render/nerd_font.rs`). Nothing public returns
 //! those bytes, so every slot below uses licensed downstream assets from
 //! `assets/fonts` (kept under version control, never fetched):
