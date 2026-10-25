@@ -8,7 +8,8 @@ resolver = "3"
 [workspace.dependencies]
 # Centralize all actual dependencies here, including dev/build dependencies.
 # D07: only the two shipping crates remain. Live PTY work belongs to
-# `tui-test-rs` (patched to the upstream checkout, never committed);
+# `tui-test-rs` (provisional pinned fork commit per D-R02-1, never the
+# last vendor dependency);
 # tuiscotti keeps no local PTY dependency. Compatible SemVer ranges let
 # downstream consumers unify dependencies without forced downgrades,
 # while Cargo.lock keeps workspace CI deterministic.
@@ -66,3 +67,9 @@ private_intra_doc_links = "deny"
 # tables only (failure backtraces stay file:line-accurate).
 # Dev/release profiles keep full debuginfo.
 debug = "line-tables-only"
+
+# Provisional fork dependency (§23.1, D-R02-1): our maintained fork
+# carries the accepted upstream APIs until the PRs merge and a registry
+# release exists. Pinned to the full commit SHA; remove at R02 adoption.
+[patch.crates-io]
+tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "049fb8ca70ecee56cf35d584101e0ed5d4b0f659" }

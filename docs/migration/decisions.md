@@ -158,3 +158,26 @@ green with the fix; no D03 test changes.
 ## D-QUAL-2: Qual-stack merge fixups and validation
 
 Assembling `goal/qual-stack` (U07 `b0da622`, U08 `6175db3`, U09 `46a2864`, U10 `1742fba` merges) needed two fixups, both stack-assembly commits, not task work: `2482ff5` removed a leftover `<<<<<<< HEAD` marker in `session.rs`; `049fb8c` added the missing `last_output: None` field to the `spawn_with` `TermState` initializer (U10 added the field; the U08-side initializer was merged without it; E0063 caught by the guard-compliant downstream check). Validation: `cargo check -p tuiscotti --locked --offline` green through the guard (compiles `tui-test-rs` at the stack head). The stack is otherwise frozen; D06+ patch against it.
+
+## D-R02-1: Provisional fork dependency and fork maintenance
+
+Per user direction and §23.1, downstream depends on our maintained fork
+until upstream merges land and a registry release exists. `Cargo.toml`
+`[patch.crates-io]` pins `tui-test-rs` to
+`git+https://github.com/donbeave/tui-test` at full SHA `049fb8c`
+(`goal/qual-stack` head: main + U02..U10 stack + assembly fixups).
+Destination approved (our fork), full SHA pinned, dependency identified
+as provisional in the manifest comment, never the last vendor
+dependency. The untracked task-local `.cargo/config.toml` path patch is
+removed; the one online unlocked `cargo check` that regenerated
+`Cargo.lock` is the §23.2 lock-update procedure, after which all gates
+run `--locked --offline` again. Full suite re-verified 167/167 green on
+the fork source.
+
+Fork maintenance (both forks): keep the 11 `goal/uXX-*` task branches
+and `goal/qual-stack` pushed on `donbeave/tui-test`; keep
+`goal/tui-test-extension` pushed on `donbeave/tuiscotti` with the PR
+open. Additive merges only, never history rewrites. If a task branch
+moves, re-merge the stack forward, record the new head, bump the pinned
+rev, re-run the full gates, and re-review the swap. At R02, remove the
+`[patch]` section entirely and depend on the registry version.
