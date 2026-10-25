@@ -18,6 +18,10 @@ pub enum Error {
     Frame(tuiscotti_core::frame::FrameError),
     /// Sample construction, validation, or rendering failed (D02).
     Sample(crate::sample::SampleError),
+    /// Frozen comparison or candidate evidence failed (D03).
+    Check(crate::check::CheckError),
+    /// Static HTML report rendering failed (D03).
+    Report(crate::report::ReportError),
     /// Render profile lookup or build failed (D02).
     Profile(crate::render_profile::ProfileError),
     /// Query construction, resolution, or action refusal.
@@ -51,6 +55,8 @@ impl Display for Error {
             Self::Screen(e) => write!(f, "{e}"),
             Self::Frame(e) => write!(f, "{e}"),
             Self::Sample(e) => write!(f, "{e}"),
+            Self::Check(e) => write!(f, "{e}"),
+            Self::Report(e) => write!(f, "{e}"),
             Self::Profile(e) => write!(f, "{e}"),
             Self::Locate(e) => write!(f, "{e}"),
             Self::Render(e) => write!(f, "{e}"),
@@ -75,6 +81,8 @@ impl std::error::Error for Error {
             Self::Screen(e) => Some(e),
             Self::Frame(e) => Some(e),
             Self::Sample(e) => Some(e),
+            Self::Check(e) => Some(e),
+            Self::Report(e) => Some(e),
             Self::Profile(e) => Some(e),
             Self::Locate(e) => Some(e),
             Self::Render(e) => Some(e),
@@ -106,6 +114,8 @@ macro_rules! convert {
 convert!(Screen, tuiscotti_core::screen::ScreenError);
 convert!(Frame, tuiscotti_core::frame::FrameError);
 convert!(Sample, crate::sample::SampleError);
+convert!(Check, crate::check::CheckError);
+convert!(Report, crate::report::ReportError);
 convert!(Profile, crate::render_profile::ProfileError);
 convert!(Locate, tuiscotti_core::locate::LocateError);
 convert!(Render, tuiscotti_render::render::RenderError);

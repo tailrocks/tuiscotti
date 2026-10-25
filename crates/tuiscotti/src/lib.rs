@@ -16,6 +16,7 @@
 //! the purposeful modules below (`tui`, `command`, `locate`, `proto`, ...),
 //! which also preserve every pre-G6 path used out of crate.
 
+pub mod check;
 pub mod error;
 // D01 migration path: pure-view capture into the single upstream snapshot
 // model. This module owns the new reduced surface; the surrounding
@@ -27,9 +28,15 @@ pub mod view;
 // names the replaced renderer until D07 removes it.
 #[path = "profile.rs"]
 pub mod render_profile;
+pub mod report;
 pub mod sample;
 
+pub use check::{
+    CHECK_SCHEMA, CheckError, CheckFailure, CheckOutcome, CheckSuccess, FrozenStore,
+    MISSING_BASELINE, MismatchReason, validate_test_id,
+};
 pub use error::{Error, Result};
+pub use report::{PixelSummary, ReportInput, ReportedCell, escape_html, render_report};
 // `sample::Observation` and `render_profile::Profile` stay behind their
 // module paths: those top-level names still belong to the replaced engine.
 pub use sample::{
