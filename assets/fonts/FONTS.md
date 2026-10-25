@@ -30,8 +30,9 @@ symbols the primary family lacks.
 ## Vendored fallback faces (per-glyph chain)
 
 Glyphs the primary family lacks are served per-glyph by pinned Noto subsets
-(`VENDORED_FALLBACK_FACES` in `crates/tuiscotti-render/src/profile/`), tried in this order after
-the primary styled + regular faces:
+(per-face `fallback_position` entries in the render contract; registry
+order in `Profile::faces()` in `crates/tuiscotti/src/profile.rs`), tried
+in this order after the primary styled + regular faces:
 
 | File | Source | Subset covers | Size |
 |---|---|---|---|
@@ -39,12 +40,11 @@ the primary styled + regular faces:
 | `NotoSansSymbols-subset.ttf` | Noto Sans Symbols (variable → wght 400 instance) | U+2600–26FF misc symbols unique to v1 (⚷ ⚙ ♻ ☰-class) — v1/v2 are disjoint in this block (probed) | 27 KB |
 | `NotoSansCJKjp-subset.otf` | Noto Sans CJK JP Regular | U+3000–30FF (CJK punctuation, hiragana, katakana), U+FF01–FF65 (fullwidth forms), JIS X 0208 level-1 kanji (2965, incl. 東京日本語中文) | 679 KB |
 
-Each face's SHA-256 is pinned in code (`VENDORED_*_FONT_SHA256`) and verified
-when a `Renderer` loads the chain; a mismatch refuses to render. Fallback
-faces draw single glyphs in their own weight, centered and clipped inside
-the cell box the primary geometry pins — they never move the cell grid, and
-primary-covered frames render byte-identical with or without the chain
-(pinned by `crates/tuiscotti/tests/render_qual.rs::fallback_never_shifts_the_grid`).
+Each face's SHA-256 is pinned in code (`JB_*_SHA256`, `SYMBOL_SHA256`,
+`CJK_SHA256` in `crates/tuiscotti/src/profile.rs`) and verified when the
+pinned profile builds; a mismatch refuses to render. Fallback faces draw
+single glyphs in their own weight, centered and clipped inside the cell
+box the primary geometry pins — they never move the cell grid.
 
 Committed bytes are hash-pinned in code
 (`crates/tuiscotti/src/profile.rs`: `JB_*_LEN` / `JB_*_SHA256`,
@@ -109,14 +109,12 @@ The DejaVu file remains under the Bitstream Vera license
 allowed with the license text; do not use the names "Bitstream" or "Vera"
 for modified versions.
 
-The SHA-256 of each vendored face is pinned in code
-(`VENDORED_*_FONT_SHA256` in `crates/tuiscotti-render/src/profile/`,
-asserted by
-`crates/tuiscotti/tests/render_qual.rs::vendored_pins_match_vendored_bytes`),
-and each fallback face's SHA-256 travels with its bytes in
-`VENDORED_FALLBACK_FACES` (the strict constructor refuses to build on
-any mismatch). Any font change fails gates loudly instead of shifting
-pixels silently.
+The SHA-256 of each vendored face is pinned in code (`JB_*_SHA256`,
+`SYMBOL_SHA256`, `CJK_SHA256` in `crates/tuiscotti/src/profile.rs`,
+asserted by the `d02_profile_*` tests), and
+`d02_profile_assets_ship_inside_the_crate` trips if an embedded asset or
+its license ever leaves the `tuiscotti` package directory again. Any
+font change fails gates loudly instead of shifting pixels silently.
 
 ## Cell metrics (pinned in `Profile`)
 

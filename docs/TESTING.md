@@ -61,6 +61,11 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked --offline -- -D warnings
 ```
 
+On this machine, prefix every `cargo` invocation with a `disk-check`
+probe and run it through `rust-build-guard -- mise exec -- cargo …`
+(per `docs/migration/decisions.md`, D-GUARD-1); the bare commands above
+are what the guard executes.
+
 The workspace defines zero cargo features, so there are no
 feature-combination runs. `cargo test` is not used (`nextest` only, per
 repo policy); doctests ride separately (`cargo test --locked --offline
