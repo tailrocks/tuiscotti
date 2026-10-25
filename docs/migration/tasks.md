@@ -24,7 +24,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | D05 | Offline CLI | downstream writer | done | `goal/tui-test-extension` | D04 head |
 | D06 | Test and example migration | downstream writer | done | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
 | D07 | Code removal and documentation | downstream writer | done | `goal/tui-test-extension` | D06 head |
-| V01 | Full checks and last code review | code reviewer | active | both repos | D07 head |
+| V01 | Full checks and last code review | code reviewer | done (re-review accepted `18d57ad`: guides match two-crate tree, qual-stack record corrected, 167/167 nextest green) | both repos | D07 head |
 | R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283, U04 #284, U05 #285, U08 #286) | one branch per U task | accepted heads |
 | R02 | Released dependency adoption | primary agent | todo | `goal/tui-test-extension` | V01 + release |
 | F01 | Last evidence and completion report | primary agent | todo | `goal/tui-test-extension` | all local tasks |
