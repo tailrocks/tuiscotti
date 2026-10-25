@@ -1,13 +1,12 @@
 # Tests and CI
 
 Two shipping crates, ordinary Rust tests, `nextest` runner. No custom
-test runner, no fixture workspace, no `xtask`. Full suite: 167 run /
-167 passed, observed at V01 (review accepted `18d57ad`; final docs-only
-re-run `2c46db1` on the F01 HEAD; macOS/aarch64 workstation, toolchain
-per `rust-toolchain.toml`) — plus 2 doctest bodies in `view.rs`, proven
-separately via a temporary nextest mirror, then removed. The per-suite
-counts below are that V01 vintage; see "Result vintages" before quoting
-them at HEAD.
+test runner, no fixture workspace, no `xtask`. Full suite at HEAD:
+201 run / 201 passed in both the default and `CI=true` lanes
+(qual-stack-r2 pin `6eb3b14` + approval-port merge, commit `883c9b1`;
+macOS/aarch64 workstation, toolchain per `rust-toolchain.toml`). The
+per-suite counts below are the V01 vintage (167/167 at `18d57ad`);
+see "Result vintages" before quoting them at HEAD.
 
 ## Layout
 
@@ -80,10 +79,11 @@ waits only.
 
 ## Result vintages
 
-The per-suite counts above are the V01 record. The B7 asset relocation
-adds `d02_profile_assets_ship_inside_the_crate` (`samples` 20 → 21),
-so HEAD runs 168 tests; re-run the suite at HEAD before quoting counts
-in reviews or packets.
+The per-suite counts above are the V01 record. Later vintages:
+B7 asset relocation (`samples` 20 → 21, HEAD 168); qual-stack-r2
+re-pin + approval-port merge + exit-code repair (HEAD `883c9b1`,
+201/201 in default and `CI=true` lanes). Re-run the suite at HEAD
+before quoting counts in reviews or packets.
 
 ## CI wiring
 
