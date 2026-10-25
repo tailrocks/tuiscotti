@@ -45,7 +45,7 @@ use tui_test::{
     MouseButton, MouseOptions, OpenOptions, Operation, OperationResult, RunOptions, Session,
     SnapshotScope, Timeouts, WaitQuietMode, WaitQuietOptions,
 };
-use tuiscotti::approve::ApprovalStore;
+use tuiscotti::approve::{ApprovalStore, ApproveError};
 use tuiscotti::check::{CheckOutcome, FrozenStore, MISSING_BASELINE};
 use tuiscotti::render_profile::{PROFILE_NAME, resolve_profile};
 use tuiscotti::sample::{Observation, Sample};
@@ -305,8 +305,38 @@ fn d06_c02_live_session_sample_through_downstream_path() {
         CheckOutcome::Failure(failure) => failure,
         CheckOutcome::Pass(_) => panic!("first check over empty baselines must fail"),
     };
-    ApprovalStore::new(&baselines)
-        .expect("approvals open")
+    let approvals = ApprovalStore::new(&baselines).expect("approvals open");
+    if std::env::var_os("CI").is_some() {
+        // CI path: approval is refused by design, so the test probes that
+        // refusal and finishes through a frozen fixture plus check-only
+        // flow. The runner environment is never changed.
+        match approvals.accept(
+            failure.candidate_path(),
+            failure.candidate_sha256(),
+            MISSING_BASELINE,
+        ) {
+            Err(error @ ApproveError::CiApprovalForbidden) => {
+                assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
+                assert_eq!(error.exit_code(), 3);
+            }
+            other => panic!("live approval under CI must refuse, got {other:?}"),
+        }
+        let mut fixture = baselines.join(&test_id);
+        fixture.set_extension("tui.json");
+        if let Some(parent) = fixture.parent() {
+            std::fs::create_dir_all(parent).expect("fixture parent creates");
+        }
+        std::fs::write(&fixture, &bytes).expect("frozen fixture writes");
+        assert!(
+            store
+                .check(&bytes)
+                .expect("second live check runs")
+                .is_pass(),
+            "frozen live sample must check green"
+        );
+        return;
+    }
+    approvals
         .accept(
             failure.candidate_path(),
             failure.candidate_sha256(),

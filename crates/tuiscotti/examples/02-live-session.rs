@@ -7,6 +7,13 @@
 //! Upstream locators find the readiness text, the owned snapshot converts
 //! through the same downstream sample API the pure-view example uses
 //! (`Sample`, `FrozenStore`).
+//!
+//! Under `CI` approval is refused by design, so the example plants the
+//! candidate as a frozen baseline fixture and checks it green instead of
+//! approving; the marker and exit code stay the same.
+
+#[path = "common/ci_fixture.rs"]
+mod ci_fixture;
 
 use tui_test::{
     AutomaticRecording, AutomaticRecordingMode, LocatorExpectOptions, OpenOptions, RunOptions,
@@ -72,15 +79,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let baselines = root.path().join("baselines");
     let artifacts = root.path().join("artifacts");
     let store = FrozenStore::new(&baselines, &artifacts)?;
-    let approvals = ApprovalStore::new(&baselines)?;
     match store.check(&bytes)? {
         CheckOutcome::Pass(_) => {}
         CheckOutcome::Failure(failure) => {
-            approvals.accept(
-                failure.candidate_path(),
-                failure.candidate_sha256(),
-                MISSING_BASELINE,
-            )?;
+            if ci_fixture::ci_is_set() {
+                ci_fixture::plant_frozen_baseline(&baselines, &test_id, &bytes)?;
+            } else {
+                ApprovalStore::new(&baselines)?.accept(
+                    failure.candidate_path(),
+                    failure.candidate_sha256(),
+                    MISSING_BASELINE,
+                )?;
+            }
             let rerun = store.check(&bytes)?;
             assert!(rerun.is_pass(), "approved live sample must check green");
         }

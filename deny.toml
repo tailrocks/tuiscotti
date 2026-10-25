@@ -16,7 +16,11 @@ external-default-features = "allow"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+# R26 provisional-fork exception, REMOVE AT R02: the workspace
+# [patch.crates-io] pins tui-test-rs to our maintained fork until the
+# upstream PRs merge and a registry release exists (D-R02-1). This is the
+# only permitted git source; source validation stays deny-by-default.
+allow-git = ["https://github.com/donbeave/tui-test"]
 
 [licenses]
 allow = [

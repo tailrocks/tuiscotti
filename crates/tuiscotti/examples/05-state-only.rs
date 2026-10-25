@@ -6,6 +6,13 @@
 //! nothing renders, so layout-only assertions check without a pixel gate.
 //! Observation metadata stays evidence-only: re-noting the same state
 //! changes the candidate digest but still checks green.
+//!
+//! Under `CI` approval is refused by design, so the example plants the
+//! candidate as a frozen baseline fixture and checks it green instead of
+//! approving; the marker and exit code stay the same.
+
+#[path = "common/ci_fixture.rs"]
+mod ci_fixture;
 
 use ratatui::Frame;
 use ratatui::widgets::Paragraph;
@@ -36,11 +43,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         CheckOutcome::Failure(failure) => failure,
         CheckOutcome::Pass(_) => return Err("first check over empty baselines must fail".into()),
     };
-    ApprovalStore::new(&baselines)?.accept(
-        failure.candidate_path(),
-        failure.candidate_sha256(),
-        MISSING_BASELINE,
-    )?;
+    if ci_fixture::ci_is_set() {
+        ci_fixture::plant_frozen_baseline(&baselines, "examples/state-only", &bytes)?;
+    } else {
+        ApprovalStore::new(&baselines)?.accept(
+            failure.candidate_path(),
+            failure.candidate_sha256(),
+            MISSING_BASELINE,
+        )?;
+    }
     assert!(
         store.check(&bytes)?.is_pass(),
         "approved state sample must pass"

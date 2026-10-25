@@ -7,6 +7,13 @@
 //! root that is not inside the baseline root. The baseline root below is
 //! additionally made read-only (Unix), so any baseline write would fail at
 //! the OS boundary instead of silently succeeding.
+//!
+//! Under `CI` approval is refused by design, so the setup plants the
+//! baseline as a frozen fixture instead of approving; the marker and exit
+//! code stay the same.
+
+#[path = "common/ci_fixture.rs"]
+mod ci_fixture;
 
 use ratatui::Frame;
 use ratatui::widgets::Paragraph;
@@ -50,18 +57,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let baselines = root.path().join("baselines");
     let artifacts = root.path().join("artifacts");
 
-    // Approve the baseline first, while the root is still writable.
+    // Approve the baseline first, while the root is still writable. Under
+    // `CI` approval is refused, so the setup plants a frozen fixture.
     let approved = draw(frozen_view)?;
     let setup_store = FrozenStore::new(&baselines, &artifacts)?;
     let failure = match setup_store.check(&approved)? {
         CheckOutcome::Failure(failure) => failure,
         CheckOutcome::Pass(_) => return Err("setup check over empty baselines must fail".into()),
     };
-    ApprovalStore::new(&baselines)?.accept(
-        failure.candidate_path(),
-        failure.candidate_sha256(),
-        MISSING_BASELINE,
-    )?;
+    if ci_fixture::ci_is_set() {
+        let test_id = format!("examples/frozen-baseline/pixels-{}", platform_key());
+        ci_fixture::plant_frozen_baseline(&baselines, &test_id, &approved)?;
+    } else {
+        ApprovalStore::new(&baselines)?.accept(
+            failure.candidate_path(),
+            failure.candidate_sha256(),
+            MISSING_BASELINE,
+        )?;
+    }
     make_read_only(&baselines)?;
     let listing_before = baseline_listing(&baselines)?;
 

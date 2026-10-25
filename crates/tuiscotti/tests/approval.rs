@@ -24,8 +24,11 @@
 //! Barriers order thread concurrency; tempdirs isolate the filesystem; no
 //! test changes process-wide state (CI values and contender roles live only
 //! in spawned child processes).
-//! The suite needs `CI` unset in the runner environment: any set `CI`
-//! freezes every approval call by design.
+//! The suite runs green with and without `CI` set: any set `CI` freezes
+//! every public approval call by design, so each approval-writing test
+//! probes that refusal through [`ci_refusal_probed`] and returns early,
+//! while the transaction mechanics under `CI` stay covered by the private
+//! unit-tested core in `src/approve.rs` (which never reads the gate).
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Barrier};
@@ -329,6 +332,53 @@ fn accepted_of(
     }
 }
 
+/// True when the `CI` variable is present with any value, including empty:
+/// the public approval API refuses every call by design.
+fn ci_is_set() -> bool {
+    std::env::var_os("CI").is_some()
+}
+
+/// File listing that tolerates a missing root: refusal happens before the
+/// root is created, so a missing root lists as empty.
+fn files_below_tolerant(root: &Path) -> Vec<String> {
+    if !root.exists() {
+        return Vec::new();
+    }
+    all_files_below(root)
+}
+
+/// CI probe for approval-writing tests: when `CI` is set, the public
+/// `accept` call below must refuse with `CI_APPROVAL_FORBIDDEN` (exit 3)
+/// and write nothing, so the probe asserts that refusal and returns true;
+/// the caller returns immediately. Without `CI` it returns false and the
+/// test runs its transaction mechanics. The probe never changes the
+/// runner environment.
+#[expect(clippy::panic, reason = "test helper rejects a non-refusing approval")]
+fn ci_refusal_probed(
+    store: &ApprovalStore,
+    candidate: &Path,
+    candidate_digest: &str,
+    expected_baseline: &str,
+) -> bool {
+    if !ci_is_set() {
+        return false;
+    }
+    let before = files_below_tolerant(store.baseline_root());
+    match store.accept(candidate, candidate_digest, expected_baseline) {
+        Err(error @ ApproveError::CiApprovalForbidden) => {
+            assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("approval under CI must refuse, got {other:?}"),
+    }
+    assert_eq!(
+        files_below_tolerant(store.baseline_root()),
+        before,
+        "CI refusal writes nothing"
+    );
+    true
+}
+
 /// C09: a missing baseline fails the frozen check without a baseline write,
 /// then the prepared accept transaction writes the baseline.
 #[test]
@@ -343,6 +393,9 @@ fn d04_c09_missing_baseline_approval_writes_baseline() {
     assert_eq!(entry_names(&baselines), Vec::<String>::new());
     let candidate = candidate_file(temp.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(accepted.test_id(), "views/login");
     assert_eq!(accepted.candidate_sha256(), candidate_digest);
@@ -379,6 +432,9 @@ fn d04_c09_first_approval_under_missing_root() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(accepted.baseline_sha256(), candidate_digest);
     assert_eq!(
@@ -399,6 +455,9 @@ fn d04_c10_digest_and_frame_image_agreement() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(accepted.test_id(), test_id);
     assert_eq!(accepted.candidate_sha256(), candidate_digest);
@@ -446,6 +505,9 @@ fn d04_c10_unknown_profile_rejected() {
     let first_digest = sha256_hex(&first_bytes);
     let first = candidate_file(dir.path(), "first.tui.json", &first_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &first, &first_digest, "missing") {
+        return;
+    }
     accepted_of(store.accept(&first, &first_digest, "missing"));
     let second_bytes = with_profile(&first_bytes, "no-such-profile");
     assert_ne!(sha256_hex(&second_bytes), first_digest);
@@ -489,6 +551,9 @@ fn d04_c10_rerender_mismatch_rejected() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ ApproveError::InconsistentSample { .. }) => {
             assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
@@ -517,6 +582,9 @@ fn d04_c10_missing_glyph_rejected() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ ApproveError::MissingGlyph { .. }) => {
             assert_eq!(error.code(), "MISSING_GLYPH");
@@ -553,6 +621,9 @@ fn d04_c10_tampered_image_rejected_without_write() {
     let digest = sha256_hex(&tampered);
     let candidate = candidate_file(dir.path(), "tampered.tui.json", &tampered);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &digest, "missing") {
+        return;
+    }
     match store.accept(&candidate, &digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "INVALID_IMAGE");
@@ -585,6 +656,9 @@ fn d04_c11_stale_baseline_rejected_baseline_untouched() {
     assert_ne!(second_digest, first_digest);
     let second = candidate_file(dir.path(), "second.tui.json", &second_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &second, &second_digest, &"c".repeat(64)) {
+        return;
+    }
     match store.accept(&second, &second_digest, &"c".repeat(64)) {
         Err(ApproveError::StaleBaseline { expected, actual }) => {
             assert_eq!(expected, "c".repeat(64));
@@ -634,6 +708,9 @@ fn d04_c11_concurrent_accepts_single_winner() {
     let file_b = candidate_file(dir.path(), "b.tui.json", &bytes_b);
     let barrier = Arc::new(Barrier::new(2));
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &file_a, &digest_a, &first_digest) {
+        return;
+    }
     let worker = |candidate: PathBuf, digest: String, expected: String, barrier: Arc<Barrier>| {
         let roots = store.baseline_root().to_path_buf();
         thread::spawn(move || {
@@ -756,6 +833,10 @@ fn d04_c11_cross_process_accepts_single_winner() {
     let digest_b = sha256_hex(&bytes_b);
     let file_a = candidate_file(dir.path(), "a.tui.json", &bytes_a);
     let file_b = candidate_file(dir.path(), "b.tui.json", &bytes_b);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &file_a, &digest_a, &first_digest) {
+        return;
+    }
     let child_a = spawn_contender(&baselines, &file_a, &digest_a, &first_digest);
     let child_b = spawn_contender(&baselines, &file_b, &digest_b, &first_digest);
     let out_a = child_a.wait_with_output().expect("contender A finishes");
@@ -812,6 +893,9 @@ fn d04_c11_fault_before_replace_keeps_previous() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ (ApproveError::Io { .. } | ApproveError::Check { .. })) => {
             assert_eq!(error.code(), "IO");
@@ -854,6 +938,9 @@ fn d04_present_baseline_skips_id_gate_comparison() {
         "frozen comparison still cross-compares IDs"
     );
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, &planted_digest) {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, &planted_digest));
     assert_eq!(accepted.previous_baseline_sha256(), planted_digest);
     assert_eq!(
@@ -895,6 +982,9 @@ fn d04_digest_mixtures_rejected_with_codes() {
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
     let wrong = "d".repeat(64);
+    if ci_refusal_probed(&store, &candidate, &wrong, "missing") {
+        return;
+    }
     match store.accept(&candidate, &wrong, "missing") {
         Err(ApproveError::StaleCandidate { expected, actual }) => {
             assert_eq!(expected, wrong);
@@ -951,6 +1041,9 @@ fn d04_error_codes_arguments_and_samples() {
     let schema_bytes = with_schema(&candidate_bytes, "tuiscotti.sample.v99");
     let schema_digest = sha256_hex(&schema_bytes);
     let schema_file = candidate_file(dir.path(), "schema.tui.json", &schema_bytes);
+    if ci_refusal_probed(&store, &schema_file, &schema_digest, "missing") {
+        return;
+    }
     match store.accept(&schema_file, &schema_digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "UNSUPPORTED_SCHEMA");
@@ -1042,6 +1135,9 @@ fn d04_error_codes_rerender() {
         "profile.tui.json",
         &with_profile(&pixel_bytes, "no-such-profile"),
     );
+    if ci_refusal_probed(&store, &profile_file, &profile_digest, "missing") {
+        return;
+    }
     match store.accept(&profile_file, &profile_digest, "missing") {
         Err(error) => {
             assert_eq!(error.code(), "UNKNOWN_PROFILE");
@@ -1089,6 +1185,9 @@ fn d04_error_codes_arbitration_and_control() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &"d".repeat(64), "missing") {
+        return;
+    }
     match store.accept(&candidate, &"d".repeat(64), "missing") {
         Err(error) => {
             assert_eq!(error.code(), "STALE_CANDIDATE");
@@ -1144,6 +1243,9 @@ fn d04_tamper_evident_candidate_rejected() {
     assert_ne!(mutated_digest, candidate_digest);
     let candidate = candidate_file(dir.path(), "mutated.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(ApproveError::StaleCandidate { expected, actual }) => {
             assert_eq!(expected, candidate_digest);
@@ -1168,6 +1270,9 @@ fn d04_missing_vs_corrupt_candidate_differ() {
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
     let missing = dir.path().join("no-such-candidate.tui.json");
     let digest = "e".repeat(64);
+    if ci_refusal_probed(&store, &missing, &digest, "missing") {
+        return;
+    }
     match store.accept(&missing, &digest, "missing") {
         Err(error @ ApproveError::Io { .. }) => {
             assert_eq!(error.code(), "IO");
@@ -1202,6 +1307,9 @@ fn d04_accept_idempotent_same_candidate() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let first = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(first.previous_baseline_sha256(), "missing");
     let first_report_bytes =
@@ -1352,7 +1460,9 @@ fn d04_c12_ci_child_accept_refused_without_writes() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(temp.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
-    accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    if !ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    }
 }
 
 /// C12: acceptance against a frozen tree is refused. A directory blocking
@@ -1369,6 +1479,9 @@ fn d04_c12_blocked_lock_path_accept_refused() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ ApproveError::Io { .. }) => {
             assert_eq!(error.code(), "IO");
@@ -1398,6 +1511,11 @@ fn d04_c12_readonly_root_checks_but_refuses_approval() {
     std::fs::write(&candidate, &baseline_bytes).expect("candidate writes");
     let digest = sha256_hex(&baseline_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &digest, &digest) {
+        std::fs::set_permissions(&baselines, std::fs::Permissions::from_mode(0o755))
+            .expect("root restores");
+        return;
+    }
     let outcome = store.accept(&candidate, &digest, &digest);
     std::fs::set_permissions(&baselines, std::fs::Permissions::from_mode(0o755))
         .expect("root restores");
@@ -1434,6 +1552,13 @@ fn d04_lock_lifecycle_stable_file_reused() {
             .any(|name| name.contains("lock"))
     };
     assert!(!has_lock_file(), "no lock file before the transaction");
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    let probe_bytes = state_sample_bytes("views/probe", &base_snapshot());
+    let probe_digest = sha256_hex(&probe_bytes);
+    let probe = candidate_file(&candidates, "probe.tui.json", &probe_bytes);
+    if ci_refusal_probed(&store, &probe, &probe_digest, "missing") {
+        return;
+    }
     let worker = thread::spawn({
         let baselines = baselines.clone();
         let candidates = candidates.clone();
@@ -1495,6 +1620,9 @@ fn d04_lock_stale_file_does_not_block() {
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
     let started = Instant::now();
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert!(
         started.elapsed() < Duration::from_secs(20),
@@ -1541,6 +1669,10 @@ fn d04_lock_timeout_while_held_cross_process() {
     let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let holder = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
@@ -1587,6 +1719,9 @@ fn d04_candidate_input_stays_readonly() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(temp.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(
         std::fs::read(&candidate).expect("candidate re-reads"),
@@ -1610,6 +1745,9 @@ fn d04_check_accept_digest_consistency() {
     assert_eq!(missing.baseline_sha256(), "missing");
     let candidate = candidate_file(temp.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(accepted.candidate_sha256(), missing.candidate_sha256());
     assert_eq!(accepted.baseline_sha256(), sha256_hex(&candidate_bytes));
@@ -1628,6 +1766,9 @@ fn d04_evidence_holds_no_volatile_data() {
     let candidate_digest = sha256_hex(&candidate_bytes);
     let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     let root_text = baselines.to_string_lossy().into_owned();
     let report_text = std::fs::read_to_string(accepted.evidence_dir().join("report.json"))
