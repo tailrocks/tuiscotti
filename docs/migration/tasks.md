@@ -14,7 +14,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | U05 | Grapheme rendering | upstream writer | done ([draft PR 285](https://github.com/microsoft/tui-test/pull/285)) | `goal/u05-graphemes` | U04 head (`3c37c6a`, parent PR #284) |
 | U06 | Pure pixel comparison | upstream writer | done ([draft PR 277](https://github.com/microsoft/tui-test/pull/277)) | `goal/u06-pixel-comparison` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U07 | Checked mouse, paste, focus | upstream writer | done ([draft PR 282](https://github.com/microsoft/tui-test/pull/282)) | `goal/u07-checked-input` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
-| U08 | Child environment, native arguments | upstream writer | todo | `goal/u08-launch-options` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
+| U08 | Child environment, native arguments | upstream writer | done ([draft PR 286](https://github.com/microsoft/tui-test/pull/286)) | `goal/u08-launch-options` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U09 | Raw input bytes | upstream writer | done ([draft PR 279](https://github.com/microsoft/tui-test/pull/279)) | `goal/u09-raw-bytes` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U10 | Quiet intervals, request cancellation | upstream writer | done ([draft PR 281](https://github.com/microsoft/tui-test/pull/281)) | `goal/u10-request-waits` | U02 head (`364719a`, parent PR #278) |
 | D01 | Reduced crates, Ratatui adapter | downstream writer | todo | `goal/tui-test-extension` | U02 head (patched) |
@@ -25,7 +25,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | D06 | Test and example migration | downstream writer | todo | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
 | D07 | Code removal and documentation | downstream writer | todo | `goal/tui-test-extension` | D06 head |
 | V01 | Full checks and last code review | code reviewer | todo | both repos | D07 head |
-| R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283, U04 #284, U05 #285) | one branch per U task | accepted heads |
+| R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283, U04 #284, U05 #285, U08 #286) | one branch per U task | accepted heads |
 | R02 | Released dependency adoption | primary agent | todo | `goal/tui-test-extension` | V01 + release |
 | F01 | Last evidence and completion report | primary agent | todo | `goal/tui-test-extension` | all local tasks |
 

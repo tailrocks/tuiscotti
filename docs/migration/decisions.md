@@ -65,6 +65,10 @@ U05 review (verdict accept) left four SUGGESTIONs, all recorded without code cha
 
 Shaper: rustybuzz 0.20.1, MIT, optional under `recording-raster`. No new shaping engine written.
 
+## D-U08-1: Fixture placement and suggestion dispositions
+
+U08 review (verdict accept) left five SUGGESTIONs. Two were fixed: the launch-probe fixture moved from `examples/` to `tests/fixtures/` with a non-executed test target declaration, and `u08_j` asserts its PATH precondition. Three recorded without code change: session-construction duplication stays (zero-change-to-`open()` is the Section 8.1 priority); Windows assertions run in CI with results recorded on the PR; the on-demand probe build fallback is exercised by CI's bare test selection.
+
 ## D-STACK-1: Dependent PR stacks
 
 U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.
