@@ -43,7 +43,10 @@ use base64::Engine as _;
 use image::ImageDecoder as _;
 use serde::de::Error as _;
 use sha2::{Digest, Sha256};
-use tui_test::{RASTER_POLICY_PINNED_V1, RenderError, TerminalSnapshot};
+use tui_test::{
+    MAX_LINK_BYTES, MAX_TITLE_BYTES, RASTER_POLICY_PINNED_V1, RenderError, SNAPSHOT_SCHEMA_VERSION,
+    TerminalSnapshot,
+};
 
 use crate::render_profile::{PROFILE_NAME, Profile, platform_key};
 use crate::report::atomic_write;
@@ -845,6 +848,7 @@ impl Sample {
                 SampleError::InvalidFormat { source: error }
             }
         })?;
+        preflight_snapshot_wire(&envelope.snapshot)?;
         let snapshot: TerminalSnapshot =
             serde_json::from_value(envelope.snapshot).map_err(|error| {
                 SampleError::InvalidSnapshot {
@@ -1151,6 +1155,122 @@ fn check_grid_limits(cols: u32, rows: u32, cells: usize) -> Result<(), SampleErr
     Ok(())
 }
 
+/// Preflight the nested snapshot wire value with typed schema and limit
+/// checks before [`TerminalSnapshot`] deserialization.
+///
+/// Upstream snapshot failures arrive as one untyped serde string, which
+/// would flatten an unsupported schema or an over-limit grid into
+/// [`SampleError::InvalidSnapshot`]. The wire numbers are checked here
+/// instead — never by matching upstream message text — so those shapes
+/// keep [`SampleError::UnsupportedSchema`] and the resource-limit
+/// variants (and their `UNSUPPORTED_SCHEMA`/`RESOURCE_LIMIT` codes).
+/// Anything this preflight does not recognize stays for
+/// [`TerminalSnapshot`] deserialization, which still fails closed with
+/// [`SampleError::InvalidSnapshot`].
+fn preflight_snapshot_wire(value: &serde_json::Value) -> Result<(), SampleError> {
+    preflight_snapshot_schema(value)?;
+    preflight_snapshot_grid(value)?;
+    preflight_snapshot_cells(value)?;
+    preflight_snapshot_title(value)?;
+    Ok(())
+}
+
+/// Reject a nested snapshot wire schema other than the supported one.
+///
+/// A missing schema mirrors the upstream wire default (`0`), which the
+/// upstream build rejects; a present non-numeric schema stays for
+/// deserialization instead of inventing a version spelling.
+fn preflight_snapshot_schema(value: &serde_json::Value) -> Result<(), SampleError> {
+    match value.get("schema") {
+        None => Err(SampleError::UnsupportedSchema {
+            version: "0".to_string(),
+        }),
+        Some(schema) => match schema.as_u64() {
+            Some(version) if version == u64::from(SNAPSHOT_SCHEMA_VERSION) => Ok(()),
+            Some(version) => Err(SampleError::UnsupportedSchema {
+                version: version.to_string(),
+            }),
+            None => Ok(()),
+        },
+    }
+}
+
+/// Reject nested snapshot dimensions and cell counts past the limits.
+///
+/// Bounds come from the downstream limits, which match the upstream
+/// snapshot bounds one for one.
+fn preflight_snapshot_grid(value: &serde_json::Value) -> Result<(), SampleError> {
+    let (Some(cols), Some(rows)) = (
+        value.get("cols").and_then(serde_json::Value::as_u64),
+        value.get("rows").and_then(serde_json::Value::as_u64),
+    ) else {
+        return Ok(());
+    };
+    if cols > u64::from(MAX_IMAGE_DIM) || rows > u64::from(MAX_IMAGE_DIM) {
+        return Err(SampleError::DimensionTooLarge {
+            width: u32::try_from(cols).unwrap_or(u32::MAX),
+            height: u32::try_from(rows).unwrap_or(u32::MAX),
+            limit: MAX_IMAGE_DIM,
+        });
+    }
+    let cells = cols.saturating_mul(rows);
+    if cells > MAX_SAMPLE_CELLS as u64 {
+        return Err(SampleError::TooLarge {
+            what: "sample cells",
+            bytes: cells,
+            limit: MAX_SAMPLE_CELLS as u64,
+        });
+    }
+    Ok(())
+}
+
+/// Reject nested snapshot cell text and links past the byte limits.
+fn preflight_snapshot_cells(value: &serde_json::Value) -> Result<(), SampleError> {
+    let Some(cells) = value.get("cells").and_then(serde_json::Value::as_array) else {
+        return Ok(());
+    };
+    for cell in cells {
+        if let Some(text) = cell.get("text").and_then(serde_json::Value::as_str) {
+            let bytes = text.len() as u64;
+            if bytes > MAX_CELL_TEXT_BYTES as u64 {
+                return Err(SampleError::TooLarge {
+                    what: "sample cell text",
+                    bytes,
+                    limit: MAX_CELL_TEXT_BYTES as u64,
+                });
+            }
+        }
+        for key in ["link_uri", "link_id"] {
+            if let Some(link) = cell.get(key).and_then(serde_json::Value::as_str) {
+                let bytes = link.len() as u64;
+                if bytes > MAX_LINK_BYTES as u64 {
+                    return Err(SampleError::TooLarge {
+                        what: "sample cell link",
+                        bytes,
+                        limit: MAX_LINK_BYTES as u64,
+                    });
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Reject a nested snapshot window title past the byte limit.
+fn preflight_snapshot_title(value: &serde_json::Value) -> Result<(), SampleError> {
+    if let Some(title) = value.get("title").and_then(serde_json::Value::as_str) {
+        let bytes = title.len() as u64;
+        if bytes > MAX_TITLE_BYTES as u64 {
+            return Err(SampleError::TooLarge {
+                what: "sample title",
+                bytes,
+                limit: MAX_TITLE_BYTES as u64,
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Enforce image dimension limits on numbers, before any allocation.
 fn check_image_dims(width: u32, height: u32) -> Result<(), SampleError> {
     if width == 0 || height == 0 {
@@ -1265,4 +1385,122 @@ fn hex_bytes(bytes: &[u8]) -> String {
         out.push(HEX[(byte & 15) as usize] as char);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{SampleError, preflight_snapshot_wire};
+    use crate::approve::sample_code;
+
+    /// One nested wire mutation plus its expected Section 16.3 code, if any.
+    type WireCase = (
+        &'static str,
+        Box<dyn Fn(&mut serde_json::Value)>,
+        Option<&'static str>,
+    );
+
+    /// A minimal nested snapshot wire value exercising the preflight.
+    fn wire() -> serde_json::Value {
+        serde_json::json!({
+            "schema": 1,
+            "cols": 4,
+            "rows": 2,
+            "cells": [{"text": "a"}, {"text": "b"}],
+            "title": null,
+        })
+    }
+
+    /// Nested schema and limit shapes keep their typed codes without any
+    /// message-text classification.
+    #[test]
+    fn snapshot_wire_preflight_keeps_typed_codes() {
+        let cases: Vec<WireCase> = vec![
+            ("supported schema", Box::new(|_| {}), None),
+            (
+                "future schema",
+                Box::new(|wire| wire["schema"] = serde_json::json!(999)),
+                Some("UNSUPPORTED_SCHEMA"),
+            ),
+            (
+                "missing schema",
+                Box::new(|wire| {
+                    wire.as_object_mut()
+                        .expect("wire is an object")
+                        .remove("schema");
+                }),
+                Some("UNSUPPORTED_SCHEMA"),
+            ),
+            (
+                "oversize dimensions",
+                Box::new(|wire| {
+                    wire["cols"] = serde_json::json!(40_000);
+                    wire["rows"] = serde_json::json!(1);
+                    wire["cells"] = serde_json::json!([]);
+                }),
+                Some("RESOURCE_LIMIT"),
+            ),
+            (
+                "oversize cell count",
+                Box::new(|wire| {
+                    wire["cols"] = serde_json::json!(2_000);
+                    wire["rows"] = serde_json::json!(2_000);
+                    wire["cells"] = serde_json::json!([]);
+                }),
+                Some("RESOURCE_LIMIT"),
+            ),
+            (
+                "oversize cell text",
+                Box::new(|wire| wire["cells"][0]["text"] = serde_json::json!("x".repeat(5_000))),
+                Some("RESOURCE_LIMIT"),
+            ),
+            (
+                "oversize cell link",
+                Box::new(|wire| {
+                    wire["cells"][0]["link_uri"] = serde_json::json!("y".repeat(5_000));
+                }),
+                Some("RESOURCE_LIMIT"),
+            ),
+            (
+                "oversize title",
+                Box::new(|wire| wire["title"] = serde_json::json!("t".repeat(70_000))),
+                Some("RESOURCE_LIMIT"),
+            ),
+        ];
+        for (name, mutate, expected) in cases {
+            let mut value = wire();
+            mutate(&mut value);
+            match (preflight_snapshot_wire(&value), expected) {
+                (Ok(()), None) => {}
+                (Err(error), Some(code)) => {
+                    assert_eq!(sample_code(&error), code, "{name} keeps {code}");
+                    assert!(
+                        !matches!(error, SampleError::InvalidSnapshot { .. }),
+                        "{name} never flattens to InvalidSnapshot"
+                    );
+                }
+                (outcome, _) => panic!("{name} misclassified: {outcome:?}"),
+            }
+        }
+    }
+
+    /// A non-numeric schema stays for deserialization, which fails closed
+    /// on its own; the preflight never invents a version spelling.
+    #[test]
+    fn snapshot_wire_preflight_ignores_unshaped_fields() {
+        let mut value = wire();
+        value["schema"] = serde_json::json!("v1");
+        assert!(
+            preflight_snapshot_wire(&value).is_ok(),
+            "unshaped schema stays for deserialization"
+        );
+        let mut value = wire();
+        value
+            .as_object_mut()
+            .expect("wire is an object")
+            .remove("cols");
+        assert!(
+            preflight_snapshot_wire(&value).is_ok(),
+            "missing dims stay for deserialization"
+        );
+    }
 }

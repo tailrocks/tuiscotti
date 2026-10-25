@@ -136,32 +136,45 @@ fn json_error_splits_stdout_and_stderr() {
     assert_no_color(&out, "json error");
 }
 
-/// A closed stdout is a clean exit 0, never a panic, for every command.
+/// A closed stdout preserves the operation result, never a panic:
+/// pass exits 0, mismatch exits 1, operational errors exit 3.
 #[test]
-fn broken_pipe_exits_zero_without_panic() {
+fn broken_pipe_preserves_the_operation_result() {
     let dir = tempfile::tempdir().expect("tempdir creates");
     std::fs::write(dir.path().join("empty.json"), b"{}").expect("fixture writes");
-    let cases: Vec<Vec<String>> = vec![
-        vec!["--help".to_string()],
+    let check = |sample: &str| {
         vec![
             "--json".to_string(),
             "check".to_string(),
             "--sample".to_string(),
-            dir.path().join("empty.json").to_string_lossy().into_owned(),
+            sample.to_string(),
             "--baselines".to_string(),
             dir.path().join("b").to_string_lossy().into_owned(),
             "--artifacts".to_string(),
             dir.path().join("a").to_string_lossy().into_owned(),
-        ],
-        vec![
-            "report".to_string(),
-            "--artifacts".to_string(),
-            dir.path().to_string_lossy().into_owned(),
-            "--out".to_string(),
-            dir.path().join("index.html").to_string_lossy().into_owned(),
-        ],
+        ]
+    };
+    let cases: Vec<(Vec<String>, i32)> = vec![
+        (vec!["--help".to_string()], 0),
+        // Garbage bytes fail sample validation: an error outcome.
+        (check(&dir.path().join("empty.json").to_string_lossy()), 3),
+        // A missing sample file is an I/O error outcome.
+        (
+            check(&dir.path().join("absent.tui.json").to_string_lossy()),
+            3,
+        ),
+        (
+            vec![
+                "report".to_string(),
+                "--artifacts".to_string(),
+                dir.path().to_string_lossy().into_owned(),
+                "--out".to_string(),
+                dir.path().join("index.html").to_string_lossy().into_owned(),
+            ],
+            0,
+        ),
     ];
-    for argv in cases {
+    for (argv, expected) in cases {
         let owned: Vec<&str> = argv.iter().map(String::as_str).collect();
         let mut child = std::process::Command::new(bin());
         child
@@ -174,7 +187,11 @@ fn broken_pipe_exits_zero_without_panic() {
         // write fails with EPIPE (Rust ignores SIGPIPE).
         drop(child.stdout.take());
         let out = child.wait_with_output().expect("CLI child waits");
-        assert_eq!(code(&out), Some(0), "{owned:?} exits 0 on a closed pipe");
+        assert_eq!(
+            code(&out),
+            Some(expected),
+            "{owned:?} exits {expected} on a closed pipe"
+        );
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert!(
             !stderr.contains("panicked"),

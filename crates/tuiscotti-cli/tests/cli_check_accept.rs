@@ -170,8 +170,9 @@ fn c10_stale_candidate_digest_writes_nothing() {
     assert_no_baseline_writes(&baselines);
 }
 
-/// C10 CLI: missing, malformed, and zero digests exit 2 with
-/// `INVALID_SAMPLE` and write nothing.
+/// C10 CLI: missing, malformed, and zero digests are clap usage
+/// errors: exit 2 with no JSON result on stdout, an explanation on
+/// stderr, and nothing written.
 #[test]
 fn c10_malformed_digests_are_argument_errors() {
     let (dir, baselines, _artifacts) = temp_store();
@@ -188,6 +189,9 @@ fn c10_malformed_digests_are_argument_errors() {
         (digest.as_str(), "xyz"),
         (digest.as_str(), zeros.as_str()),
         (digest.as_str(), upper.as_str()),
+        (digest.as_str(), "MISSING"),
+        ("", "missing"),
+        (digest.as_str(), ""),
     ] {
         let out = run_cli(&[
             "--json",
@@ -206,8 +210,14 @@ fn c10_malformed_digests_are_argument_errors() {
             Some(2),
             "digest pair ({candidate_sha256}, {expect_baseline}) exits 2"
         );
-        let value = parse_json(&out);
-        assert_eq!(value["error_code"], "INVALID_SAMPLE");
+        assert!(
+            out.stdout.is_empty(),
+            "usage errors emit no stdout JSON for ({candidate_sha256}, {expect_baseline})"
+        );
+        assert!(
+            !out.stderr.is_empty(),
+            "usage errors explain on stderr for ({candidate_sha256}, {expect_baseline})"
+        );
         assert!(
             all_files(&baselines).is_empty(),
             "malformed digests write nothing"

@@ -44,7 +44,7 @@ baseline):
 
 1. Read the candidate evidence and review it (pixels, state, diff).
 2. Run `accept` with the candidate SHA-256 and the expected baseline
-   digest (`MISSING` for a first approval).
+   digest (`missing` for a first approval).
 3. The transaction re-locks the baseline root, re-validates both
    digests, re-renders image samples through the upstream renderer,
    and atomically installs the baseline — or rejects with a typed

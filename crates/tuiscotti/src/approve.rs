@@ -45,7 +45,7 @@
 //!
 //! 1. Refuse when the `CI` variable is set, before any write.
 //! 2. Validate the digest arguments (missing, malformed, and zero digests
-//!    are rejected as `INVALID_SAMPLE` with exit code 2) and store paths.
+//!    are rejected as `INVALID_SAMPLE`) and store paths.
 //! 3. Make the baseline root when missing.
 //! 4. Acquire the operating-system lock on the stable approval file.
 //! 5. Read the candidate bytes one time with the file-size limit.
@@ -84,13 +84,15 @@
 //! persistently.
 //!
 //! Error codes (GOAL Section 16.3): there is no `INVALID_DIGEST` code.
-//! Malformed digest arguments report `INVALID_SAMPLE` with exit code 2;
-//! every other failure reports its Section 16.3 code with exit code 3,
-//! mapped per failure shape in [`ApproveError::code`] (unsupported schemas,
-//! resource limits, image errors, unknown profiles, render failures,
-//! missing glyphs, stale digests, inconsistent samples, lock timeouts,
-//! store paths, and I/O each keep their own code instead of flattening to
-//! `INVALID_SAMPLE` or `INVALID_IMAGE`).
+//! Malformed digest arguments report `INVALID_SAMPLE`; every other
+//! failure reports its Section 16.3 code, mapped per failure shape in
+//! [`ApproveError::code`] (unsupported schemas, resource limits, image
+//! errors, unknown profiles, render failures, missing glyphs, stale
+//! digests, inconsistent samples, lock timeouts, store paths, and I/O
+//! each keep their own code instead of flattening to `INVALID_SAMPLE` or
+//! `INVALID_IMAGE`). Process exit codes are owned by the CLI boundary,
+//! which maps the argument-error shape to 2 and every operational
+//! failure to 3.
 //!
 //! Volatile-data exclusion: the records written during approval
 //! (`report.json` and `candidate_bytes.evidence.json`) carry no absolute
@@ -107,8 +109,7 @@
 //!
 //! No command equivalence is promised here: D05 owns argument parsing, JSON
 //! output, and process exit codes. The stable machine codes from
-//! [`ApproveError::code`] and the process codes from
-//! [`ApproveError::exit_code`] are the mapping inputs for that command.
+//! [`ApproveError::code`] are the mapping inputs for that command.
 //!
 //! Design notes: approval reuses the frozen differ through `FrozenStore`
 //! instead of duplicating it, so check and
@@ -154,7 +155,8 @@ pub enum ApproveError {
     CiApprovalForbidden,
     /// A digest argument is missing, malformed, or a zero placeholder.
     /// Digest arguments are sample-selection input, so these report
-    /// `INVALID_SAMPLE` with the argument-error exit code 2.
+    /// `INVALID_SAMPLE`; the CLI boundary maps them to the argument-error
+    /// exit code 2.
     InvalidArgument {
         /// Which argument failed and how.
         detail: String,
@@ -328,14 +330,15 @@ impl ApproveError {
         }
     }
 
-    /// The process exit code for this failure: `2` for malformed digest
-    /// arguments, `3` for stale, frozen, lock, sample, image, profile,
-    /// render, and I/O failures.
+    /// The digest the baseline root actually held when this failure was
+    /// reported: the present digest for a stale baseline (or `missing`
+    /// when no baseline file was present), and `None` when the failure
+    /// carries no observed baseline.
     #[must_use]
-    pub const fn exit_code(&self) -> i32 {
+    pub fn observed_baseline(&self) -> Option<&str> {
         match self {
-            Self::InvalidArgument { .. } => 2,
-            _ => 3,
+            Self::StaleBaseline { actual, .. } => Some(actual),
+            _ => None,
         }
     }
 }
@@ -1250,7 +1253,7 @@ mod tests {
             match require_digest("candidate", bad, false) {
                 Err(error @ super::ApproveError::InvalidArgument { .. }) => {
                     assert_eq!(error.code(), "INVALID_SAMPLE");
-                    assert_eq!(error.exit_code(), 2);
+                    assert!(error.observed_baseline().is_none());
                 }
                 other => panic!("{bad:?} must fail as an invalid argument, got {other:?}"),
             }
