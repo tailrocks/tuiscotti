@@ -6,13 +6,13 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 |---|---|---|---|---|---|
 | P01 | Source, instructions, branches, base behavior | primary agent | done | `goal/tui-test-extension` | `a1ea27f757d75d07b05499276cd932e9f8e067ad` |
 | P02 | Corpus, API record, task records | primary agent | active | `goal/tui-test-extension` | `a1ea27f757d75d07b05499276cd932e9f8e067ad` |
-| U01 | Strict upstream snapshot policy | upstream writer | todo | `goal/u01-strict-snapshots` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
+| U01 | Strict upstream snapshot policy | upstream writer | done ([draft PR 276](https://github.com/microsoft/tui-test/pull/276)) | `goal/u01-strict-snapshots` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U02 | Owned snapshot and atomic capture | upstream writer | todo | `goal/u02-owned-snapshot` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U03 | Public offline rendering | upstream writer | todo | `goal/u03-offline-rendering` | U02 head |
 | U11 | Explicit underline color | upstream writer | todo | `goal/u11-underline-color` | U03 head |
 | U04 | Pinned fonts and render evidence | upstream writer | todo | `goal/u04-pinned-fonts` | U03 head |
 | U05 | Grapheme rendering | upstream writer | todo | `goal/u05-graphemes` | U04 head |
-| U06 | Pure pixel comparison | upstream writer | todo | `goal/u06-pixel-comparison` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
+| U06 | Pure pixel comparison | upstream writer | done ([draft PR 277](https://github.com/microsoft/tui-test/pull/277)) | `goal/u06-pixel-comparison` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U07 | Checked mouse, paste, focus | upstream writer | todo | `goal/u07-checked-input` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U08 | Child environment, native arguments | upstream writer | todo | `goal/u08-launch-options` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U09 | Raw input bytes | upstream writer | todo | `goal/u09-raw-bytes` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
