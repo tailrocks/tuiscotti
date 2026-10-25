@@ -27,6 +27,25 @@ U01 review (verdict accept) left two SUGGESTIONs, both rejected with reason:
 
 U06-B decodes through the workspace `png` crate declared as a dev-dependency of `tui-test-rs`, mirroring `tui-test-cli`. No new package version enters the graph. The library keeps no PNG dependency. Evidence: `cargo tree -i png`, unmodified `Cargo.lock`.
 
+## D-U02-1: Rejected review suggestions
+
+U02 review (verdict accept) left two SUGGESTIONs, both recorded without code change:
+
+- A mid-mutation contender would strengthen the atomicity proof beyond the specified barrier recipe. Rejected: the recipe in Section 11.2 is satisfied; tearing-during-mutation coverage is unrequested scope.
+- Timeout `panic!` in live-test polling and load-dependent PTY flakes. Rejected: Section 21.3 forbids chasing flakes by weakening tests; the flakes are environmental (green on rerun in isolation, in suite, on base and branch).
+
+## D-U09-1: Review dispositions and limits
+
+U09 review (verdict accept) left three SUGGESTIONs:
+
+- Deterministic short-write instrumentation via the `cfg(test)`-gated hook: rejected. The hook is unreachable from integration tests; the report used the specified large-payload fallback through a real PTY.
+- Windows PTY byte behavior: recorded as unavailable. The test file is `#![cfg(unix)]`; Windows CI gives vacuous passage only.
+- `write_bytes` insertion point (after `Session::write`): kept stable for U07/U08 sequencing. U07 and U08 add methods in distinct regions; merges stay mechanical.
+
+## D-STACK-1: Dependent PR stacks
+
+U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.
+
 ## D-SIGN-1: Sign-off identity
 
 Upstream history carries `Signed-off-by` on maintainer commits. Task commits get `Signed-off-by: Alexey Zhokhov <alexey@zhokhov.com>`, which matches both the repository git config and the `donbeave` GitHub identity (`gh api user`). No invented identity.
