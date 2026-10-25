@@ -77,6 +77,17 @@ A probe showed upstream `TerminalSnapshot::try_new` accepts content-incoherent c
 
 Downstream tasks D03 onward patch against `goal/qual-stack` in `/Users/donbeave/tuiscotti/repos/upstream-qual` (frozen; never commit there): main `f276059` + U05-stack head `a9a412b` (U02, U03, U11, U04, U05) + U06 head `4fb316a`, merged as `fb72d00`. Both merges applied cleanly. Verified: `owned_snapshot` 11/11 and `pixel_compare` 5/5 green on the stack. U07-U10 heads join the stack when D06 needs them. Patch order recorded here; reproducible via the merge commands above. Never commit absolute patch paths; all downstream builds use explicit `--config` args.
 
+## D-D04-1: Packet errors corrected by spec
+
+The first D04 review returned 3 BLOCKERs + 3 REQUIREDs, several caused by wrong directions in the primary agent's D04 packet. The GOAL text overrules the packet. Corrections for the rework:
+
+- Locks: keep `.tuiscotti-approval.lock` after release; never delete a held lock file; never create anew at a held path. Hold the OS lock (fcntl/BYK; `fs2`/`fd-lock`/`rustix` only if already suitable — no new unsafe) through baseline read, digest comparison, and atomic replacement; release it at transaction step 19. Cross-process exclusion needs a real two-process test, not only threads.
+- Approval re-render is mandatory: steps 10-12 resolve the candidate's specified profile, re-render through the upstream renderer, and compare decoded pixels; unknown profile rejects with `UNKNOWN_PROFILE`; pixel mismatch rejects with `INCONSISTENT_SAMPLE`. The "no renderer call" packet direction was wrong, as was "unknown profiles accept".
+- Malformed digests map to `INVALID_SAMPLE` (no `INVALID_DIGEST` code exists) with exit code 2; stale digests, CI refusal, and invalid sample data use exit code 3 per Section 16.2.
+- No ID cross-comparison when a baseline is present: validate the candidate test ID only on first approval (absent baseline). Restructure accept so a present baseline skips ID/gate comparison.
+- Temp files: exclusive creation (`O_EXCL`) with owner-only mode; never follow symlinks.
+- Transaction order follows the numbered steps exactly (lock at step 4, before the candidate read).
+
 ## D-STACK-1: Dependent PR stacks
 
 U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.
