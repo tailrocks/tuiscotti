@@ -31,10 +31,12 @@ use tui_test::pixel::{PixelError, compare_rgba};
 use tui_test::terminal::cell::Attrs;
 use tui_test::{SnapshotCell, TerminalSnapshot};
 
-use crate::report::{PixelSummary, ReportInput, ReportedCell, atomic_write, write_report};
+use crate::report::{
+    PixelSummary, ReportInput, ReportedCell, atomic_write, render_report, write_report,
+};
 use crate::sample::{
     Gate, MAX_IMAGE_DIM, MAX_RGBA_BYTES, MAX_TEST_ID_BYTES, MAX_TEST_ID_SEGMENT_BYTES, Sample,
-    SampleError,
+    SampleError, read_bounded, read_bounded_optional,
 };
 
 /// Schema identifier for `result.json` files written beside the evidence.
@@ -448,11 +450,13 @@ impl FrozenStore {
         let actual = Sample::from_bytes(sample_bytes)?;
         validate_test_id(actual.test_id())?;
         let baseline_path = self.baseline_path(actual.test_id())?;
-        let baseline_bytes = match fs::read(&baseline_path) {
-            Ok(bytes) => Some(bytes),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(source) => return Err(CheckError::Io { source }),
-        };
+        // One shared bounded read: bytes past the limit fail as a resource
+        // limit before parsing, while a missing file stays a `Missing`
+        // failure and any other I/O failure stays I/O.
+        let baseline_bytes = read_bounded_optional(&baseline_path).map_err(|error| match error {
+            SampleError::Io { source } => CheckError::Io { source },
+            other => CheckError::from(other),
+        })?;
         match baseline_bytes {
             None => self.fail_without_baseline(&actual, &candidate_sha256, sample_bytes),
             Some(bytes) => {
@@ -461,19 +465,17 @@ impl FrozenStore {
         }
     }
 
-    /// Read a sample file with a bounded read, then [`FrozenStore::check`] it.
+    /// Read a sample file with the shared bounded read, then
+    /// [`FrozenStore::check`] it.
     ///
     /// # Errors
     ///
     /// Returns [`CheckError`] when the file is unreadable or the check fails.
     pub fn check_file(&self, path: &Path) -> Result<CheckOutcome, CheckError> {
-        use std::io::Read as _;
-        let file = fs::File::open(path).map_err(|source| CheckError::Io { source })?;
-        let mut bounded = file.take(crate::sample::MAX_SAMPLE_FILE_BYTES + 1);
-        let mut bytes = Vec::new();
-        bounded
-            .read_to_end(&mut bytes)
-            .map_err(|source| CheckError::Io { source })?;
+        let bytes = read_bounded(path).map_err(|error| match error {
+            SampleError::Io { source } => CheckError::Io { source },
+            other => CheckError::from(other),
+        })?;
         self.check(&bytes)
     }
 
@@ -1009,9 +1011,7 @@ fn diff_snapshots(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Sta
             display_value(baseline.title().unwrap_or("")),
         ))
     };
-    let full = diff_cells(actual, baseline);
-    let changed_cell_total = full.len();
-    let changed_cells = full.into_iter().take(MAX_REPORTED_CELLS).collect();
+    let (changed_cells, changed_cell_total) = diff_cells(actual, baseline);
     StateDiff {
         changed_fields,
         changed_cells,
@@ -1061,32 +1061,35 @@ fn diff_cursors(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Vec<S
     fields
 }
 
-/// Compare the cell grids; cells outside the shared area count as changed.
-fn diff_cells(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Vec<ReportedCell> {
-    let cols = actual.cols().max(baseline.cols());
+/// Compare the union of occupied cells; cells outside the shared area
+/// count as changed. Iterating `max(cols) x max(rows)` would visit every
+/// cell outside both grids (up to 1B entries at the dimension limit) and
+/// report each empty `(None, None)` pair as a changed cell, so each row
+/// only covers the columns occupied on either side and empty pairs are
+/// skipped. The total stays exact while the kept detail is row-major
+/// deterministic and bounded for report size.
+fn diff_cells(
+    actual: &TerminalSnapshot,
+    baseline: &TerminalSnapshot,
+) -> (Vec<ReportedCell>, usize) {
     let rows = actual.rows().max(baseline.rows());
     let mut changed = Vec::new();
+    let mut total = 0usize;
     for row in 0..rows {
-        for col in 0..cols {
+        let row_cols = if row < actual.rows() && row < baseline.rows() {
+            actual.cols().max(baseline.cols())
+        } else if row < actual.rows() {
+            actual.cols()
+        } else {
+            baseline.cols()
+        };
+        for col in 0..row_cols {
             let pair = (actual.cell_at(col, row), baseline.cell_at(col, row));
-            let (fields, actual_text, baseline_text) = match pair {
-                (Some(left), Some(right)) => (
-                    diff_cell(left, right),
-                    display_value(left.text()),
-                    display_value(right.text()),
-                ),
-                (Some(left), None) => (
-                    vec!["cell".to_string()],
-                    display_value(left.text()),
-                    String::new(),
-                ),
-                _ => (
-                    vec!["cell".to_string()],
-                    String::new(),
-                    display_value(baseline.cell_at(col, row).map_or("", SnapshotCell::text)),
-                ),
+            let Some((fields, actual_text, baseline_text)) = changed_pair(pair) else {
+                continue;
             };
-            if !fields.is_empty() {
+            total += 1;
+            if changed.len() < MAX_REPORTED_CELLS {
                 changed.push(ReportedCell::new(
                     col,
                     row,
@@ -1097,7 +1100,39 @@ fn diff_cells(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Vec<Rep
             }
         }
     }
-    changed
+    (changed, total)
+}
+
+/// The changed-cell record for one occupied coordinate, or `None` for an
+/// empty `(None, None)` pair and for an equal pair.
+fn changed_pair(
+    pair: (Option<&SnapshotCell>, Option<&SnapshotCell>),
+) -> Option<(Vec<String>, String, String)> {
+    let (fields, actual_text, baseline_text) = match pair {
+        (Some(left), Some(right)) => {
+            let fields = diff_cell(left, right);
+            if fields.is_empty() {
+                return None;
+            }
+            (
+                fields,
+                display_value(left.text()),
+                display_value(right.text()),
+            )
+        }
+        (Some(left), None) => (
+            vec!["cell".to_string()],
+            display_value(left.text()),
+            String::new(),
+        ),
+        (None, Some(right)) => (
+            vec!["cell".to_string()],
+            String::new(),
+            display_value(right.text()),
+        ),
+        (None, None) => return None,
+    };
+    Some((fields, actual_text, baseline_text))
 }
 
 /// Compare two cells through read-only accessors, in fixed field order.
@@ -1364,9 +1399,11 @@ impl FrozenStore {
         );
         record.save(&check_dir)?;
         let report_path = check_dir.join("report.html");
+        let input = record.report_input(state, &images);
         if !report_path.exists() {
-            let input = record.report_input(state, &images);
             write_report(&input, &report_path).map_err(CheckError::from)?;
+        } else {
+            validate_saved_report(&report_path, &render_report(&input))?;
         }
         Ok(CheckFailure {
             test_id: test_id.to_string(),
@@ -1409,7 +1446,10 @@ impl FrozenStore {
         fs::create_dir_all(candidate_dir).map_err(|source| CheckError::Io { source })?;
         let path = candidate_dir.join("sample.tui.json");
         if path.exists() {
-            let saved = fs::read(&path).map_err(|source| CheckError::Io { source })?;
+            let saved = read_bounded(&path).map_err(|error| match error {
+                SampleError::Io { source } => CheckError::Io { source },
+                other => CheckError::from(other),
+            })?;
             validate_saved_sample(&path, &saved, candidate_digest)?;
             return Ok(path);
         }
@@ -1431,7 +1471,10 @@ impl FrozenStore {
         };
         let path = check_dir.join("expected.tui.json");
         if path.exists() {
-            let saved = fs::read(&path).map_err(|source| CheckError::Io { source })?;
+            let saved = read_bounded(&path).map_err(|error| match error {
+                SampleError::Io { source } => CheckError::Io { source },
+                other => CheckError::from(other),
+            })?;
             validate_saved_sample(&path, &saved, baseline_digest)?;
             return Ok(());
         }
@@ -1492,6 +1535,35 @@ impl SavedImages {
     }
 }
 
+/// Re-validate a saved report before reuse: the existing path must be a
+/// regular file and its bytes must equal the deterministically generated
+/// expected HTML. Any disagreement is corrupt evidence, never silently
+/// trusted and never overwritten: conflicting immutable evidence fails the
+/// check instead.
+fn validate_saved_report(path: &Path, expected: &str) -> Result<(), CheckError> {
+    let file_type = fs::symlink_metadata(path)
+        .map_err(|source| CheckError::Io { source })?
+        .file_type();
+    if !file_type.is_file() {
+        return Err(CheckError::EvidenceCorrupt {
+            detail: format!("{} is not a regular file", path.display()),
+        });
+    }
+    let saved = read_bounded(path).map_err(|error| match error {
+        SampleError::Io { source } => CheckError::Io { source },
+        other => CheckError::from(other),
+    })?;
+    if saved != expected.as_bytes() {
+        return Err(CheckError::EvidenceCorrupt {
+            detail: format!(
+                "{} disagrees with this comparison; conflicting evidence is never overwritten",
+                path.display()
+            ),
+        });
+    }
+    Ok(())
+}
+
 /// Re-validate saved sample bytes before reuse: they must parse and their
 /// digest must match the key that stored them.
 fn validate_saved_sample(path: &Path, saved: &[u8], digest: &str) -> Result<(), CheckError> {
@@ -1523,7 +1595,10 @@ fn sample_png_bytes(sample_bytes: &[u8]) -> Result<Vec<u8>, CheckError> {
 fn save_png(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> {
     let path = check_dir.join(name);
     if path.exists() {
-        let saved = fs::read(&path).map_err(|source| CheckError::Io { source })?;
+        let saved = read_bounded(&path).map_err(|error| match error {
+            SampleError::Io { source } => CheckError::Io { source },
+            other => CheckError::from(other),
+        })?;
         if sha256_hex(&saved) != sha256_hex(png) {
             return Err(CheckError::EvidenceCorrupt {
                 detail: format!("{} disagrees with the compared image", path.display()),
@@ -1539,7 +1614,10 @@ fn save_png(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> 
 fn save_png_bytes(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> {
     let path = check_dir.join(name);
     if path.exists() {
-        let saved = fs::read(&path).map_err(|source| CheckError::Io { source })?;
+        let saved = read_bounded(&path).map_err(|error| match error {
+            SampleError::Io { source } => CheckError::Io { source },
+            other => CheckError::from(other),
+        })?;
         image::load_from_memory(&saved).map_err(|_| CheckError::EvidenceCorrupt {
             detail: format!("{} is not a decodable image", path.display()),
         })?;
@@ -1672,7 +1750,10 @@ impl ResultRecord {
     fn save(&self, check_dir: &Path) -> Result<(), CheckError> {
         let path = check_dir.join("result.json");
         if path.exists() {
-            let saved = fs::read(&path).map_err(|source| CheckError::Io { source })?;
+            let saved = read_bounded(&path).map_err(|error| match error {
+                SampleError::Io { source } => CheckError::Io { source },
+                other => CheckError::from(other),
+            })?;
             self.validate_saved(&path, &saved)?;
             return Ok(());
         }

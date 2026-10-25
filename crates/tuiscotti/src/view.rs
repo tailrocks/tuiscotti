@@ -54,6 +54,15 @@ pub enum ViewError {
         /// Buffer-local row of the occupying cell.
         y: u32,
     },
+    /// A cell outside any wide-cell coverage has zero width, so it cannot
+    /// be a continuation: only a covering leading cell makes a
+    /// zero-width cell valid.
+    UncoveredZeroWidthCell {
+        /// Buffer-local column of the zero-width cell.
+        x: u32,
+        /// Buffer-local row of the zero-width cell.
+        y: u32,
+    },
     /// A wide leading cell is wider than the columns left in its row, so its
     /// continuation would fall outside the grid.
     LeadingCellOverhang {
@@ -82,6 +91,12 @@ impl Display for ViewError {
                 write!(
                     f,
                     "covered cell at ({x}, {y}) carries its own grapheme instead of continuing the wide cell"
+                )
+            }
+            Self::UncoveredZeroWidthCell { x, y } => {
+                write!(
+                    f,
+                    "cell at ({x}, {y}) has zero width without a covering wide cell"
                 )
             }
             Self::LeadingCellOverhang { x, y, width } => {
@@ -495,12 +510,19 @@ fn resolve_cursor(
 /// `area.width` by `area.height` cells starting at the buffer area origin.
 /// Continuation cells resolve from Ratatui layout rules: a wide leading cell
 /// covers its following columns, and covered placeholder cells convert as
-/// continuations. A covered column that carries its own grapheme, or a wide
-/// leading cell that overhangs the row end, is an invalid leading and
-/// continuation combination: conversion rejects it here with coordinates,
-/// because the upstream validated constructor accepts individually valid
-/// cells and cannot see the coverage mismatch. It stays as the backstop for
-/// every other malformed combination.
+/// continuations. A covered column that carries its own grapheme, a wide
+/// leading cell that overhangs the row end, or a zero-width cell outside
+/// any coverage is an invalid leading and continuation combination:
+/// conversion rejects it here with coordinates, because the upstream
+/// validated constructor accepts individually valid cells and cannot see
+/// the coverage mismatch. It stays as the backstop for every other
+/// malformed combination.
+///
+/// Clipped edges keep the representation Ratatui itself produces: a wide
+/// grapheme that does not fit the remaining row width renders as a blank
+/// narrow leading cell (width one, not a continuation), and only columns a
+/// leading cell actually covers convert as continuations. Coverage never
+/// crosses a row boundary.
 fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
     let area = buffer.area;
     let mut cells = Vec::new();
@@ -529,7 +551,10 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
             } else {
                 let width = cell.cell_width();
                 if width == 0 {
-                    cells.push(continuation_cell(cell)?);
+                    return Err(ViewError::UncoveredZeroWidthCell {
+                        x: u32::from(x),
+                        y: u32::from(y),
+                    });
                 } else {
                     if width > area.width - col {
                         return Err(ViewError::LeadingCellOverhang {

@@ -679,3 +679,221 @@ fn d03_report_html_saves_atomically_without_temp_residue() {
     assert_eq!(second, first);
     assert_no_temp_residue(failure.evidence_dir());
 }
+
+/// Snapshot fixture on an explicit grid, filled with one grapheme.
+#[expect(clippy::expect_used, reason = "rework validation fixture")]
+fn snapshot_grid(cols: u32, rows: u32, fill: &str) -> TerminalSnapshot {
+    let count =
+        usize::try_from(cols).expect("grid fits") * usize::try_from(rows).expect("grid fits");
+    let cells = vec![plain_cell(fill, 1); count];
+    TerminalSnapshot::try_new(SnapshotParts {
+        cols,
+        rows,
+        scope: SnapshotScope::Viewport,
+        viewport_origin: 0,
+        cells,
+        palette: test_palette(),
+        default_foreground: Rgb::new(192, 192, 192),
+        default_background: Rgb::new(0, 0, 0),
+        default_cursor: Rgb::new(192, 192, 192),
+        cursor: hidden_cursor(),
+        title: None,
+        metadata: SnapshotMetadata::default(),
+    })
+    .expect("grid snapshot is valid")
+}
+
+/// R1: grids of different sizes diff the union of occupied cells only.
+/// A 6x2 actual against a 2x6 baseline covers 12 + 12 - 4 = 20 cells;
+/// the 16 cells outside both grids must not count as changed.
+#[test]
+fn r1_mismatched_grids_count_union_only() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let baseline_bytes = state_sample_bytes("views/grid", &snapshot_grid(2, 6, "b"));
+    write_baseline_file(&baselines, "views/grid", &baseline_bytes);
+    let actual_bytes = state_sample_bytes("views/grid", &snapshot_grid(6, 2, "a"));
+    let failure = failure_of(store.check(&actual_bytes).expect("grid check runs"));
+    assert_eq!(failure.reason(), MismatchReason::State);
+    assert_eq!(failure.changed_cell_total(), 20);
+    assert_eq!(failure.changed_cells().len(), 20);
+    assert!(
+        !failure
+            .changed_cells()
+            .iter()
+            .any(|cell| cell.actual_text().is_empty() && cell.baseline_text().is_empty()),
+        "no (None, None) phantom cell is reported"
+    );
+}
+
+/// R1: the total stays exact past the 64-detail cap on mismatched grids.
+/// A 20x4 actual against a 4x20 baseline covers 80 + 80 - 16 = 144 cells.
+#[test]
+fn r1_mismatched_grids_keep_exact_total_past_detail_cap() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let baseline_bytes = state_sample_bytes("views/wide", &snapshot_grid(4, 20, "b"));
+    write_baseline_file(&baselines, "views/wide", &baseline_bytes);
+    let actual_bytes = state_sample_bytes("views/wide", &snapshot_grid(20, 4, "a"));
+    let failure = failure_of(store.check(&actual_bytes).expect("wide check runs"));
+    assert_eq!(failure.changed_cell_total(), 144);
+    assert_eq!(failure.changed_cells().len(), 64);
+}
+
+/// R4: an oversize baseline file fails as a resource limit, not a silent
+/// read. The 64 MiB + 1 byte file must never fully load into a sample,
+/// while exactly 64 MiB still loads (trailing JSON whitespace parses).
+#[test]
+fn r4_oversize_baseline_fails_as_resource_limit() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let baseline_snapshot = base_snapshot();
+    let candidate_bytes = state_sample_bytes("views/big", &baseline_snapshot);
+    let mut exact = state_sample_bytes("views/big", &baseline_snapshot);
+    exact.resize(64 * 1024 * 1024, b' ');
+    write_baseline_file(&baselines, "views/big", &exact);
+    assert!(
+        matches!(
+            store.check(&candidate_bytes),
+            Ok(CheckOutcome::Pass(_))
+        ),
+        "exact-limit baseline loads and passes"
+    );
+    let mut big = state_sample_bytes("views/big", &baseline_snapshot);
+    big.resize(64 * 1024 * 1024 + 1, b' ');
+    write_baseline_file(&baselines, "views/big", &big);
+    let error = store
+        .check(&candidate_bytes)
+        .expect_err("oversize baseline must fail");
+    assert!(
+        matches!(
+            error,
+            CheckError::Sample(tuiscotti::sample::SampleError::TooLarge { .. })
+        ),
+        "oversize baseline is a resource limit, got {error:?}"
+    );
+}
+
+/// R4: a baseline path that is not a missing file but an unreadable
+/// directory reports I/O, never a missing baseline.
+#[test]
+fn r4_unreadable_baseline_path_reports_io_not_missing() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let candidate_bytes = state_sample_bytes("views/dir", &base_snapshot());
+    let mut path = baselines.join("views/dir");
+    path.set_extension("tui.json");
+    std::fs::create_dir_all(&path).expect("directory blocks the baseline path");
+    let error = store
+        .check(&candidate_bytes)
+        .expect_err("directory baseline must fail");
+    assert!(
+        matches!(error, CheckError::Io { .. }),
+        "directory baseline is I/O, got {error:?}"
+    );
+}
+
+/// R22: a truncated `report.html` fails re-validation as corrupt evidence
+/// instead of being silently trusted.
+#[test]
+fn r22_truncated_report_fails_as_corrupt_evidence() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let baseline_bytes = state_sample_bytes("views/login", &base_snapshot());
+    write_baseline_file(&baselines, "views/login", &baseline_bytes);
+    let mut changed = filled_cells("a");
+    changed[0] = plain_cell("b", 1);
+    let actual_bytes =
+        state_sample_bytes(
+            "views/login",
+            &snapshot_with_cells(changed, SnapshotMetadata::default())
+        );
+    let failure = failure_of(store.check(&actual_bytes).expect("state check runs"));
+    std::fs::write(failure.report_path(), b"<html>truncated").expect("report truncates");
+    let error = store
+        .check(&actual_bytes)
+        .expect_err("truncated report must fail");
+    assert!(
+        matches!(error, CheckError::EvidenceCorrupt { .. }),
+        "truncated report is corrupt evidence, got {error:?}"
+    );
+}
+
+/// R22: a `report.html` from another baseline revision disagrees with the
+/// expected bytes and fails as corrupt evidence, without overwrite.
+#[test]
+fn r22_wrong_baseline_report_fails_without_overwrite() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let revision_a = state_sample_bytes("views/login", &base_snapshot());
+    write_baseline_file(&baselines, "views/login", &revision_a);
+    let candidate_bytes = state_sample_bytes(
+        "views/login",
+        &snapshot_with_cells(
+            {
+                let mut changed = filled_cells("a");
+                changed[0] = plain_cell("b", 1);
+                changed
+            },
+            SnapshotMetadata::default(),
+        ),
+    );
+    let first = failure_of(store.check(&candidate_bytes).expect("first check runs"));
+    let first_report = std::fs::read(first.report_path()).expect("first report reads");
+    let revision_c = state_sample_bytes(
+        "views/login",
+        &snapshot_with_cells(
+            {
+                let mut changed = filled_cells("c");
+                changed[0] = plain_cell("d", 1);
+                changed
+            },
+            SnapshotMetadata::default()),
+    );
+    write_baseline_file(&baselines, "views/login", &revision_c);
+    let second = failure_of(store.check(&candidate_bytes).expect("second check runs"));
+    assert_ne!(first.report_path(), second.report_path());
+    let second_report = std::fs::read(second.report_path()).expect("second report reads");
+    assert_ne!(first_report, second_report);
+    std::fs::write(first.report_path(), &second_report).expect("wrong report plants");
+    write_baseline_file(&baselines, "views/login", &revision_a);
+    let error = store
+        .check(&candidate_bytes)
+        .expect_err("wrong-baseline report must fail");
+    assert!(
+        matches!(error, CheckError::EvidenceCorrupt { .. }),
+        "wrong-baseline report is corrupt evidence, got {error:?}"
+    );
+    assert_eq!(
+        std::fs::read(first.report_path()).expect("planted report rereads"),
+        second_report,
+        "conflicting immutable evidence is never overwritten"
+    );
+}
+
+/// R22: a non-regular `report.html` destination fails instead of being
+/// trusted or replaced.
+#[test]
+fn r22_nonregular_report_destination_fails() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let baseline_bytes = state_sample_bytes("views/login", &base_snapshot());
+    write_baseline_file(&baselines, "views/login", &baseline_bytes);
+    let mut changed = filled_cells("a");
+    changed[0] = plain_cell("b", 1);
+    let actual_bytes =
+        state_sample_bytes(
+            "views/login",
+            &snapshot_with_cells(changed, SnapshotMetadata::default())
+        );
+    let failure = failure_of(store.check(&actual_bytes).expect("state check runs"));
+    std::fs::remove_file(failure.report_path()).expect("report removes");
+    std::fs::create_dir(failure.report_path()).expect("directory blocks the report path");
+    let error = store
+        .check(&actual_bytes)
+        .expect_err("directory report must fail");
+    assert!(
+        matches!(error, CheckError::EvidenceCorrupt { .. }),
+        "directory report is corrupt evidence, got {error:?}"
+    );
+}

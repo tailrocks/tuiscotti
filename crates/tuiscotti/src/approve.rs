@@ -119,7 +119,7 @@
 
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::io::{Read as _, Write as _};
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -133,7 +133,7 @@ use crate::check::{
     MISSING_BASELINE, MismatchReason, PresentComparison, validate_test_id,
 };
 use crate::render_profile::{ProfileError, resolve_profile};
-use crate::sample::{Gate, MAX_SAMPLE_FILE_BYTES, Sample, SampleError, SampleImage};
+use crate::sample::{Gate, Sample, SampleError, SampleImage, read_bounded, read_bounded_optional};
 
 /// Schema identifier for the `report.json` files written by approval.
 pub const ACCEPT_SCHEMA: &str = "tuiscotti.accept.v1";
@@ -604,14 +604,15 @@ fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
     Ok(relative)
 }
 
-/// Read the baseline file under the held lock: `None` when absent, an I/O
-/// error for any other read failure.
+/// Read the baseline file under the held lock through the shared bounded
+/// read: `None` when absent, a resource limit past the size bound, an I/O
+/// error for any other read failure. Bytes past the limit never load, so a
+/// hostile baseline cannot exhaust memory before validation runs.
 fn read_baseline_bytes(baselines: &Path, relative: &Path) -> Result<Option<Vec<u8>>, ApproveError> {
-    match fs::read(baselines.join(relative)) {
-        Ok(bytes) => Ok(Some(bytes)),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(source) => Err(ApproveError::Io { source }),
-    }
+    read_bounded_optional(&baselines.join(relative)).map_err(|error| match error {
+        SampleError::Io { source } => ApproveError::Io { source },
+        other => ApproveError::from(other),
+    })
 }
 
 /// Steps 13-18 plus evidence: validate paths, make parent directories,
@@ -906,22 +907,20 @@ fn sha256_hex(bytes: &[u8]) -> String {
     out
 }
 
-/// Read the candidate file once with a bounded read: the file is read-only
-/// input, and bytes past the sample limit fail validation downstream. An
-/// unreadable candidate names its path in the error.
+/// Read the candidate file once through the shared bounded read: the file
+/// is read-only input, and bytes past the sample limit fail as a resource
+/// limit before validation runs. An unreadable candidate names its path in
+/// the error.
 fn read_candidate_bytes(path: &Path) -> Result<Vec<u8>, ApproveError> {
-    let file = fs::File::open(path).map_err(|source| ApproveError::Io {
-        source: std::io::Error::new(
-            source.kind(),
-            format!("cannot read candidate {}: {source}", path.display()),
-        ),
-    })?;
-    let mut bounded = file.take(MAX_SAMPLE_FILE_BYTES + 1);
-    let mut bytes = Vec::new();
-    bounded
-        .read_to_end(&mut bytes)
-        .map_err(|source| ApproveError::Io { source })?;
-    Ok(bytes)
+    read_bounded(path).map_err(|error| match error {
+        SampleError::Io { source } => ApproveError::Io {
+            source: std::io::Error::new(
+                source.kind(),
+                format!("cannot read candidate {}: {source}", path.display()),
+            ),
+        },
+        other => ApproveError::from(other),
+    })
 }
 
 /// Resolve a baseline root: canonicalize it, or its nearest existing
