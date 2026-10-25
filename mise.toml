@@ -13,7 +13,7 @@
 # download binaries instead of compiling from source in every crate job.
 [tools]
 mr-boxington = "1.21.1"
-rust = "1.98.1"
+rust = { version = "1.98.1", profile = "minimal", components = ["clippy", "rustfmt"] }
 "github:asamarts/alint" = "0.15.2"
 "aqua:nextest-rs/nextest/cargo-nextest" = "0.9.148"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
