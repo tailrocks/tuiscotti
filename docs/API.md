@@ -39,7 +39,7 @@ because tuiscotti does not wrap or re-export them.
 
 | Item | Status | Notes |
 |---|---|---|
-| `approve::ApprovalStore::accept` | implemented | 19-step digest-arbitrated transaction: takes the candidate path, candidate SHA-256, and expected baseline (`MISSING` for first approval). Re-renders image samples through the upstream renderer and rejects inconsistent pixels, unknown profiles, stale digests, and malformed input with typed codes. |
+| `approve::ApprovalStore::accept` | implemented | 19-step digest-arbitrated transaction: takes the candidate path, candidate SHA-256, and expected baseline (`missing` for first approval). Re-renders image samples through the upstream renderer and rejects inconsistent pixels, unknown profiles, stale digests, and malformed input with typed codes. |
 | `approve::{ApproveError, ACCEPT_SCHEMA, EVIDENCE_SCHEMA, sample_code}` | implemented | Machine-readable codes shared with the CLI; CI refusal is `approval is forbidden while CI is set`. |
 | Approval under `CI` | unsupported | Any set `CI` value refuses before any write. No override exists. |
 
@@ -47,8 +47,15 @@ because tuiscotti does not wrap or re-export them.
 
 | Item | Status | Notes |
 |---|---|---|
-| `report::{render_report, escape_html}` | implemented | Static HTML index from saved candidate evidence. Writes nothing but the report file. |
+| `report::{render_report, escape_html}` | implemented | Static HTML report for one comparison. Writes nothing but the report file. |
 | `report::{ReportInput, ReportedCell, PixelSummary, ReportError}` | implemented | Typed inputs and failures for offline rendering. |
+| `report::{write_report_index, IndexOutcome, IndexError}` | implemented | Static HTML index over an artifact root; links resolve from the index parent. Code is always `IO`. |
+
+## `tuiscotti`: offline rendering (`render`)
+
+| Item | Status | Notes |
+|---|---|---|
+| `render::{render_sample, RenderOutcome, RenderError}` | implemented | Offline `.png`/`.html` rendering of saved sample bytes with typed codes; the `render` CLI command delegates to it. |
 
 ## `tuiscotti`: render profile (`render_profile`)
 

@@ -136,9 +136,10 @@ impl CliResult {
 /// Emit a result and return the process exit code.
 ///
 /// stdout carries exactly one JSON line with `--json`, else the human
-/// summary; a closed pipe is a clean exit 0 even for failing outcomes,
-/// any other stdout failure exits 3. Callers print their own stderr
-/// diagnostic before this on non-zero outcomes.
+/// summary; a closed pipe preserves the operation result (the reader
+/// went away, but the outcome still happened), any other stdout
+/// failure exits 3. Callers print their own stderr diagnostic before
+/// this on non-zero outcomes.
 pub(crate) fn emit(result: &CliResult, exit_code: i32, as_json: bool) -> i32 {
     let mut line = if as_json {
         match serde_json::to_string(result) {
@@ -153,8 +154,7 @@ pub(crate) fn emit(result: &CliResult, exit_code: i32, as_json: bool) -> i32 {
     };
     line.push('\n');
     match crate::write_stdout(&line) {
-        crate::StdoutFlush::Written => exit_code,
-        crate::StdoutFlush::BrokenPipe => 0,
+        crate::StdoutFlush::Written | crate::StdoutFlush::BrokenPipe => exit_code,
         crate::StdoutFlush::Failed => 3,
     }
 }

@@ -560,7 +560,6 @@ fn d04_c10_unknown_profile_rejected() {
     match store.accept(&second, &second_digest, &first_digest) {
         Err(error @ ApproveError::UnknownProfile { .. }) => {
             assert_eq!(error.code(), "UNKNOWN_PROFILE");
-            assert_eq!(error.exit_code(), 3);
             assert!(
                 format!("{error}").contains("no-such-profile"),
                 "rejection names the profile, got {error}"
@@ -601,7 +600,6 @@ fn d04_c10_rerender_mismatch_rejected() {
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ ApproveError::InconsistentSample { .. }) => {
             assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("divergent pixels must fail re-render, got {other:?}"),
     }
@@ -632,7 +630,6 @@ fn d04_c10_missing_glyph_rejected() {
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ ApproveError::MissingGlyph { .. }) => {
             assert_eq!(error.code(), "MISSING_GLYPH");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("unrenderable text must fail re-render, got {other:?}"),
     }
@@ -671,7 +668,6 @@ fn d04_c10_tampered_image_rejected_without_write() {
     match store.accept(&candidate, &digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "INVALID_IMAGE");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("tampered image must fail validation, got {other:?}"),
     }
@@ -824,7 +820,7 @@ fn cross_child_main() {
     let store = ApprovalStore::new(&baselines).expect("child store opens");
     match store.accept(&candidate, &digest, &expected) {
         Ok(accepted) => println!("CROSS_WIN:{}", accepted.baseline_sha256()),
-        Err(error) => println!("CROSS_LOSE:{}:{}", error.code(), error.exit_code()),
+        Err(error) => println!("CROSS_LOSE:{}", error.code()),
     }
 }
 
@@ -900,7 +896,7 @@ fn d04_c11_cross_process_accepts_single_winner() {
         (text_b, text_a)
     };
     assert!(
-        loser_text.contains("CROSS_LOSE:STALE_BASELINE:3"),
+        loser_text.contains("CROSS_LOSE:STALE_BASELINE"),
         "the loser sees stale arbitration, got {loser_text:?}"
     );
     let winner_digest = winner_text
@@ -943,7 +939,6 @@ fn d04_c11_fault_before_replace_keeps_previous() {
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ (ApproveError::Io { .. } | ApproveError::Check { .. })) => {
             assert_eq!(error.code(), "IO");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("a blocked parent directory must fail I/O, got {other:?}"),
     }
@@ -1057,14 +1052,12 @@ fn d04_digest_mixtures_rejected_with_codes() {
         match store.accept(&candidate, bad, "missing") {
             Err(error @ ApproveError::InvalidArgument { .. }) => {
                 assert_eq!(error.code(), "INVALID_SAMPLE");
-                assert_eq!(error.exit_code(), 2);
             }
             other => panic!("malformed candidate digest {bad:?} must fail, got {other:?}"),
         }
         match store.accept(&candidate, &candidate_digest, bad) {
             Err(error @ ApproveError::InvalidArgument { .. }) => {
                 assert_eq!(error.code(), "INVALID_SAMPLE");
-                assert_eq!(error.exit_code(), 2);
             }
             other => panic!("malformed baseline digest {bad:?} must fail, got {other:?}"),
         }
@@ -1072,7 +1065,8 @@ fn d04_digest_mixtures_rejected_with_codes() {
 }
 
 /// Section 16.3 table, arguments and samples: every malformed, corrupt,
-/// foreign-schema, over-limit, and image shape maps 1:1 with its exit code.
+/// foreign-schema, over-limit, and image shape maps 1:1 with its Section
+/// 16.3 code (process exits are a CLI-boundary concern).
 #[test]
 fn d04_error_codes_arguments_and_samples() {
     let dir = tempfile::tempdir().expect("tempdir creates");
@@ -1091,13 +1085,12 @@ fn d04_error_codes_arguments_and_samples() {
     match store.accept(&schema_file, &schema_digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "UNSUPPORTED_SCHEMA");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("unknown schema must fail, got {other:?}"),
     }
-    // An over-limit image dimension claim rejects as RESOURCE_LIMIT. (An
-    // overlong cell string rejects earlier inside upstream parsing as
-    // INVALID_SAMPLE; the dimension claim is the live resource-limit shape.)
+    // An over-limit image dimension claim rejects as RESOURCE_LIMIT, as
+    // does an overlong nested snapshot cell string (typed wire preflight).
+    // The dimension claim is the live image resource-limit shape.
     let pixel_bytes = pixel_sample_bytes("views/login", &base_snapshot());
     let big_bytes = with_image_dims(&pixel_bytes, 40_000, 40);
     let big_digest = sha256_hex(&big_bytes);
@@ -1105,7 +1098,6 @@ fn d04_error_codes_arguments_and_samples() {
     match store.accept(&big_file, &big_digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "RESOURCE_LIMIT");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("over-limit dimensions must fail, got {other:?}"),
     }
@@ -1125,7 +1117,6 @@ fn d04_error_codes_arguments_and_samples() {
     match store.accept(&tampered_file, &tampered_digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "INVALID_IMAGE");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("tampered image must fail, got {other:?}"),
     }
@@ -1137,7 +1128,6 @@ fn d04_error_codes_arguments_and_samples() {
     ) {
         Err(error @ ApproveError::Io { .. }) => {
             assert_eq!(error.code(), "IO");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("a missing candidate must fail I/O, got {other:?}"),
     }
@@ -1145,7 +1135,6 @@ fn d04_error_codes_arguments_and_samples() {
     match ApprovalStore::new(Path::new("")) {
         Err(error) => {
             assert_eq!(error.code(), "INVALID_STORE_PATH");
-            assert_eq!(error.exit_code(), 3);
         }
         Ok(_) => panic!("an empty root must fail"),
     }
@@ -1185,7 +1174,6 @@ fn d04_error_codes_rerender() {
     match store.accept(&profile_file, &profile_digest, "missing") {
         Err(error) => {
             assert_eq!(error.code(), "UNKNOWN_PROFILE");
-            assert_eq!(error.exit_code(), 3);
         }
         Ok(_) => panic!("unknown profile must fail"),
     }
@@ -1194,7 +1182,6 @@ fn d04_error_codes_rerender() {
     match store.accept(&glyph_file, &glyph_digest, "missing") {
         Err(error) => {
             assert_eq!(error.code(), "MISSING_GLYPH");
-            assert_eq!(error.exit_code(), 3);
         }
         Ok(_) => panic!("unrenderable text must fail"),
     }
@@ -1203,7 +1190,6 @@ fn d04_error_codes_rerender() {
     match store.accept(&pixels_file, &pixels_digest, "missing") {
         Err(error) => {
             assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
-            assert_eq!(error.exit_code(), 3);
         }
         Ok(_) => panic!("divergent pixels must fail"),
     }
@@ -1214,7 +1200,6 @@ fn d04_error_codes_rerender() {
         },
     };
     assert_eq!(render_failed.code(), "RENDER_FAILED");
-    assert_eq!(render_failed.exit_code(), 3);
 }
 
 /// Section 16.3 table, arbitration and control: stale digests map 1:1, and
@@ -1235,14 +1220,12 @@ fn d04_error_codes_arbitration_and_control() {
     match store.accept(&candidate, &"d".repeat(64), "missing") {
         Err(error) => {
             assert_eq!(error.code(), "STALE_CANDIDATE");
-            assert_eq!(error.exit_code(), 3);
         }
         Ok(_) => panic!("a wrong candidate digest must fail"),
     }
     match store.accept(&candidate, &candidate_digest, &"d".repeat(64)) {
         Err(error) => {
             assert_eq!(error.code(), "STALE_BASELINE");
-            assert_eq!(error.exit_code(), 3);
         }
         Ok(_) => panic!("a wrong baseline digest must fail"),
     }
@@ -1250,9 +1233,7 @@ fn d04_error_codes_arbitration_and_control() {
         ApproveError::CiApprovalForbidden.code(),
         "CI_APPROVAL_FORBIDDEN"
     );
-    assert_eq!(ApproveError::CiApprovalForbidden.exit_code(), 3);
     assert_eq!(ApproveError::LockTimeout.code(), "LOCK_TIMEOUT");
-    assert_eq!(ApproveError::LockTimeout.exit_code(), 3);
 }
 
 /// The `RENDER_FAILED` source is producible upstream: a structurally valid
@@ -1320,7 +1301,6 @@ fn d04_missing_vs_corrupt_candidate_differ() {
     match store.accept(&missing, &digest, "missing") {
         Err(error @ ApproveError::Io { .. }) => {
             assert_eq!(error.code(), "IO");
-            assert_eq!(error.exit_code(), 3);
             assert!(
                 format!("{error}").contains("no-such-candidate"),
                 "missing file reports the unreadable path"
@@ -1334,7 +1314,6 @@ fn d04_missing_vs_corrupt_candidate_differ() {
     match store.accept(&corrupt, &corrupt_digest, "missing") {
         Err(error @ ApproveError::Check { .. }) => {
             assert_eq!(error.code(), "INVALID_SAMPLE");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("a corrupt candidate must fail validation, got {other:?}"),
     }
@@ -1451,8 +1430,7 @@ fn ci_child_main() {
                 "CI refusal, got {error:?}"
             );
             assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-            assert_eq!(error.exit_code(), 3);
-            println!("CI_REFUSED:{}:{}", error.code(), error.exit_code());
+            println!("CI_REFUSED:{}", error.code());
         }
         Ok(_) => panic!("CI approval must fail"),
     }
@@ -1494,8 +1472,8 @@ fn d04_c12_ci_child_accept_refused_without_writes() {
         );
         let stdout = String::from_utf8(child.stdout).expect("child output is UTF-8");
         assert!(
-            stdout.contains("CI_REFUSED:CI_APPROVAL_FORBIDDEN:3"),
-            "CI={value:?} reports code 3, got {stdout:?}"
+            stdout.contains("CI_REFUSED:CI_APPROVAL_FORBIDDEN"),
+            "CI={value:?} reports its code, got {stdout:?}"
         );
         assert_eq!(all_files_below(&baselines), Vec::<String>::new());
     }
@@ -1529,7 +1507,6 @@ fn d04_c12_blocked_lock_path_accept_refused() {
     match store.accept(&candidate, &candidate_digest, "missing") {
         Err(error @ ApproveError::Io { .. }) => {
             assert_eq!(error.code(), "IO");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("a blocked lock path must fail I/O, got {other:?}"),
     }
@@ -1566,7 +1543,6 @@ fn d04_c12_readonly_root_checks_but_refuses_approval() {
     match outcome {
         Err(error @ ApproveError::Io { .. }) => {
             assert_eq!(error.code(), "IO");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("read-only approval must fail I/O, got {other:?}"),
     }
@@ -1680,7 +1656,7 @@ fn d04_lock_stale_file_does_not_block() {
 }
 
 /// Attempt-child body for the cross-process deadline test: accept once and
-/// print the machine code with its exit code.
+/// print the machine code.
 #[expect(clippy::expect_used, reason = "cross-process child harness")]
 fn attempt_child_main() {
     let baselines = PathBuf::from(
@@ -1693,14 +1669,14 @@ fn attempt_child_main() {
     let store = ApprovalStore::new(&baselines).expect("child store opens");
     match store.accept(&candidate, &digest, "missing") {
         Ok(_) => println!("ATTEMPT_OK"),
-        Err(error) => println!("ATTEMPT:{}:{}", error.code(), error.exit_code()),
+        Err(error) => println!("ATTEMPT:{}", error.code()),
     }
 }
 
 /// The lock deadline fires across processes: with the OS lock held in the
 /// parent, a child accept waits the full 30 seconds and reports
-/// `LOCK_TIMEOUT` with exit code 3, writing nothing. After release the same
-/// accept succeeds, proving no residue blocks.
+/// `LOCK_TIMEOUT`, writing nothing. After release the same accept
+/// succeeds, proving no residue blocks.
 #[test]
 fn d04_lock_timeout_while_held_cross_process() {
     if std::env::var_os("TUISCOTTI_D04_ATTEMPT_CHILD").is_some() {
@@ -1738,8 +1714,8 @@ fn d04_lock_timeout_while_held_cross_process() {
     assert!(output.status.success(), "attempt child exits cleanly");
     let stdout = String::from_utf8(output.stdout).expect("child output is UTF-8");
     assert!(
-        stdout.contains("ATTEMPT:LOCK_TIMEOUT:3"),
-        "the held lock reports code 3, got {stdout:?}"
+        stdout.contains("ATTEMPT:LOCK_TIMEOUT"),
+        "the held lock reports its code, got {stdout:?}"
     );
     assert_eq!(
         entry_names(&baselines),

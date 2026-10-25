@@ -68,7 +68,7 @@ Snapshot fields: logical columns and rows; row-major cells and continuation cell
 
 ## Downstream entry points (names; record changes here before dependents use them)
 
-`capture_view`, `snapshot_from_buffer`, `Sample::state`, `Sample::with_pixels`, `FrozenStore::check`, `ApprovalStore::accept`, `render_sample`, `write_report_index`. No renames recorded yet.
+`capture_view`, `snapshot_from_buffer`, `Sample::state`, `Sample::with_pixels`, `FrozenStore::check`, `ApprovalStore::accept`, `render_sample`, `write_report_index`. The last two are implemented in the `tuiscotti` library (`render::render_sample`, `report::write_report_index`) with exactly these names — no rename was necessary — and the `render`/`report` CLI commands delegate to them. Exit-code mapping lives in the CLI boundary, not in the library errors.
 
 ## Font record
 

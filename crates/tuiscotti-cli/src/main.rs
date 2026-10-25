@@ -20,15 +20,15 @@
 //! for invalid arguments (clap usage errors stay at 2 with no JSON
 //! result), and 3 for file, format, profile, rendering, approval, or I/O
 //! failures. Error codes follow the Section 16.3 table. Exit 2 covers
-//! both argument-error shapes: `render`'s `--out` extension rejection
-//! and `accept`'s malformed-digest arguments (both report
-//! `INVALID_SAMPLE`); every sample-content failure, including corrupt
+//! both argument-error shapes: `render`'s `--out` extension check and
+//! `accept`'s digest checks run as clap parsers, so rejections exit 2
+//! with no JSON result; every sample-content failure, including corrupt
 //! samples, exits 3.
 //!
 //! The requested result goes to stdout (one JSON object plus a newline
 //! with `--json`, one summary line otherwise). Diagnostics go to stderr.
-//! Stdout writes tolerate a closed pipe: a vanished reader is a clean
-//! exit 0, never a panic.
+//! Stdout writes tolerate a closed pipe: a vanished reader preserves the
+//! operation result, never a panic.
 
 mod cli;
 mod input;
@@ -45,7 +45,7 @@ use clap::Parser;
 pub(crate) enum StdoutFlush {
     /// The bytes reached stdout; the caller returns its outcome code.
     Written,
-    /// The reader went away; the caller exits 0 (nothing is lost).
+    /// The reader went away; the caller returns its outcome code.
     BrokenPipe,
     /// Stdout failed another way; the caller exits 3.
     Failed,
@@ -55,7 +55,8 @@ pub(crate) enum StdoutFlush {
 ///
 /// Pure-report commands buffer their output and flush once here: a
 /// broken pipe is [`StdoutFlush::BrokenPipe`] (the reader went away;
-/// nothing is lost), any other error is reported on stderr.
+/// the outcome code is preserved), any other error is reported on
+/// stderr.
 pub(crate) fn write_stdout(text: &str) -> StdoutFlush {
     use std::io::Write as _;
     let mut out = std::io::stdout().lock();
@@ -68,12 +69,6 @@ pub(crate) fn write_stdout(text: &str) -> StdoutFlush {
             StdoutFlush::Failed
         }
     }
-}
-
-/// Append one `\n`-terminated line to a report buffer.
-pub(crate) fn push_line(buffer: &mut String, line: &str) {
-    buffer.push_str(line);
-    buffer.push('\n');
 }
 
 fn main() {

@@ -1,17 +1,30 @@
 //! `accept`: the explicit D04 approval transaction, fully offline.
 //!
 //! Approves one candidate for one test ID with the mandatory digests.
-//! There is no `--all`, no glob, and no CI override: a set `CI` variable
-//! refuses approval before any write. Exit and machine codes come
-//! straight from the library mapping: malformed digest arguments report
-//! `INVALID_SAMPLE` at exit 2, every other failure reports its Section
-//! 16.3 code at exit 3.
+//! There is no `--all`, no glob, and no CI override. Digest shapes and
+//! the `missing` literal are validated by clap parsers before this runs,
+//! so rejections there exit 2 with no JSON result; every failure below
+//! is operational and exits 3. The failure JSON reports the observed
+//! baseline digest (`missing` when no baseline file was present, null
+//! when the failure carries no observed baseline), never the requested
+//! one.
 
 use std::path::Path;
 
 use tuiscotti::approve::{ApprovalStore, ApproveError};
 
 use crate::json_out::{CliResult, emit, encode_path};
+
+/// The process exit code for an approval failure: `2` for malformed
+/// digest arguments, `3` for every operational failure. The library
+/// keeps the typed errors and their Section 16.3 codes; this mapping is
+/// the CLI boundary.
+fn accept_exit_code(error: &ApproveError) -> i32 {
+    match error {
+        ApproveError::InvalidArgument { .. } => 2,
+        _ => 3,
+    }
+}
 
 /// Run `accept` and return the process exit code.
 pub(crate) fn cmd_accept(
@@ -24,6 +37,7 @@ pub(crate) fn cmd_accept(
     let failed = |error: &ApproveError| {
         let reason = error.to_string();
         eprintln!("error: {reason}");
+        let baseline_sha256 = error.observed_baseline().map(str::to_string);
         let result = CliResult::new(
             "accept",
             "error",
@@ -31,11 +45,11 @@ pub(crate) fn cmd_accept(
             Some(reason),
             Some(encode_path(candidate)),
             Some(candidate_sha256.to_string()),
-            Some(expect_baseline.to_string()),
+            baseline_sha256,
             None,
             Some(error.code().to_string()),
         );
-        emit(&result, error.exit_code(), as_json)
+        emit(&result, accept_exit_code(error), as_json)
     };
     let store = match ApprovalStore::new(baselines) {
         Ok(store) => store,

@@ -9,6 +9,10 @@
 //! The output carries no code from samples and no web server or script:
 //! text and attribute values are escaped, links are relative file names or
 //! embedded data, and no absolute developer path is ever written.
+//!
+//! [`write_report_index`] builds the static evidence index over an
+//! artifact root; its links resolve from the index parent, so the index
+//! may live anywhere.
 
 use std::fmt::{Display, Formatter, Write as _};
 use std::fs;
@@ -148,6 +152,279 @@ pub struct ReportInput<'a> {
     pub has_diff_image: bool,
     /// Compared window titles as `(actual, baseline)` when the title moved.
     pub title_values: Option<(&'a str, &'a str)>,
+}
+
+/// One completed evidence index: the static page linking every saved
+/// check record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IndexOutcome {
+    records: usize,
+}
+
+impl IndexOutcome {
+    /// The indexed check record count, in deterministic sort order.
+    #[must_use]
+    pub const fn records(&self) -> usize {
+        self.records
+    }
+}
+
+/// Every failure an evidence index write can report.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum IndexError {
+    /// The artifact root cannot be walked for check evidence.
+    Read {
+        /// The artifact root that failed to list.
+        artifacts: PathBuf,
+        /// The filesystem failure.
+        source: std::io::Error,
+    },
+    /// The static index page cannot be written.
+    Write {
+        /// The index path that failed.
+        path: PathBuf,
+        /// The filesystem failure.
+        source: std::io::Error,
+    },
+}
+
+impl Display for IndexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Read { artifacts, source } => {
+                write!(f, "cannot read artifacts {}: {source}", artifacts.display())
+            }
+            Self::Write { path, source } => {
+                write!(f, "cannot write {}: {source}", path.display())
+            }
+        }
+    }
+}
+
+impl std::error::Error for IndexError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Read { source, .. } | Self::Write { source, .. } => Some(source),
+        }
+    }
+}
+
+impl IndexError {
+    /// The stable Section 16.3 machine code: every index failure is `IO`.
+    #[must_use]
+    pub const fn code(&self) -> &'static str {
+        "IO"
+    }
+}
+
+/// Walk the artifact root for check `result.json` records (schema
+/// `tuiscotti.check.v1`), sort them deterministically, and write one
+/// self-contained HTML page linking each check directory's own
+/// `report.html`. Links resolve from the index parent, so the index may
+/// live anywhere; only forward slashes are emitted. Nothing here
+/// modifies approvals: the baseline root is never opened.
+///
+/// # Errors
+///
+/// Returns [`IndexError`] when the artifact root cannot be walked or
+/// the index page cannot be written.
+pub fn write_report_index(artifacts: &Path, out: &Path) -> Result<IndexOutcome, IndexError> {
+    let records = collect_records(artifacts).map_err(|source| IndexError::Read {
+        artifacts: artifacts.to_path_buf(),
+        source,
+    })?;
+    let page = render_index(artifacts, out, &records);
+    std::fs::write(out, page.as_bytes()).map_err(|source| IndexError::Write {
+        path: out.to_path_buf(),
+        source,
+    })?;
+    Ok(IndexOutcome {
+        records: records.len(),
+    })
+}
+
+/// One indexed check record: identity plus its relative check directory.
+struct IndexedRecord {
+    test_id: String,
+    reason: String,
+    candidate_sha256: String,
+    baseline_sha256: String,
+    check_dir: PathBuf,
+}
+
+/// Collect check records under `artifacts`, sorted by test ID, candidate
+/// digest, and baseline digest for deterministic output.
+fn collect_records(artifacts: &Path) -> Result<Vec<IndexedRecord>, std::io::Error> {
+    let mut records = Vec::new();
+    let mut stack = vec![artifacts.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let mut entries: Vec<PathBuf> = Vec::new();
+        for entry in std::fs::read_dir(&dir)? {
+            entries.push(entry?.path());
+        }
+        entries.sort();
+        for path in entries {
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.file_name().is_some_and(|name| name == "result.json")
+                && let Some(record) = read_record(&path, artifacts)
+            {
+                records.push(record);
+            }
+        }
+    }
+    records.sort_by(|left, right| {
+        (&left.test_id, &left.candidate_sha256, &left.baseline_sha256).cmp(&(
+            &right.test_id,
+            &right.candidate_sha256,
+            &right.baseline_sha256,
+        ))
+    });
+    Ok(records)
+}
+
+/// Read one check record; returns `None` for files that are not check
+/// evidence (foreign files never break the index).
+fn read_record(path: &Path, artifacts: &Path) -> Option<IndexedRecord> {
+    let bytes = std::fs::read(path).ok()?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    if value.get("schema")?.as_str()? != crate::check::CHECK_SCHEMA {
+        return None;
+    }
+    let check_dir = path.parent()?.strip_prefix(artifacts).ok()?.to_path_buf();
+    Some(IndexedRecord {
+        test_id: value.get("test_id")?.as_str()?.to_string(),
+        reason: value.get("reason")?.as_str()?.to_string(),
+        candidate_sha256: value.get("candidate_sha256")?.as_str()?.to_string(),
+        baseline_sha256: value.get("baseline_sha256")?.as_str()?.to_string(),
+        check_dir,
+    })
+}
+
+/// Render the static index page: escaped text, links relative to the
+/// index parent, no absolute developer paths and no scripts.
+fn render_index(artifacts: &Path, out: &Path, records: &[IndexedRecord]) -> String {
+    let parent = out.parent().filter(|parent| !parent.as_os_str().is_empty());
+    let parent = parent.unwrap_or_else(|| Path::new("."));
+    let mut page = String::from(
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head><meta charset=\"utf-8\">\n<title>tuiscotti report</title>\n</head>\n<body>\n<h1>tuiscotti report</h1>\n",
+    );
+    push_index_line(&mut page, &format!("<p>records: {}</p>", records.len()));
+    push_index_line(&mut page, "<table>");
+    push_index_line(
+        &mut page,
+        "<tr><th>test</th><th>reason</th><th>candidate</th><th>baseline</th><th>evidence</th></tr>",
+    );
+    for record in records {
+        let test_id = escape_html(&record.test_id);
+        let reason = escape_html(&record.reason);
+        let candidate = escape_html(&record.candidate_sha256);
+        let baseline = escape_html(&record.baseline_sha256);
+        let target = artifacts.join(&record.check_dir).join("report.html");
+        let href = escape_html(&relative_href(parent, &target));
+        push_index_line(
+            &mut page,
+            &format!(
+                "<tr><td>{test_id}</td><td>{reason}</td><td>{candidate}</td><td>{baseline}</td><td><a href=\"{href}\">report</a></td></tr>"
+            ),
+        );
+    }
+    push_index_line(&mut page, "</table>");
+    push_index_line(&mut page, "</body>");
+    push_index_line(&mut page, "</html>");
+    page
+}
+
+/// Append one `\n`-terminated line to an index buffer.
+fn push_index_line(buffer: &mut String, line: &str) {
+    buffer.push_str(line);
+    buffer.push('\n');
+}
+
+/// Href from the index parent to an evidence file, with forward
+/// slashes on every platform. Both sides resolve lexically against the
+/// process directory, so no filesystem access decides the spelling.
+fn relative_href(index_parent: &Path, target: &Path) -> String {
+    let base = normalize_lexical(&absolutize(index_parent));
+    let target = normalize_lexical(&absolutize(target));
+    if let Some(relative) = relative_lexical(&base, &target) {
+        return relative;
+    }
+    target.to_string_lossy().replace('\\', "/")
+}
+
+/// Join a relative path onto the process directory; absolute paths
+/// pass through unchanged.
+fn absolutize(path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(path)
+    }
+}
+
+/// Resolve `.` and `..` lexically, without touching the filesystem.
+fn normalize_lexical(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut stack: Vec<Component<'_>> = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if matches!(stack.last(), Some(Component::Normal(_))) {
+                    stack.pop();
+                } else {
+                    stack.push(component);
+                }
+            }
+            _ => stack.push(component),
+        }
+    }
+    let mut normalized = PathBuf::new();
+    for component in stack {
+        normalized.push(component);
+    }
+    normalized
+}
+
+/// Lexical path from `base` to `target`, joined with forward slashes;
+/// `None` when the two sides share no comparable root (drive-letter
+/// splits on Windows).
+fn relative_lexical(base: &Path, target: &Path) -> Option<String> {
+    use std::path::Component;
+    let base: Vec<Component<'_>> = base.components().collect();
+    let target: Vec<Component<'_>> = target.components().collect();
+    match (base.first(), target.first()) {
+        (Some(Component::Prefix(_)), Some(Component::Prefix(_))) if base[0] != target[0] => {
+            return None;
+        }
+        _ => {}
+    }
+    let common = base
+        .iter()
+        .zip(target.iter())
+        .take_while(|(left, right)| left == right)
+        .count();
+    let mut parts: Vec<String> = Vec::new();
+    for component in &base[common..] {
+        if matches!(component, Component::Normal(_)) {
+            parts.push("..".to_string());
+        }
+    }
+    for component in &target[common..] {
+        match component {
+            Component::Normal(name) => parts.push(name.to_string_lossy().into_owned()),
+            Component::ParentDir => parts.push("..".to_string()),
+            Component::CurDir | Component::RootDir | Component::Prefix(_) => {}
+        }
+    }
+    if parts.is_empty() {
+        return Some("report.html".to_string());
+    }
+    Some(parts.join("/"))
 }
 
 /// Render the static HTML report for one comparison as a string.
@@ -386,7 +663,7 @@ fn push_footer(html: &mut String) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReportInput, escape_html, render_report, write_report};
+    use super::{ReportInput, escape_html, relative_href, render_report, write_report};
 
     #[test]
     fn escaping_keeps_markup_inert() {
@@ -460,6 +737,41 @@ mod tests {
             assert!(
                 !name.starts_with(".tmp-"),
                 "temporary file {name:?} left behind"
+            );
+        }
+    }
+
+    /// Index hrefs resolve from the index parent with forward slashes.
+    #[test]
+    fn index_hrefs_resolve_from_the_index_parent() {
+        use std::path::Path;
+        let cases = [
+            (
+                "/repo/out",
+                "/repo/artifacts/suite/digest/report.html",
+                "../artifacts/suite/digest/report.html",
+            ),
+            (
+                "/repo/artifacts",
+                "/repo/artifacts/suite/digest/report.html",
+                "suite/digest/report.html",
+            ),
+            (
+                "/repo/artifacts/sub",
+                "/repo/artifacts/suite/digest/report.html",
+                "../suite/digest/report.html",
+            ),
+            (
+                "/repo/artifacts/suite/digest",
+                "/repo/artifacts/suite/digest/report.html",
+                "report.html",
+            ),
+        ];
+        for (parent, target, expected) in cases {
+            assert_eq!(
+                relative_href(Path::new(parent), Path::new(target)),
+                expected,
+                "href from {parent} to {target}"
             );
         }
     }

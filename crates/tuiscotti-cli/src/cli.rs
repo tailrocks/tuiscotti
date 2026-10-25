@@ -6,7 +6,60 @@
 
 use std::path::PathBuf;
 
+use clap::builder::{PathBufValueParser, TypedValueParser as _};
 use clap::{Parser, Subcommand};
+
+/// Parse a SHA-256 digest argument: 64 lowercase hex digits, never a
+/// zero placeholder. Rejections are clap usage errors (exit 2 with no
+/// JSON result), matching the library digest shape one for one.
+fn parse_digest(value: &str) -> Result<String, String> {
+    if value.is_empty() {
+        return Err("digest is missing".to_string());
+    }
+    if !is_hex_digest(value) {
+        return Err(format!(
+            "digest {value:?} is not a 64-character lowercase hex digest"
+        ));
+    }
+    if value.bytes().all(|byte| byte == b'0') {
+        return Err("digest must not be a zero placeholder".to_string());
+    }
+    Ok(value.to_string())
+}
+
+/// Parse the expected-baseline digest: a digest or the `missing`
+/// literal for a first approval. Rejections are clap usage errors.
+fn parse_expected_baseline(value: &str) -> Result<String, String> {
+    if value == tuiscotti::check::MISSING_BASELINE {
+        return Ok(value.to_string());
+    }
+    parse_digest(value).map_err(|_| {
+        format!("expected baseline {value:?} is not a digest or the `missing` literal")
+    })
+}
+
+/// True for 64 lowercase hex characters: the SHA-256 digest shape the
+/// CLI accepts before the approval transaction re-validates it.
+fn is_hex_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+/// Parse the render `--out` path: only `.png` and `.html` spellings
+/// pass. Rejections are clap usage errors (exit 2 with no JSON result).
+fn parse_render_out(path: PathBuf) -> Result<PathBuf, String> {
+    let supported = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension == "png" || extension == "html");
+    if supported {
+        Ok(path)
+    } else {
+        Err("unsupported output extension: expected a `.png` or `.html` --out path".to_string())
+    }
+}
 
 /// Offline `tuiscotti`: check, accept, render, and report saved samples.
 #[derive(Parser, Debug)]
@@ -46,10 +99,10 @@ pub(crate) enum Cmd {
         #[arg(long)]
         candidate: PathBuf,
         /// SHA-256 over the candidate file bytes (64 lowercase hex).
-        #[arg(long)]
+        #[arg(long, value_parser = parse_digest)]
         candidate_sha256: String,
         /// Expected previous baseline digest, or `missing` for first approval.
-        #[arg(long)]
+        #[arg(long, value_parser = parse_expected_baseline)]
         expect_baseline: String,
         /// Baseline root receiving the upserted baseline.
         #[arg(long)]
@@ -61,7 +114,7 @@ pub(crate) enum Cmd {
         #[arg(long)]
         sample: PathBuf,
         /// Output path ending in `.png` or `.html`.
-        #[arg(long)]
+        #[arg(long, value_parser = PathBufValueParser::new().try_map(parse_render_out))]
         out: PathBuf,
     },
     /// Build a static HTML index from saved candidate evidence.

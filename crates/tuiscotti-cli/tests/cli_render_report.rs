@@ -136,15 +136,16 @@ fn render_html_embeds_image_and_metadata() {
     }
 }
 
-/// Output extensions other than `.png` and `.html` are invalid
-/// arguments: exit 2 with `INVALID_SAMPLE` and no output file.
+/// Output extensions other than `.png` and `.html` are clap usage
+/// errors: exit 2 with no JSON result on stdout, an explanation on
+/// stderr, and no output file.
 #[test]
 fn render_rejects_other_extensions() {
     let (dir, _baselines, _artifacts) = temp_store();
     let bytes = state_sample_bytes("cli/ext", &base_snapshot());
     let sample = write_file(dir.path(), "state.tui.json", &bytes);
 
-    for name in ["shot.txt", "shot.jpg", "shot"] {
+    for name in ["shot.txt", "shot.jpg", "shot", "shot.PNG"] {
         let out = dir.path().join(name);
         let result = run_cli(&[
             "--json",
@@ -155,9 +156,8 @@ fn render_rejects_other_extensions() {
             &out.to_string_lossy(),
         ]);
         assert_eq!(code(&result), Some(2), "{name} exits 2");
-        let value = parse_json(&result);
-        assert_eq!(value["status"], "error");
-        assert_eq!(value["error_code"], "INVALID_SAMPLE");
+        assert!(result.stdout.is_empty(), "{name} emits no stdout JSON");
+        assert!(!result.stderr.is_empty(), "{name} explains on stderr");
         assert!(!out.exists(), "rejected renders write nothing");
     }
 }
