@@ -7,6 +7,13 @@
 //! only inputs are the production draw closure below and the caller-supplied
 //! view settings. The converted snapshot travels the same downstream sample
 //! API the live-session example uses (`Sample`, `FrozenStore`).
+//!
+//! Under `CI` approval is refused by design, so the example plants the
+//! candidate as a frozen baseline fixture and checks it green instead of
+//! approving; the marker and exit code stay the same.
+
+#[path = "common/ci_fixture.rs"]
+mod ci_fixture;
 
 use ratatui::Frame;
 use ratatui::layout::Position;
@@ -47,12 +54,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err("first check unexpectedly passed".into());
         }
     };
-    let approvals = tuiscotti::approve::ApprovalStore::new(&baselines)?;
-    approvals.accept(
-        failure.candidate_path(),
-        failure.candidate_sha256(),
-        tuiscotti::check::MISSING_BASELINE,
-    )?;
+    if ci_fixture::ci_is_set() {
+        ci_fixture::plant_frozen_baseline(&baselines, &test_id, &bytes)?;
+    } else {
+        let approvals = tuiscotti::approve::ApprovalStore::new(&baselines)?;
+        approvals.accept(
+            failure.candidate_path(),
+            failure.candidate_sha256(),
+            tuiscotti::check::MISSING_BASELINE,
+        )?;
+    }
     let rerun = store.check(&bytes)?;
     assert!(
         rerun.is_pass(),

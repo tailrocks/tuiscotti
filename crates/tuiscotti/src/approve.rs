@@ -484,7 +484,33 @@ impl ApprovalStore {
         expected_baseline_sha256: &str,
     ) -> Result<AcceptOutcome, ApproveError> {
         // Step 1: refuse under CI before making the root or lock file.
+        // This gate stays on the public path only: the transaction
+        // mechanics below never read the environment, so unit tests
+        // exercise them in both modes without a bypass.
         require_no_ci()?;
+        self.accept_core(candidate_path, candidate_sha256, expected_baseline_sha256)
+    }
+
+    /// Run the approval transaction mechanics without the CI gate: steps
+    /// 2-20 (digest validation, root creation, lock, read, arbitration,
+    /// re-render, atomic upsert, evidence).
+    ///
+    /// Private: every production, integration-test, example, and CLI caller
+    /// reaches approval through [`ApprovalStore::accept`], which refuses
+    /// under `CI`. Only the unit tests below call this core directly, which
+    /// keeps transaction coverage green under `CI` without unsetting it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApproveError`] for digest rejections, stale candidates or
+    /// baselines, invalid samples or paths, lock timeouts, and I/O
+    /// failures.
+    fn accept_core(
+        &self,
+        candidate_path: &Path,
+        candidate_sha256: &str,
+        expected_baseline_sha256: &str,
+    ) -> Result<AcceptOutcome, ApproveError> {
         // Step 2: validate the digest arguments and store paths.
         require_digest("candidate", candidate_sha256, false)?;
         require_digest("expected baseline", expected_baseline_sha256, true)?;
@@ -1219,11 +1245,21 @@ struct CandidateEvidence<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        atomic_replace, is_hex_digest, require_digest, resolve_baseline_root, sample_code,
-        sha256_hex,
+    use std::path::{Path, PathBuf};
+
+    use tui_test::profile::Rgb;
+    use tui_test::terminal::cell::Attrs;
+    use tui_test::{
+        SnapshotCell, SnapshotColor, SnapshotCursor, SnapshotCursorShape, SnapshotMetadata,
+        SnapshotParts, SnapshotScope, TerminalSnapshot,
     };
-    use crate::sample::SampleError;
+
+    use super::{
+        ApprovalStore, atomic_replace, is_hex_digest, require_digest, resolve_baseline_root,
+        sample_code, sha256_hex,
+    };
+    use crate::sample::{Observation, Sample, SampleError};
+    use crate::view::ViewSettings;
 
     #[test]
     fn sha256_matches_the_known_vector() {
@@ -1333,6 +1369,234 @@ mod tests {
                 !name.starts_with(".tmp-accept-"),
                 "temporary file {name:?} left behind"
             );
+        }
+    }
+
+    /// Fixed 4x2 snapshot fixture: one grapheme per cell, hidden cursor.
+    fn unit_snapshot() -> Result<TerminalSnapshot, String> {
+        let cells: Vec<SnapshotCell> = (0..8)
+            .map(|_| {
+                SnapshotCell::new(
+                    "a".to_string(),
+                    1,
+                    SnapshotColor::Default,
+                    SnapshotColor::Default,
+                    Attrs::empty(),
+                    tui_test::SnapshotUnderline::None,
+                    SnapshotColor::Default,
+                    None,
+                    None,
+                )
+                .map_err(|error| format!("fixture cell: {error:?}"))
+            })
+            .collect::<Result<_, _>>()?;
+        TerminalSnapshot::try_new(SnapshotParts {
+            cols: 4,
+            rows: 2,
+            scope: SnapshotScope::Viewport,
+            viewport_origin: 0,
+            cells,
+            palette: *ViewSettings::builtin().palette(),
+            default_foreground: Rgb::new(192, 192, 192),
+            default_background: Rgb::new(0, 0, 0),
+            default_cursor: Rgb::new(192, 192, 192),
+            cursor: SnapshotCursor::new(
+                0,
+                0,
+                true,
+                false,
+                SnapshotCursorShape::Block,
+                Rgb::new(192, 192, 192),
+                None,
+            ),
+            title: None,
+            metadata: SnapshotMetadata::default(),
+        })
+        .map_err(|error| format!("fixture snapshot: {error:?}"))
+    }
+
+    /// State-only sample bytes for a test ID: no render contract, no
+    /// image, so the core covers steps 5-9 and 13-20 without fonts.
+    fn unit_state_bytes(test_id: &str) -> Result<Vec<u8>, String> {
+        let snapshot = unit_snapshot()?;
+        Sample::state(test_id, snapshot, Observation::empty())
+            .map_err(|error| format!("fixture sample: {error:?}"))?
+            .to_bytes()
+            .map_err(|error| format!("fixture bytes: {error:?}"))
+    }
+
+    /// Write candidate bytes to a file and return its path.
+    fn unit_candidate_file(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
+        let path = dir.join(name);
+        std::fs::write(&path, bytes)?;
+        Ok(path)
+    }
+
+    /// Store-relative baseline path for a test ID, without touching disk.
+    fn unit_baseline_path(root: &Path, test_id: &str) -> PathBuf {
+        let mut path = root.join(test_id);
+        path.set_extension("tui.json");
+        path
+    }
+
+    /// Write baseline bytes for a test ID, making parent directories.
+    fn unit_write_baseline(root: &Path, test_id: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
+        let path = unit_baseline_path(root, test_id);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&path, bytes)?;
+        Ok(path)
+    }
+
+    /// The core approves a first state-only sample: baseline, evidence,
+    /// and outcome digests, with the lock file kept.
+    #[test]
+    fn core_first_approval_writes_baseline_and_evidence() {
+        let dir = tempfile::tempdir().expect("scratch directory creates");
+        let baselines = dir.path().join("baselines");
+        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
+        let digest = sha256_hex(&bytes);
+        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
+            .expect("candidate writes");
+        let store = ApprovalStore::new(&baselines).expect("approval store opens");
+        let accepted = store
+            .accept_core(&candidate, &digest, "missing")
+            .expect("core approves");
+        assert_eq!(accepted.test_id(), "views/login");
+        assert_eq!(accepted.candidate_sha256(), digest);
+        assert_eq!(accepted.previous_baseline_sha256(), "missing");
+        assert_eq!(accepted.baseline_sha256(), digest);
+        assert_eq!(
+            std::fs::read(unit_baseline_path(&baselines, "views/login")).expect("baseline reads"),
+            bytes
+        );
+        assert!(accepted.baseline_path().is_file());
+        assert!(accepted.evidence_dir().join("report.json").is_file());
+        assert!(
+            accepted
+                .evidence_dir()
+                .join("candidate_bytes.evidence.json")
+                .is_file()
+        );
+    }
+
+    /// The core records the previous digest on a second approval of the
+    /// same bytes.
+    #[test]
+    fn core_second_approval_records_previous_digest() {
+        let dir = tempfile::tempdir().expect("scratch directory creates");
+        let baselines = dir.path().join("baselines");
+        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
+        let digest = sha256_hex(&bytes);
+        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
+            .expect("candidate writes");
+        let store = ApprovalStore::new(&baselines).expect("approval store opens");
+        let first = store
+            .accept_core(&candidate, &digest, "missing")
+            .expect("first approval runs");
+        assert_eq!(first.previous_baseline_sha256(), "missing");
+        let second = store
+            .accept_core(&candidate, &digest, &digest)
+            .expect("second approval runs");
+        assert_eq!(second.test_id(), first.test_id());
+        assert_eq!(second.baseline_sha256(), digest);
+        assert_eq!(second.previous_baseline_sha256(), digest);
+    }
+
+    /// The core rejects a wrong candidate digest before any baseline
+    /// write.
+    #[test]
+    fn core_stale_candidate_rejected_without_baseline() {
+        let dir = tempfile::tempdir().expect("scratch directory creates");
+        let baselines = dir.path().join("baselines");
+        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
+        let digest = sha256_hex(&bytes);
+        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
+            .expect("candidate writes");
+        let store = ApprovalStore::new(&baselines).expect("approval store opens");
+        let wrong = "d".repeat(64);
+        match store.accept_core(&candidate, &wrong, "missing") {
+            Err(super::ApproveError::StaleCandidate { expected, actual }) => {
+                assert_eq!(expected, wrong);
+                assert_eq!(actual, digest);
+            }
+            other => panic!("a wrong candidate digest must fail, got {other:?}"),
+        }
+        assert!(
+            !unit_baseline_path(&baselines, "views/login").exists(),
+            "stale candidates write no baseline"
+        );
+    }
+
+    /// The core rejects a stale expected digest with the planted baseline
+    /// left untouched.
+    #[test]
+    fn core_stale_baseline_leaves_planted_bytes() {
+        let dir = tempfile::tempdir().expect("scratch directory creates");
+        let baselines = dir.path().join("baselines");
+        std::fs::create_dir_all(&baselines).expect("baseline root creates");
+        let first_bytes = unit_state_bytes("views/login").expect("fixture sample builds");
+        unit_write_baseline(&baselines, "views/login", &first_bytes).expect("baseline plants");
+        let second_bytes = unit_state_bytes("views/login").expect("fixture sample builds");
+        let second_digest = sha256_hex(&second_bytes);
+        let second = unit_candidate_file(dir.path(), "second.tui.json", &second_bytes)
+            .expect("candidate writes");
+        let store = ApprovalStore::new(&baselines).expect("approval store opens");
+        match store.accept_core(&second, &second_digest, &"c".repeat(64)) {
+            Err(super::ApproveError::StaleBaseline { .. }) => {}
+            other => panic!("a stale baseline must fail, got {other:?}"),
+        }
+        assert_eq!(
+            std::fs::read(unit_baseline_path(&baselines, "views/login")).expect("baseline reads"),
+            first_bytes
+        );
+    }
+
+    /// The core fails a lock path blocked by a directory with a typed I/O
+    /// error and writes nothing.
+    #[test]
+    fn core_blocked_lock_path_fails_without_writes() {
+        let dir = tempfile::tempdir().expect("scratch directory creates");
+        let baselines = dir.path().join("baselines");
+        std::fs::create_dir_all(&baselines).expect("baseline root creates");
+        std::fs::create_dir(baselines.join(".tuiscotti-approval.lock"))
+            .expect("lock blocker creates");
+        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
+        let digest = sha256_hex(&bytes);
+        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
+            .expect("candidate writes");
+        let store = ApprovalStore::new(&baselines).expect("approval store opens");
+        match store.accept_core(&candidate, &digest, "missing") {
+            Err(error @ super::ApproveError::Io { .. }) => {
+                assert_eq!(error.code(), "IO");
+                assert_eq!(error.exit_code(), 3);
+            }
+            other => panic!("a blocked lock path must fail I/O, got {other:?}"),
+        }
+        assert!(
+            !unit_baseline_path(&baselines, "views/login").exists(),
+            "lock faults write no baseline"
+        );
+    }
+
+    /// The CI gate coheres with the environment: refusal happens exactly
+    /// when `CI` is present, with the code-3 error. Per-value refusal
+    /// (including empty values) and the no-write guarantee run in
+    /// dedicated child processes in `tests/approval.rs`, which set the
+    /// child environment without touching this process.
+    #[test]
+    fn ci_gate_matches_environment_presence() {
+        let present = std::env::var_os("CI").is_some();
+        assert_eq!(super::ci_is_set(), present);
+        match super::require_no_ci() {
+            Ok(()) => assert!(!present, "an absent CI variable opens the gate"),
+            Err(error @ super::ApproveError::CiApprovalForbidden) => {
+                assert!(present, "a present CI variable refuses the gate");
+                assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
+                assert_eq!(error.exit_code(), 3);
+            }
+            Err(other) => panic!("the CI gate reports only refusal, got {other:?}"),
         }
     }
 }

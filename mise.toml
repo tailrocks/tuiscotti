@@ -35,18 +35,21 @@ description = "Rustdoc gate: workspace docs build with warnings denied"
 run = 'RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked'
 
 [tasks.ci-no-default]
-description = "No-default gate: pure-view builds, lints, tests, and pty-free graph"
+description = "No-default gate: pure-view builds, lints, tests, no direct PTY/engine dep, and pure-view starts no child/device"
 run = [
   "rustup component add clippy",
   "cargo check --workspace --no-default-features --locked --all-targets",
   "cargo clippy --workspace --no-default-features --locked --all-targets -- -D warnings",
   "cargo nextest run --workspace --no-default-features --locked",
-  'out=$(cargo tree -p tuiscotti --no-default-features --locked --prefix none) || exit 1; printf "%s\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true',
+  "mise run ci-no-default-graph",
 ]
 
 [tasks.ci-no-default-graph]
-description = "Pty-free negative guard: tuiscotti no-default graph must not contain portable-pty/alacritty_terminal/termpane (a green no-default build alone cannot catch a silently reintroduced pty dep)"
-run = 'out=$(cargo tree -p tuiscotti --no-default-features --locked --prefix none) || exit 1; printf "%s\\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true'
+description = "Pty-free negative guard: tuiscotti has no DIRECT portable-pty/alacritty_terminal/termpane dep (they stay permitted as upstream-transitive via tui-test-rs), and the pure-view path starts no child process or device"
+run = [
+  'out=$(cargo tree -p tuiscotti --no-default-features --locked --depth 1 --prefix none) || exit 1; printf "%s\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true',
+  'grep -rE "std::process|Command::new|Stdio|portable.?pty|openpty|/dev/(pts|tty|ptmx)" crates/tuiscotti/examples/01-pure-view.rs crates/tuiscotti/examples/common/ci_fixture.rs crates/tuiscotti/src/view.rs && exit 1 || true',
+]
 
 [tasks.ci-deny]
 description = "Dependency policy gate: cargo-deny advisories/bans/licenses/sources (pinned github:EmbarkStudios/cargo-deny)"
