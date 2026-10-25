@@ -17,14 +17,14 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | U08 | Child environment, native arguments | upstream writer | done ([draft PR 286](https://github.com/microsoft/tui-test/pull/286)) | `goal/u08-launch-options` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U09 | Raw input bytes | upstream writer | done ([draft PR 279](https://github.com/microsoft/tui-test/pull/279)) | `goal/u09-raw-bytes` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U10 | Quiet intervals, request cancellation | upstream writer | done ([draft PR 281](https://github.com/microsoft/tui-test/pull/281)) | `goal/u10-request-waits` | U02 head (`364719a`, parent PR #278) |
-| D01 | Reduced crates, Ratatui adapter | downstream writer | todo | `goal/tui-test-extension` | U02 head (patched) |
+| D01 | Reduced crates, Ratatui adapter | downstream writer | done (pure-view conversion accepted; CoveredCellOccupied/LeadingCellOverhang follow-up reviewed, suites green since) | `goal/tui-test-extension` | U02 head (patched) |
 | D02 | Sample format, render profiles | downstream writer | done | `goal/tui-test-extension` | D01 + U03/U04/U05/U11 heads |
 | D03 | Comparison and candidate evidence | downstream writer | done | `goal/tui-test-extension` | D02 + qual-stack `fb72d00` |
 | D04 | Approval and frozen checking | downstream writer | done | `goal/tui-test-extension` | D03 head |
 | D05 | Offline CLI | downstream writer | done | `goal/tui-test-extension` | D04 head |
 | D06 | Test and example migration | downstream writer | done | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
 | D07 | Code removal and documentation | downstream writer | done | `goal/tui-test-extension` | D06 head |
-| V01 | Full checks and last code review | code reviewer | todo | both repos | D07 head |
+| V01 | Full checks and last code review | code reviewer | active | both repos | D07 head |
 | R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283, U04 #284, U05 #285, U08 #286) | one branch per U task | accepted heads |
 | R02 | Released dependency adoption | primary agent | todo | `goal/tui-test-extension` | V01 + release |
 | F01 | Last evidence and completion report | primary agent | todo | `goal/tui-test-extension` | all local tasks |

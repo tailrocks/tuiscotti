@@ -56,13 +56,14 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   bytes = byte-identical PNGs. No system fonts, no wall-clock in
   artifacts (provenance timestamps excepted), no unordered maps in
   canonical output.
-- **Docs match code.** `crates/tuiscotti-cli/tests/readme_lock.rs`
-  mirrors every README fence statement-for-statement and asserts the
-  documented CLI flags exist in `--help`. If you change a documented
-  behavior, update the README and the lock test together.
+- **Docs match code.** No automated fence-lock test remains
+  (`readme_lock.rs` was removed with the old CLI surface at D07). If
+  you change a documented behavior, update the README in the same
+  commit; reviewers verify claimed flags and flows against `--help`
+  and the CLI guide on doc diffs.
 - **Link check.** Every `docs/*.md` + `README.md` link must resolve;
-  run the check in [docs/TESTING.md](docs/TESTING.md) before pushing
-  doc edits.
+  follow the procedure in [docs/TESTING.md](docs/TESTING.md) before
+  pushing doc edits.
 
 ## Reviews and merges
 
