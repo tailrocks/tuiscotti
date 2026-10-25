@@ -54,6 +54,17 @@ The first U07 review found one REQUIRED gap: the specified paste-terminator reje
 
 An explicit underline color is undimmed and wins over the inverse swap; a missing underline color follows the dimmed and swapped foreground. This matches prior pixel behavior for the missing case and is unspecified in Section 11.11; recorded here per Section 2.2. All underline styles draw the recorded single bar; only `Single` is exercised in U11's suite because canonical equality already compares full cells including every style value.
 
+## D-U05-1: Shaping review dispositions
+
+U05 review (verdict accept) left four SUGGESTIONs, all recorded without code change:
+
+- Degenerate-rect fallback draws unclipped. Rejected: validated snapshots cannot carry degenerate cell geometry (checked dimension validation at construction), and U05-C ink-bounds assertions pin the permitted-region rule.
+- rustybuzz MSRV is inferred (no `rust-version` key in its manifest). Recorded: 0.20.1 released 2024-11-12 against stable ~1.82, edition 2021, pure Rust, dependencies all pre-1.90; workspace `cargo tree` shows one `ttf-parser 0.25.1`.
+- The 5-line `offline.rs` glyph-evidence getter outside files_owned is accepted: additive and required by U05-F assertions.
+- U+10FFFF as a negative combining scalar is a noncharacter but valid for the negative case; the named crab case stays primary.
+
+Shaper: rustybuzz 0.20.1, MIT, optional under `recording-raster`. No new shaping engine written.
+
 ## D-STACK-1: Dependent PR stacks
 
 U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.
