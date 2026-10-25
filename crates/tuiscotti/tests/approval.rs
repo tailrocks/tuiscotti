@@ -348,11 +348,11 @@ fn files_below_tolerant(root: &Path) -> Vec<String> {
 }
 
 /// CI probe for approval-writing tests: when `CI` is set, the public
-/// `accept` call below must refuse with `CI_APPROVAL_FORBIDDEN` (exit 3)
-/// and write nothing, so the probe asserts that refusal and returns true;
-/// the caller returns immediately. Without `CI` it returns false and the
-/// test runs its transaction mechanics. The probe never changes the
-/// runner environment.
+/// `accept` call below must refuse with `CI_APPROVAL_FORBIDDEN` and write
+/// nothing (the exit-3 mapping lives at the CLI boundary), so the probe
+/// asserts that refusal and returns true; the caller returns immediately.
+/// Without `CI` it returns false and the test runs its transaction
+/// mechanics. The probe never changes the runner environment.
 #[expect(clippy::panic, reason = "test helper rejects a non-refusing approval")]
 fn ci_refusal_probed(
     store: &ApprovalStore,
@@ -367,7 +367,6 @@ fn ci_refusal_probed(
     match store.accept(candidate, candidate_digest, expected_baseline) {
         Err(error @ ApproveError::CiApprovalForbidden) => {
             assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("approval under CI must refuse, got {other:?}"),
     }
@@ -450,12 +449,16 @@ fn d04_c09_missing_baseline_approval_writes_baseline() {
         candidate_bytes
     );
     assert!(accepted.baseline_path().is_file());
-    assert!(accepted.evidence_dir().join("report.json").is_file());
-    assert!(
-        accepted
-            .evidence_dir()
-            .join("candidate_bytes.evidence.json")
-            .is_file()
+    assert_eq!(accepted.reason(), Some(MismatchReason::Missing));
+    assert_eq!(accepted.changed_fields(), &["baseline".to_string()]);
+    assert_eq!(
+        all_files_below(&baselines),
+        vec![
+            ".tuiscotti-approval.lock".to_string(),
+            "views/login.tui.json".to_string(),
+        ],
+        "a success writes exactly the baseline plus the stable lock file: \
+         no evidence directory, no temporary files"
     );
     assert!(
         lock_path(&baselines).is_file(),
@@ -512,27 +515,24 @@ fn d04_c10_digest_and_frame_image_agreement() {
     );
     let sample = Sample::from_bytes(&candidate_bytes).expect("candidate parses");
     let image = sample.image().expect("pixel sample carries an image");
-    let evidence_text = std::fs::read_to_string(
-        accepted
-            .evidence_dir()
-            .join("candidate_bytes.evidence.json"),
-    )
-    .expect("candidate evidence reads");
-    let evidence: serde_json::Value =
-        serde_json::from_str(&evidence_text).expect("candidate evidence parses");
-    assert_eq!(evidence["schema"], "tuiscotti.candidate-evidence.v1");
-    assert_eq!(evidence["test_id"], test_id);
-    assert_eq!(evidence["candidate_sha256"], candidate_digest);
-    assert_eq!(evidence["png_sha256"], image.png_sha256());
-    assert_eq!(evidence["rgba_sha256"], image.rgba_sha256());
-    let report_text = std::fs::read_to_string(accepted.evidence_dir().join("report.json"))
-        .expect("approval report reads");
-    let report: serde_json::Value =
-        serde_json::from_str(&report_text).expect("approval report parses");
-    assert_eq!(report["schema"], "tuiscotti.accept.v1");
-    assert_eq!(report["reason"], "missing");
-    assert_eq!(report["previous_baseline_sha256"], "missing");
-    assert_eq!(report["baseline_sha256"], candidate_digest);
+    let stored =
+        Sample::from_bytes(&read_baseline_file(&baselines, &test_id)).expect("baseline parses");
+    let stored_image = stored.image().expect("baseline carries an image");
+    assert_eq!(stored_image.png_sha256(), image.png_sha256());
+    assert_eq!(stored_image.rgba_sha256(), image.rgba_sha256());
+    // The change summary rides in the outcome: a first approval reports the
+    // missing baseline, and nothing but the baseline is persisted.
+    assert_eq!(accepted.previous_baseline_sha256(), "missing");
+    assert_eq!(accepted.reason(), Some(MismatchReason::Missing));
+    assert_eq!(accepted.changed_fields(), &["baseline".to_string()]);
+    assert_eq!(
+        all_files_below(&baselines),
+        vec![
+            ".tuiscotti-approval.lock".to_string(),
+            format!("{test_id}.tui.json"),
+        ],
+        "a success writes exactly the baseline plus the stable lock file"
+    );
 }
 
 /// C10: approval re-renders through the candidate's specified profile: an
@@ -955,8 +955,8 @@ fn d04_c11_fault_before_replace_keeps_previous() {
 
 /// A present baseline skips test-ID and gate cross-comparison: a planted
 /// baseline with a different embedded test ID (or a different gate) but an
-/// equal snapshot still approves, and the report records no `test-id` or
-/// `policy` mismatch. Only the digests arbitrate.
+/// equal snapshot still approves, and the outcome summary records no
+/// `test-id` or `policy` mismatch. Only the digests arbitrate.
 #[test]
 fn d04_present_baseline_skips_id_gate_comparison() {
     let dir = tempfile::tempdir().expect("tempdir creates");
@@ -986,11 +986,12 @@ fn d04_present_baseline_skips_id_gate_comparison() {
         read_baseline_file(&baselines, "views/login"),
         candidate_bytes
     );
-    let report: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(accepted.evidence_dir().join("report.json")).expect("report reads"),
-    )
-    .expect("report parses");
-    assert_eq!(report["reason"], serde_json::Value::Null);
+    assert_eq!(
+        accepted.reason(),
+        None,
+        "a present baseline with an equal snapshot approves with an empty change summary"
+    );
+    assert!(accepted.changed_fields().is_empty());
     // Different gate shape: a pixel baseline under a state candidate path.
     let pixel_bytes = pixel_sample_bytes("views/login", &base_snapshot());
     let pixel_digest = sha256_hex(&pixel_bytes);
@@ -1001,11 +1002,12 @@ fn d04_present_baseline_skips_id_gate_comparison() {
         read_baseline_file(&baselines, "views/login"),
         candidate_bytes
     );
-    let second_report: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(second.evidence_dir().join("report.json")).expect("report reads"),
-    )
-    .expect("report parses");
-    assert_eq!(second_report["reason"], serde_json::Value::Null);
+    assert_eq!(
+        second.reason(),
+        None,
+        "a state candidate over a pixel baseline still approves with an empty change summary"
+    );
+    assert!(second.changed_fields().is_empty());
 }
 
 /// Digest mixtures: a wrong candidate digest fails first as stale, a wrong
@@ -1320,8 +1322,9 @@ fn d04_missing_vs_corrupt_candidate_differ() {
 }
 
 /// Accepting the same candidate twice with the prepared digests returns
-/// identical results: the same success, byte-identical baseline and
-/// evidence, and a report that moves only its previous-digest field.
+/// identical results: the same success, a byte-identical baseline, and an
+/// outcome whose summary moves only from the missing-baseline change to an
+/// empty one.
 #[test]
 fn d04_accept_idempotent_same_candidate() {
     let dir = tempfile::tempdir().expect("tempdir creates");
@@ -1335,52 +1338,28 @@ fn d04_accept_idempotent_same_candidate() {
     }
     let first = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
     assert_eq!(first.previous_baseline_sha256(), "missing");
-    let first_report_bytes =
-        std::fs::read(first.evidence_dir().join("report.json")).expect("first report reads");
-    let first_evidence = std::fs::read(first.evidence_dir().join("candidate_bytes.evidence.json"))
-        .expect("first evidence reads");
+    assert_eq!(first.reason(), Some(MismatchReason::Missing));
+    assert_eq!(first.changed_fields(), &["baseline".to_string()]);
     let second = accepted_of(store.accept(&candidate, &candidate_digest, &candidate_digest));
     assert_eq!(second.test_id(), first.test_id());
     assert_eq!(second.candidate_sha256(), first.candidate_sha256());
     assert_eq!(second.baseline_sha256(), first.baseline_sha256());
+    assert_eq!(second.baseline_path(), first.baseline_path());
     assert_eq!(second.previous_baseline_sha256(), candidate_digest);
+    assert_eq!(second.reason(), None);
+    assert!(second.changed_fields().is_empty());
     assert_eq!(
         read_baseline_file(&baselines, "views/login"),
         candidate_bytes
     );
-    let second_evidence =
-        std::fs::read(second.evidence_dir().join("candidate_bytes.evidence.json"))
-            .expect("second evidence reads");
-    assert_eq!(first_evidence, second_evidence);
-    assert_eq!(first.evidence_dir(), second.evidence_dir());
-    let first_report: serde_json::Value =
-        serde_json::from_slice(&first_report_bytes).expect("first report parses");
-    let second_report: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(second.evidence_dir().join("report.json")).expect("second report reads"),
-    )
-    .expect("second report parses");
-    assert_eq!(first_report["previous_baseline_sha256"], "missing");
-    assert_eq!(second_report["previous_baseline_sha256"], candidate_digest);
-    assert_eq!(first_report["reason"], "missing");
-    assert_eq!(second_report["reason"], serde_json::Value::Null);
     assert_eq!(
-        first_report["changed_fields"],
-        serde_json::json!(["baseline"])
+        all_files_below(&baselines),
+        vec![
+            ".tuiscotti-approval.lock".to_string(),
+            "views/login.tui.json".to_string(),
+        ],
+        "repeated accepts keep exactly the baseline plus the stable lock file"
     );
-    assert_eq!(second_report["changed_fields"], serde_json::json!([]));
-    let mut normalized_first = first_report.clone();
-    let mut normalized_second = second_report.clone();
-    for key in [
-        "previous_baseline_sha256",
-        "reason",
-        "changed_fields",
-        "changed_cells",
-        "changed_cell_total",
-    ] {
-        normalized_first[key] = serde_json::json!(null);
-        normalized_second[key] = serde_json::json!(null);
-    }
-    assert_eq!(normalized_first, normalized_second);
 }
 
 /// C12: the frozen store never writes: checks over a writable baseline root
@@ -1776,10 +1755,11 @@ fn d04_check_accept_digest_consistency() {
     assert_eq!(passing.baseline_sha256(), accepted.baseline_sha256());
 }
 
-/// Approval records hold no volatile data: no absolute paths, no temporary
-/// names, and exact record shapes with deterministic field values.
+/// Approval persists no volatile data: exactly the baseline plus the lock
+/// file land on disk, and the outcome summary holds only deterministic
+/// addressing, digests, and change fields.
 #[test]
-fn d04_evidence_holds_no_volatile_data() {
+fn d04_approval_persists_no_volatile_data() {
     let dir = tempfile::tempdir().expect("tempdir creates");
     let baselines = dir.path().join("baselines");
     let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
@@ -1790,71 +1770,490 @@ fn d04_evidence_holds_no_volatile_data() {
         return;
     }
     let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    assert_eq!(
+        all_files_below(&baselines),
+        vec![
+            ".tuiscotti-approval.lock".to_string(),
+            "views/login.tui.json".to_string(),
+        ],
+        "a success persists exactly the baseline plus the stable lock file"
+    );
     let root_text = baselines.to_string_lossy().into_owned();
-    let report_text = std::fs::read_to_string(accepted.evidence_dir().join("report.json"))
-        .expect("approval report reads");
-    let evidence_text = std::fs::read_to_string(
-        accepted
-            .evidence_dir()
-            .join("candidate_bytes.evidence.json"),
-    )
-    .expect("candidate evidence reads");
-    for text in [&report_text, &evidence_text] {
-        assert!(!text.contains(&root_text), "records hold no absolute paths");
-        assert!(!text.contains(".tmp-"), "records hold no temporary names");
-        assert!(!text.contains("lock"), "records hold no lock names");
+    let stored_text = String::from_utf8(read_baseline_file(&baselines, "views/login"))
+        .expect("baseline is UTF-8");
+    assert!(
+        !stored_text.contains(&root_text),
+        "persisted bytes hold no absolute paths"
+    );
+    assert!(
+        !stored_text.contains(".tmp-"),
+        "persisted bytes hold no temporary names"
+    );
+    assert!(
+        !stored_text.contains(".tuiscotti-approval.lock"),
+        "persisted bytes hold no lock file names"
+    );
+    assert_eq!(accepted.test_id(), "views/login");
+    assert_eq!(accepted.candidate_sha256(), candidate_digest);
+    assert_eq!(accepted.previous_baseline_sha256(), "missing");
+    assert_eq!(accepted.baseline_sha256(), candidate_digest);
+    assert_eq!(accepted.reason(), Some(MismatchReason::Missing));
+    assert_eq!(accepted.changed_fields(), &["baseline".to_string()]);
+}
+
+/// Rewrite the render contract of a JSON sample through a mutation closure,
+/// leaving the snapshot and image bytes untouched.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn with_rewritten_contract(bytes: &[u8], rewrite: impl FnOnce(&mut serde_json::Value)) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    rewrite(&mut value["render_contract"]);
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// Approve one prohibited-ID candidate against a missing baseline: the
+/// refusal reports `INVALID_SAMPLE` and writes nothing but the stable lock
+/// file, with no escaped file anywhere under the tempdir.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+#[expect(clippy::panic, reason = "test helper rejects an accepted bad ID")]
+fn reject_prohibited_id_missing(bad: &str, base: &[u8]) {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let candidate_bytes = with_test_id(base, bad);
+    let digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &digest, "missing") {
+        return;
     }
-    let report: serde_json::Value =
-        serde_json::from_str(&report_text).expect("approval report parses");
-    let mut report_keys: Vec<&str> = report
-        .as_object()
-        .expect("report is an object")
-        .keys()
-        .map(String::as_str)
-        .collect();
-    report_keys.sort_unstable();
+    match store.accept(&candidate, &digest, "missing") {
+        Err(error @ ApproveError::Check { .. }) => {
+            assert_eq!(error.code(), "INVALID_SAMPLE", "ID {bad:?}");
+        }
+        other => panic!("prohibited ID {bad:?} must fail, got {other:?}"),
+    }
+    let mut below = all_files_below(dir.path());
+    below.retain(|name| name != "candidate.tui.json");
     assert_eq!(
-        report_keys,
-        [
-            "baseline_sha256",
-            "candidate_sha256",
-            "changed_cell_total",
-            "changed_cells",
-            "changed_fields",
-            "gate",
-            "pixel_bounds",
-            "pixel_changed_pixels",
-            "pixel_compared_pixels",
-            "previous_baseline_sha256",
-            "reason",
-            "schema",
-            "test_id",
-        ]
+        below,
+        ["baselines/.tuiscotti-approval.lock".to_string()],
+        "ID {bad:?} writes nothing but the stable lock file"
     );
-    let evidence: serde_json::Value =
-        serde_json::from_str(&evidence_text).expect("candidate evidence parses");
-    let mut evidence_keys: Vec<&str> = evidence
-        .as_object()
-        .expect("evidence is an object")
-        .keys()
-        .map(String::as_str)
-        .collect();
-    evidence_keys.sort_unstable();
+}
+
+/// Approve one prohibited-ID candidate with a present baseline for a valid
+/// ID: the refusal reports `INVALID_SAMPLE` and the planted baseline
+/// survives byte-identical.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+#[expect(clippy::panic, reason = "test helper rejects an accepted bad ID")]
+fn reject_prohibited_id_present(bad: &str, base: &[u8], planted_id: &str) {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    write_baseline_file(&baselines, planted_id, base);
+    let expected = sha256_hex(base);
+    let candidate_bytes = with_test_id(base, bad);
+    let digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &digest, &expected) {
+        return;
+    }
+    match store.accept(&candidate, &digest, &expected) {
+        Err(error @ ApproveError::Check { .. }) => {
+            assert_eq!(error.code(), "INVALID_SAMPLE", "ID {bad:?}");
+        }
+        other => panic!("prohibited ID {bad:?} must fail, got {other:?}"),
+    }
     assert_eq!(
-        evidence_keys,
-        [
-            "byte_length",
-            "candidate_sha256",
-            "gate",
-            "png_sha256",
-            "rgba_sha256",
-            "schema",
-            "test_id",
-        ]
+        read_baseline_file(&baselines, planted_id),
+        base,
+        "ID {bad:?} leaves the planted baseline untouched"
     );
-    assert_eq!(evidence["byte_length"], candidate_bytes.len());
+}
+
+/// Rework B1: every prohibited test ID rejects with both a missing and a
+/// present baseline, and no file outside the store is touched. Rejected IDs
+/// are never normalized into a path.
+#[test]
+fn d04_rework_b1_prohibited_ids_rejected_missing_and_present() {
+    let base = state_sample_bytes("views/login", &base_snapshot());
+    let mut state_ids: Vec<String> = [
+        "",
+        "/",
+        "/views/login",
+        "views/login/",
+        "views//login",
+        ".",
+        "..",
+        "views/./login",
+        "views/../login",
+        "../evil",
+        "a/../../evil",
+        "views\\login",
+        "views/Login",
+        "views/log in",
+        "views/log-in!",
+        "views/lögin",
+        "views/a.b",
+        "con",
+        "views/nul",
+        "views/COM1",
+        "views/com1.txt",
+        "aux.txt",
+        "login/pixels-x",
+    ]
+    .iter()
+    .map(ToString::to_string)
+    .collect();
+    state_ids.push("s".repeat(65));
+    state_ids.push(format!("{}/x", "s".repeat(239)));
+    for bad in &state_ids {
+        reject_prohibited_id_missing(bad, &base);
+        reject_prohibited_id_present(bad, &base, "views/login");
+    }
+    // Pixel-gate shapes: a logical ID without the platform suffix, a
+    // traversal that carries the suffix, and a foreign suffix.
+    let pixel_base = pixel_sample_bytes("views/login", &base_snapshot());
+    let suffix = format!("pixels-{}", platform_key());
+    let pixel_ids = [
+        "views/login".to_string(),
+        format!("../evil/{suffix}"),
+        "views/login/pixels-far-far-away".to_string(),
+    ];
+    for bad in &pixel_ids {
+        reject_prohibited_id_missing(bad, &pixel_base);
+        reject_prohibited_id_present(bad, &pixel_base, &format!("views/login/{suffix}"));
+    }
+}
+
+/// Rework B2: the atomic replacement is the final fallible filesystem
+/// operation. A pixel-gate success persists exactly the baseline plus the
+/// lock, and a stale pre-commit refusal leaves the baseline bytes and the
+/// tree untouched with no temporary residue and no evidence directory.
+#[test]
+fn d04_rework_b2_replacement_is_final_fallible_write() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let test_id = format!("{logical}/pixels-{}", platform_key());
+    let candidate_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
+    let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    assert_eq!(accepted.baseline_sha256(), candidate_digest);
+    assert_eq!(accepted.reason(), Some(MismatchReason::Missing));
     assert_eq!(
-        entry_names(accepted.evidence_dir()),
-        ["candidate_bytes.evidence.json", "report.json"]
+        all_files_below(&baselines),
+        vec![
+            ".tuiscotti-approval.lock".to_string(),
+            format!("{test_id}.tui.json"),
+        ],
+        "a success persists exactly the baseline plus the stable lock file"
     );
+    // A stale pre-commit refusal changes nothing.
+    let revised = with_first_cell_text(&candidate_bytes, "b");
+    let revised_digest = sha256_hex(&revised);
+    let revised_file = candidate_file(dir.path(), "revised.tui.json", &revised);
+    match store.accept(&revised_file, &revised_digest, &"e".repeat(64)) {
+        Err(ApproveError::StaleBaseline { .. }) => {}
+        other => panic!("a stale baseline must fail arbitration, got {other:?}"),
+    }
+    assert_eq!(read_baseline_file(&baselines, &test_id), candidate_bytes);
+    assert_eq!(
+        all_files_below(&baselines),
+        vec![
+            ".tuiscotti-approval.lock".to_string(),
+            format!("{test_id}.tui.json"),
+        ],
+        "a pre-commit refusal keeps the baseline bytes and tree"
+    );
+    assert!(
+        !all_files_below(&baselines)
+            .iter()
+            .any(|name| name.contains(".tmp-accept-") || name.contains(".tuiscotti-accept")),
+        "no temporary or evidence residue survives"
+    );
+}
+
+/// Approve one contract-rewritten candidate against a missing baseline and
+/// return the outcome with its tempdir: the caller matches the refusal and
+/// asserts the tree.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn refuse_rewritten_contract(
+    base: &[u8],
+    rewrite: impl FnOnce(&mut serde_json::Value),
+) -> (
+    Result<tuiscotti::approve::AcceptOutcome, ApproveError>,
+    tempfile::TempDir,
+) {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let candidate_bytes = with_rewritten_contract(base, rewrite);
+    let digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    (store.accept(&candidate, &digest, "missing"), dir)
+}
+
+/// One named render-contract rewrite for the identity matrix.
+type ContractRewrite = Box<dyn Fn(&mut serde_json::Value)>;
+
+/// Font-identity mutations: each changes exactly one font field while the
+/// snapshot and image bytes stay untouched.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn contract_font_mutations() -> Vec<(&'static str, ContractRewrite)> {
+    vec![
+        (
+            "fonts digest",
+            Box::new(|contract| {
+                contract["fonts"][0]["digest"] = serde_json::json!("0".repeat(64));
+            }),
+        ),
+        (
+            "fonts face_index",
+            Box::new(|contract| {
+                let index = contract["fonts"][0]["face_index"]
+                    .as_u64()
+                    .expect("face index reads");
+                contract["fonts"][0]["face_index"] = serde_json::json!(index + 1);
+            }),
+        ),
+        (
+            "fonts bold",
+            Box::new(|contract| {
+                let bold = contract["fonts"][0]["bold"].as_bool().expect("bold reads");
+                contract["fonts"][0]["bold"] = serde_json::json!(!bold);
+            }),
+        ),
+        (
+            "fonts fallback_position",
+            Box::new(|contract| {
+                let position = contract["fonts"][0]["fallback_position"]
+                    .as_u64()
+                    .expect("fallback position reads");
+                contract["fonts"][0]["fallback_position"] = serde_json::json!(position + 1);
+            }),
+        ),
+    ]
+}
+
+/// Non-font material contract mutations: each changes exactly one identity
+/// field while the snapshot and image bytes stay untouched.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn contract_field_mutations() -> Vec<(&'static str, ContractRewrite)> {
+    vec![
+        (
+            "renderer_version",
+            Box::new(|contract| {
+                contract["renderer_version"] = serde_json::json!("0.0.0-fake");
+            }),
+        ),
+        (
+            "raster_policy",
+            Box::new(|contract| {
+                contract["raster_policy"] = serde_json::json!("pinned-v0");
+            }),
+        ),
+        (
+            "cell_width",
+            Box::new(|contract| {
+                contract["cell_width"] = serde_json::json!(11.0);
+            }),
+        ),
+        (
+            "cell_height",
+            Box::new(|contract| {
+                contract["cell_height"] = serde_json::json!(21.0);
+            }),
+        ),
+        (
+            "font_size",
+            Box::new(|contract| {
+                contract["font_size"] = serde_json::json!(17.0);
+            }),
+        ),
+        (
+            "baseline",
+            Box::new(|contract| {
+                contract["baseline"] = serde_json::json!(16.0);
+            }),
+        ),
+        (
+            "scale",
+            Box::new(|contract| {
+                contract["scale"] = serde_json::json!(2.0);
+            }),
+        ),
+        (
+            "title_bar",
+            Box::new(|contract| {
+                let shown = contract["title_bar"].as_bool().expect("title bar reads");
+                contract["title_bar"] = serde_json::json!(!shown);
+            }),
+        ),
+        (
+            "palette_digest",
+            Box::new(|contract| {
+                contract["palette_digest"] = serde_json::json!("f".repeat(64));
+            }),
+        ),
+        (
+            "cursor_phase",
+            Box::new(|contract| {
+                let shown = contract["cursor_phase"].as_str() == Some("shown");
+                contract["cursor_phase"] =
+                    serde_json::json!(if shown { "hidden" } else { "shown" });
+            }),
+        ),
+        (
+            "blink",
+            Box::new(|contract| {
+                contract["blink"] = serde_json::json!(match contract["blink"].as_bool() {
+                    Some(blink) => !blink,
+                    None => true,
+                });
+            }),
+        ),
+    ]
+}
+
+/// Rework B4: every material render-contract field rejects independently
+/// with identical PNG bytes. A recorded identity that disagrees with the
+/// re-rendered identity fails pre-commit with `INCONSISTENT_SAMPLE` and
+/// writes no baseline.
+#[test]
+fn d04_rework_b4_contract_fields_rejected_with_identical_pixels() {
+    let base = pixel_sample_bytes("views/login", &base_snapshot());
+    let probe_bytes = pixel_sample_bytes("views/login", &base_snapshot());
+    let probe_digest = sha256_hex(&probe_bytes);
+    let probe_dir = tempfile::tempdir().expect("tempdir creates");
+    let probe_baselines = probe_dir.path().join("baselines");
+    let probe_candidate = candidate_file(probe_dir.path(), "candidate.tui.json", &probe_bytes);
+    let probe_store = ApprovalStore::new(&probe_baselines).expect("approval store opens");
+    if ci_refusal_probed(&probe_store, &probe_candidate, &probe_digest, "missing") {
+        return;
+    }
+    let mut mutations = contract_font_mutations();
+    mutations.extend(contract_field_mutations());
+    for (field, rewrite) in &mutations {
+        let (outcome, dir) = refuse_rewritten_contract(&base, rewrite);
+        match outcome {
+            Err(error @ ApproveError::InconsistentSample { .. }) => {
+                assert_eq!(error.code(), "INCONSISTENT_SAMPLE", "field {field}");
+            }
+            other => panic!("mutated contract field {field} must fail, got {other:?}"),
+        }
+        assert_eq!(
+            entry_names(&dir.path().join("baselines")),
+            [".tuiscotti-approval.lock".to_string()],
+            "field {field} writes nothing but the stable lock file"
+        );
+    }
+    // An unknown profile and an unsupported contract version fail pre-commit
+    // with their own prescribed codes and also write no baseline.
+    for (field, rewrite, code) in [
+        (
+            "profile",
+            Box::new(|contract: &mut serde_json::Value| {
+                contract["profile"] = serde_json::json!("no-such-profile");
+            }) as ContractRewrite,
+            "UNKNOWN_PROFILE",
+        ),
+        (
+            "contract_version",
+            Box::new(|contract: &mut serde_json::Value| {
+                contract["contract_version"] = serde_json::json!(999u32);
+            }),
+            "INVALID_SAMPLE",
+        ),
+    ] {
+        let (outcome, dir) = refuse_rewritten_contract(&base, rewrite);
+        match outcome {
+            Err(error) => {
+                assert_eq!(error.code(), code, "field {field}");
+            }
+            Ok(_) => panic!("unsupported identity {field} must fail"),
+        }
+        assert_eq!(
+            entry_names(&dir.path().join("baselines")),
+            [".tuiscotti-approval.lock".to_string()],
+            "field {field} writes nothing but the stable lock file"
+        );
+    }
+}
+
+/// Rework B4: a foreign platform key alone never rejects reproducible
+/// pixels, and the change summary still compares candidate and baseline
+/// contracts.
+///
+/// Under platform-parameterized validation the foreign platform travels
+/// with its agreeing test-ID suffix (see [`with_foreign_platform`]): a
+/// platform-only skew at one store path no longer parses, so the
+/// contract-summary half skews the renderer version instead — identical
+/// snapshot and image bytes, differing recorded identity.
+#[test]
+fn d04_rework_b4_foreign_platform_accepts_reproducible_pixels() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let test_id = format!("{logical}/pixels-{}", platform_key());
+    let local_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let local_digest = sha256_hex(&local_bytes);
+    let local = candidate_file(dir.path(), "local.tui.json", &local_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &local, &local_digest, "missing") {
+        return;
+    }
+    // The same pixels recorded on a foreign platform still approve: the
+    // foreign test ID agrees with its stored contract identity, and the
+    // platform key is addressing metadata, not rendered identity.
+    let foreign_id = "views/login/pixels-foreign-os-fake";
+    let foreign_bytes = with_foreign_platform(&local_bytes, "foreign-os-fake");
+    assert_ne!(foreign_bytes, local_bytes);
+    let foreign_digest = sha256_hex(&foreign_bytes);
+    let foreign = candidate_file(dir.path(), "foreign.tui.json", &foreign_bytes);
+    let first = accepted_of(store.accept(&foreign, &foreign_digest, "missing"));
+    assert_eq!(first.test_id(), foreign_id);
+    assert_eq!(first.baseline_sha256(), foreign_digest);
+    assert_eq!(first.reason(), Some(MismatchReason::Missing));
+    assert_eq!(read_baseline_file(&baselines, foreign_id), foreign_bytes);
+    // The recorded foreign platform now matches its own baseline: the
+    // summary is empty and the pixels still reproduce.
+    let same = accepted_of(store.accept(&foreign, &foreign_digest, &foreign_digest));
+    assert_eq!(same.reason(), None);
+    assert!(same.changed_fields().is_empty());
+    // The change summary compares contracts even when pixels reproduce: a
+    // baseline skewed only in its recorded renderer version (identical
+    // snapshot and image bytes) approves with a `Contract` change, not a
+    // silent pass.
+    let skewed = with_rewritten_contract(&local_bytes, |contract| {
+        contract["renderer_version"] = serde_json::json!("0.0.0-fake");
+    });
+    assert_ne!(skewed, local_bytes);
+    let skewed_digest = sha256_hex(&skewed);
+    write_baseline_file(&baselines, &test_id, &skewed);
+    let accepted = accepted_of(store.accept(&local, &local_digest, &skewed_digest));
+    assert_eq!(accepted.test_id(), test_id);
+    assert_eq!(accepted.baseline_sha256(), local_digest);
+    assert_eq!(
+        accepted.reason(),
+        Some(MismatchReason::Contract),
+        "the change summary compares contracts even when pixels reproduce"
+    );
+    assert_eq!(accepted.changed_fields(), &["render_contract".to_string()]);
+    // The genuine candidate now matches its own baseline: the summary is
+    // empty and the pixels still reproduce.
+    let second = accepted_of(store.accept(&local, &local_digest, &local_digest));
+    assert_eq!(second.reason(), None);
+    assert!(second.changed_fields().is_empty());
+    assert_eq!(read_baseline_file(&baselines, &test_id), local_bytes);
 }

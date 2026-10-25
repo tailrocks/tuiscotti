@@ -35,8 +35,7 @@ use crate::report::{
     PixelSummary, ReportInput, ReportedCell, atomic_write, render_report, write_report,
 };
 use crate::sample::{
-    Gate, MAX_IMAGE_DIM, MAX_RGBA_BYTES, MAX_TEST_ID_BYTES, MAX_TEST_ID_SEGMENT_BYTES, Sample,
-    SampleError, read_bounded, read_bounded_optional,
+    Gate, MAX_IMAGE_DIM, MAX_RGBA_BYTES, Sample, SampleError, read_bounded, read_bounded_optional,
 };
 
 /// Schema identifier for `result.json` files written beside the evidence.
@@ -345,7 +344,7 @@ pub struct FrozenStore {
 }
 
 /// What D04 approval records for a present baseline: pass, or the change
-/// set for the approval report.
+/// summary for the approval outcome.
 ///
 /// No test-ID or gate cross-comparison shapes this value: the
 /// [`FrozenStore::check`] `TestId`/`Policy` arms never run here. Only snapshot state, render
@@ -354,23 +353,13 @@ pub struct FrozenStore {
 pub(crate) enum PresentComparison {
     /// The candidate equals the baseline under the compared evidence.
     Pass,
-    /// The candidate differs; the fields mirror [`CheckFailure`].
+    /// The candidate differs; the reason and fields mirror [`CheckFailure`].
     Failure {
         /// The structured mismatch reason (`State`, `Policy`, `Contract`,
         /// `Dimensions`, or `Pixels`; never `Missing` or `TestId`).
         reason: MismatchReason,
-        /// Changed top-level state fields, in fixed order.
+        /// Changed top-level fields, in fixed order.
         changed_fields: Vec<String>,
-        /// Changed cells with coordinates, row-major and bounded.
-        changed_cells: Vec<ReportedCell>,
-        /// The exact changed-cell count, without the report bound.
-        changed_cell_total: usize,
-        /// Changed pixel count (zero when pixels were not compared).
-        pixel_changed: u64,
-        /// Compared pixel count (zero after a dimension mismatch).
-        pixel_compared: u64,
-        /// Smallest changed rectangle as `(min_x, min_y, max_x, max_y)`.
-        pixel_bounds: Option<[u32; 4]>,
     },
 }
 
@@ -380,11 +369,6 @@ impl PresentComparison {
         Self::Failure {
             reason,
             changed_fields: state.changed_fields.clone(),
-            changed_cells: state.changed_cells.clone(),
-            changed_cell_total: state.changed_cell_total,
-            pixel_changed: state.pixel_changed,
-            pixel_compared: state.pixel_compared,
-            pixel_bounds: state.pixel_bounds,
         }
     }
 }
@@ -453,10 +437,11 @@ impl FrozenStore {
         // One shared bounded read: bytes past the limit fail as a resource
         // limit before parsing, while a missing file stays a `Missing`
         // failure and any other I/O failure stays I/O.
-        let baseline_bytes = read_bounded_optional(&baseline_path).map_err(|error| match error {
-            SampleError::Io { source } => CheckError::Io { source },
-            other => CheckError::from(other),
-        })?;
+        let baseline_bytes =
+            read_bounded_optional(&baseline_path).map_err(|error| match error {
+                SampleError::Io { source } => CheckError::Io { source },
+                other => CheckError::from(other),
+            })?;
         match baseline_bytes {
             None => self.fail_without_baseline(&actual, &candidate_sha256, sample_bytes),
             Some(bytes) => {
@@ -618,14 +603,16 @@ impl FrozenStore {
     }
 
     /// Compare a validated candidate against known-present baseline bytes
-    /// for D04 approval evidence.
+    /// for the D04 approval change summary.
     ///
     /// Both samples are already parsed and validated by the caller; this
     /// only diffs. A state-gate candidate passes on equal snapshots (the
     /// `state` gate ignores image and render metadata entirely). A
     /// baseline without image evidence records the gate shape without
-    /// comparing gate enums. Otherwise contracts then decoded pixels
-    /// decide, exactly as in [`FrozenStore::check`].
+    /// comparing gate enums. Otherwise render contracts then decoded pixels
+    /// decide, exactly as in [`FrozenStore::check`]: equal snapshots with
+    /// differing contracts report `Contract`, mirroring the frozen
+    /// comparison, so check and accept cannot disagree on the change set.
     pub(crate) fn compare_present(
         candidate: &Sample,
         baseline: &Sample,
@@ -640,6 +627,13 @@ impl FrozenStore {
         if baseline.image().is_none() {
             let gate = StateDiff::named("gate");
             return Ok(PresentComparison::from_state(MismatchReason::Policy, &gate));
+        }
+        if candidate.render_contract() != baseline.render_contract() {
+            let contract = StateDiff::named("render_contract");
+            return Ok(PresentComparison::from_state(
+                MismatchReason::Contract,
+                &contract,
+            ));
         }
         match decide_pixels(candidate, baseline)? {
             PixelVerdict::Equal => Ok(PresentComparison::Pass),
@@ -877,100 +871,21 @@ fn decide_pixels(actual: &Sample, baseline: &Sample) -> Result<PixelVerdict, Che
     })
 }
 
-/// Validate a test ID against the Section 14.1 grammar on every platform:
+/// Validate a test ID against the Section 14.1 grammar on every platform
+/// (see [`crate::sample`] for the shape rule).
 ///
-/// ```text
-/// segment = [a-z0-9_-]{1,64}
-/// test_id = segment ("/" segment)*
-/// ```
-///
-/// Total length follows Section 8.4 (240 ASCII bytes). Absolute paths,
-/// empty segments, backslashes, and `.`/`..` segments are rejected without
-/// normalization. Windows device names (`con`, `prn`, `aux`, `nul`,
-/// `com1`-`com9`, `lpt1`-`lpt9`, case-insensitive, with or without an
-/// extension) are rejected as segments on all platforms.
+/// The grammar lives in one place: this check delegates to the sample
+/// module's complete validator, so construction, parsing, and checking
+/// cannot disagree on the shape.
 ///
 /// # Errors
 ///
 /// Returns [`CheckError::InvalidTestId`] for every rejected shape.
 pub fn validate_test_id(test_id: &str) -> Result<(), CheckError> {
-    let invalid = |detail: &str| CheckError::InvalidTestId {
-        detail: detail.to_string(),
-    };
-    if test_id.is_empty() {
-        return Err(invalid("test ID is empty"));
-    }
-    if test_id.len() > MAX_TEST_ID_BYTES {
-        return Err(CheckError::InvalidTestId {
-            detail: format!(
-                "test ID is {} bytes, above the {MAX_TEST_ID_BYTES} byte limit",
-                test_id.len()
-            ),
-        });
-    }
-    if !test_id.is_ascii() {
-        return Err(invalid("test ID is not ASCII"));
-    }
-    if test_id.contains('\\') {
-        return Err(invalid("test ID contains a backslash"));
-    }
-    if test_id.starts_with('/') {
-        return Err(invalid("test ID is an absolute path"));
-    }
-    for segment in test_id.split('/') {
-        if segment.is_empty() {
-            return Err(invalid("test ID has an empty segment"));
-        }
-        if segment.len() > MAX_TEST_ID_SEGMENT_BYTES {
-            return Err(CheckError::InvalidTestId {
-                detail: format!(
-                    "test ID segment {segment:?} passes the {MAX_TEST_ID_SEGMENT_BYTES} byte limit"
-                ),
-            });
-        }
-        if segment == "." || segment == ".." {
-            return Err(CheckError::InvalidTestId {
-                detail: format!("test ID segment {segment:?} is a directory reference"),
-            });
-        }
-        let shaped = segment.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
-        });
-        if !shaped {
-            return Err(CheckError::InvalidTestId {
-                detail: format!("test ID segment {segment:?} breaks the [a-z0-9_-] shape"),
-            });
-        }
-        if is_device_name(segment) {
-            return Err(CheckError::InvalidTestId {
-                detail: format!("test ID segment {segment:?} is a reserved device name"),
-            });
-        }
-    }
-    Ok(())
-}
-
-/// True for Windows device names on any platform: `con`, `prn`, `aux`,
-/// `nul`, `com1`-`com9`, `lpt1`-`lpt9`, case-insensitive, with or without a
-/// dotted extension. The caller guarantees ASCII input.
-fn is_device_name(segment: &str) -> bool {
-    let lower = segment.to_ascii_lowercase();
-    let stem = match lower.split('.').next() {
-        Some(stem) => stem,
-        None => lower.as_str(),
-    };
-    if matches!(stem, "con" | "prn" | "aux" | "nul") {
-        return true;
-    }
-    let bytes = stem.as_bytes();
-    if bytes.len() == 4
-        && (stem.starts_with("com") || stem.starts_with("lpt"))
-        && bytes[3].is_ascii_digit()
-        && bytes[3] != b'0'
-    {
-        return true;
-    }
-    false
+    crate::sample::validate_test_id_grammar(test_id).map_err(|error| match error {
+        SampleError::InvalidTestId { detail } => CheckError::InvalidTestId { detail },
+        other => CheckError::Sample(other),
+    })
 }
 
 /// Compare two snapshots through canonical equality, collecting changed

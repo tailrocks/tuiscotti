@@ -2,12 +2,15 @@
 //!
 //! [`ApprovalStore::accept`] runs one explicit approval transaction for one
 //! test ID: it refuses under `CI`, validates both digests, locks the stable
-//! per-root file, reads the candidate once, arbitrates digests against the
-//! baseline read under the same lock, re-renders image samples, then
-//! atomically upserts the baseline and saves the approval evidence. The
-//! baseline root is never trusted blindly: the expected previous digest (or
-//! the literal `missing` for a first approval) must match the digest of the
-//! bytes actually present, and the candidate digest must match the bytes
+//! per-root file, reads the candidate once, validates the candidate test ID
+//! unconditionally, arbitrates digests against the baseline read under the
+//! same lock, re-renders image samples with render-identity verification,
+//! then stages the baseline and commits it with one atomic rename. The
+//! change summary rides in the returned outcome; no approval-success record
+//! is persisted, so the rename is the final fallible filesystem operation.
+//! The baseline root is never trusted blindly: the expected previous digest
+//! (or the literal `missing` for a first approval) must match the digest of
+//! the bytes actually present, and the candidate digest must match the bytes
 //! actually approved.
 //!
 //! What approval does and does not do:
@@ -21,21 +24,26 @@
 //!   10-12): an unresolvable profile rejects with
 //!   [`ApproveError::UnknownProfile`], a renderer refusal rejects with
 //!   [`ApproveError::RenderFailed`] (or [`ApproveError::MissingGlyph`] when
-//!   no specified face holds mandatory text), and decoded pixels that differ
-//!   from the candidate pixels reject with
+//!   no specified face holds mandatory text). The expected render contract
+//!   is rebuilt through the same typed constructor as sample creation and
+//!   every material field (fonts, renderer, geometry, policy — but not the
+//!   platform key) is compared pre-commit; differing recorded identity, and
+//!   decoded pixels that differ from the candidate pixels, reject with
 //!   [`ApproveError::InconsistentSample`]. State-only samples skip steps
 //!   10-12 ("if the sample has an image").
-//! - It validates the candidate test-ID grammar only on first approval
-//!   (absent baseline). When a baseline is present, no test-ID or gate
-//!   cross-comparison runs at all: the present-baseline `FrozenStore`
-//!   comparison classifies observed evidence shapes
-//!   (snapshot state, render contracts, decoded pixels) without comparing
-//!   ID or gate enums. The operation targets the candidate test ID; the
-//!   baseline path derives from that ID.
-//! - It records the change set for `report.json` from that same comparison
-//!   (state first, then render contract, then decoded RGBA pixels through
-//!   upstream `compare_rgba`), over the stored bytes only. The smallest
-//!   change set wins; no caller-supplied flags steer it.
+//! - The candidate test-ID grammar validates unconditionally, before any
+//!   baseline path is derived or read: a present baseline never skips it.
+//!   Rejected IDs are never normalized into a path, and the derived
+//!   store-relative path accepts only normal components. When a baseline is
+//!   present, no test-ID or gate cross-comparison runs in the change
+//!   summary: the present-baseline `FrozenStore` comparison classifies
+//!   observed evidence shapes (snapshot state, render contracts, decoded
+//!   pixels) without comparing ID or gate enums. The operation targets the
+//!   candidate test ID; the baseline path derives from that ID.
+//! - It carries the change set in the returned outcome from that same
+//!   comparison (state first, then render contract, then decoded RGBA pixels
+//!   through upstream `compare_rgba`), over the stored bytes only. The
+//!   smallest change set wins; no caller-supplied flags steer it.
 //! - It reads the baseline bytes exactly once per transaction, directly
 //!   from the store under the held lock. The candidate bytes are read once
 //!   and reused by digest, validation, comparison, and upsert, so the
@@ -51,19 +59,23 @@
 //! 5. Read the candidate bytes one time with the file-size limit.
 //! 6. Compare their digest with the mandatory candidate digest.
 //! 7. Validate the candidate schema and snapshot.
-//! 8. Read the baseline from the store under the same lock.
-//! 9. Compare its digest with the mandatory baseline digest.
-//! 10. For an image sample, resolve the candidate's specified render profile.
-//! 11. Re-render the candidate snapshot through the upstream renderer.
-//! 12. Compare the new decoded pixels with the candidate pixels.
+//! 8. Validate the candidate test ID unconditionally (never skipped, never
+//!    normalized into a path).
+//! 9. Derive the store-relative baseline path (normal components only) and
+//!    read the baseline from the store under the same lock.
+//! 10. Compare the baseline digest with the mandatory baseline digest.
+//! 11. For an image sample, resolve the candidate's specified render profile.
+//! 12. Rebuild the expected render identity, re-render the candidate
+//!     snapshot through the upstream renderer, and compare the recorded
+//!     identity and the new decoded pixels with the candidate record.
 //! 13. Validate the store-relative paths for the baseline's parent directories.
 //! 14. Make the baseline's parent directories under the locked baseline root.
 //! 15. Write the approved sample bytes unchanged to a same-directory temporary file (exclusive, owner-only, no symlinks).
 //! 16. Flush the temporary file.
-//! 17. Close the temporary file.
-//! 18. Atomically rename the temporary file over the baseline (same-directory renames cannot EXDEV, so no copy fallback).
+//! 17. Close the temporary file and prepare the outcome.
+//! 18. Atomically rename the temporary file over the baseline (same-directory renames cannot EXDEV, so no copy fallback). This is the final fallible filesystem operation: nothing is persisted after the commit.
 //! 19. Release the lock (the stable lock file persists).
-//! 20. Return the approved test ID and sample digest.
+//! 20. Return the approved test ID, sample digest, and change summary.
 //!
 //! Locking: one lock per baseline root, held from step 4 through step 19,
 //! across the baseline read, digest comparison, re-render, and atomic
@@ -94,11 +106,10 @@
 //! which maps the argument-error shape to 2 and every operational
 //! failure to 3.
 //!
-//! Volatile-data exclusion: the records written during approval
-//! (`report.json` and `candidate_bytes.evidence.json`) carry no absolute
-//! paths, process IDs, timestamps, host names, or session names. They carry
-//! only the test ID, gate, digests, and the compared change set, all of
-//! which recompute deterministically from the approved bytes.
+//! Volatile-data exclusion: the outcome carried by a completed approval
+//! holds no absolute paths, process IDs, timestamps, host names, or session
+//! names. It holds only the test ID, gate, digests, and the compared change
+//! set, all of which recompute deterministically from the approved bytes.
 //!
 //! CLI shape for D05 (recorded, not implemented here): the programmatic path
 //! below is what the future offline command calls.
@@ -121,7 +132,7 @@
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
@@ -134,18 +145,9 @@ use crate::check::{
     MISSING_BASELINE, MismatchReason, PresentComparison, validate_test_id,
 };
 use crate::render_profile::{ProfileError, resolve_profile};
-use crate::sample::{Gate, Sample, SampleError, SampleImage, read_bounded, read_bounded_optional};
-
-/// Schema identifier for the `report.json` files written by approval.
-pub const ACCEPT_SCHEMA: &str = "tuiscotti.accept.v1";
-
-/// Schema identifier for the `candidate_bytes.evidence.json` files.
-pub const EVIDENCE_SCHEMA: &str = "tuiscotti.candidate-evidence.v1";
-
-/// Reserved directory inside the baseline root holding approval evidence.
-///
-/// Test IDs can never collide with it: `.` starts no valid segment.
-const ACCEPT_EVIDENCE_DIR: &str = ".tuiscotti-accept";
+use crate::sample::{
+    Gate, RenderContract, Sample, SampleError, SampleImage, read_bounded, read_bounded_optional,
+};
 
 /// Every failure an approval transaction can report, with sources retained.
 #[derive(Debug)]
@@ -375,6 +377,10 @@ pub fn sample_code(source: &SampleError) -> &'static str {
 
 /// One completed approval transaction: the reviewed candidate is now the
 /// approved baseline for its test ID.
+///
+/// The change summary rides in the outcome itself: no approval-success
+/// record is persisted beside the baseline, so there is no fallible
+/// evidence write after the atomic replacement.
 #[derive(Debug, Clone)]
 pub struct AcceptOutcome {
     test_id: String,
@@ -383,7 +389,8 @@ pub struct AcceptOutcome {
     previous_baseline_sha256: String,
     baseline_sha256: String,
     baseline_path: PathBuf,
-    evidence_dir: PathBuf,
+    reason: Option<MismatchReason>,
+    changed_fields: Vec<String>,
 }
 
 impl AcceptOutcome {
@@ -425,11 +432,20 @@ impl AcceptOutcome {
         &self.baseline_path
     }
 
-    /// The directory holding `report.json` and
-    /// `candidate_bytes.evidence.json` for this transaction.
+    /// The structured change reason for this approval: `Missing` for a
+    /// first approval, the frozen-comparison reason when the candidate
+    /// differs from the previous baseline, or `None` when the candidate
+    /// already equals it.
     #[must_use]
-    pub fn evidence_dir(&self) -> &Path {
-        &self.evidence_dir
+    pub const fn reason(&self) -> Option<MismatchReason> {
+        self.reason
+    }
+
+    /// Changed fields recorded for this approval, in comparison order:
+    /// `["baseline"]` for a first approval, empty when nothing changed.
+    #[must_use]
+    pub fn changed_fields(&self) -> &[String] {
+        &self.changed_fields
     }
 }
 
@@ -470,10 +486,10 @@ impl ApprovalStore {
     /// the literal `missing`) are mandatory; missing, malformed, and zero
     /// digests are rejected. The candidate file is read-only input: it is
     /// read once and never written. The baseline root gains exactly the
-    /// upserted baseline plus `report.json` and
-    /// `candidate_bytes.evidence.json` under its reserved evidence directory;
-    /// refusals (CI, stale digests, corrupt input, lock failures) write
-    /// nothing anywhere.
+    /// upserted baseline; the change summary rides in the returned outcome
+    /// instead of a persisted report, so the atomic replacement is the final
+    /// fallible filesystem operation. Refusals (CI, stale digests, corrupt
+    /// input, lock failures) write nothing anywhere.
     ///
     /// # Errors
     ///
@@ -496,7 +512,7 @@ impl ApprovalStore {
 
     /// Run the approval transaction mechanics without the CI gate: steps
     /// 2-20 (digest validation, root creation, lock, read, arbitration,
-    /// re-render, atomic upsert, evidence).
+    /// re-render, atomic upsert).
     ///
     /// Private: every production, integration-test, example, and CLI caller
     /// reaches approval through [`ApprovalStore::accept`], which refuses
@@ -529,7 +545,7 @@ impl ApprovalStore {
                     ApprovalLockError::Timeout => ApproveError::LockTimeout,
                     ApprovalLockError::Io(source) => ApproveError::Io { source },
                 })?;
-        // Steps 5-9 run under the lock; step 19 releases it on return.
+        // Steps 5-12 run under the lock; step 19 releases it on return.
         let transaction = Self::accept_locked(
             &baselines,
             candidate_path,
@@ -540,8 +556,9 @@ impl ApprovalStore {
         transaction
     }
 
-    /// Run the locked transaction: the single candidate read, digest
-    /// arbitration, re-render, atomic upsert, and evidence writes.
+    /// Run the locked transaction: the single candidate read, test-ID
+    /// validation, digest arbitration, re-render with identity verification,
+    /// change summary, and the commit-last atomic upsert.
     fn accept_locked(
         baselines: &Path,
         candidate_path: &Path,
@@ -560,6 +577,10 @@ impl ApprovalStore {
         }
         // Step 7: validate the candidate schema and snapshot.
         let candidate = Sample::from_bytes(&candidate_bytes)?;
+        // The candidate test ID validates unconditionally, before any
+        // baseline path is derived or read: a present baseline never skips
+        // it. Rejected IDs are never normalized into a path.
+        validate_test_id(candidate.test_id())?;
         // Steps 8-9: read the baseline under the same lock and arbitrate.
         let relative = baseline_relative(&candidate)?;
         ensure_no_symlink(baselines, &relative)?;
@@ -573,13 +594,9 @@ impl ApprovalStore {
                 actual: previous_digest,
             });
         }
-        // First approval only: validate the candidate test ID. A present
-        // baseline skips ID and gate cross-comparison entirely.
-        if baseline_bytes.is_none() {
-            validate_test_id(candidate.test_id())?;
-        }
         // Steps 10-12: re-render image samples through the specified
-        // profile and compare decoded pixels; state-only samples skip.
+        // profile, verify the recorded render identity, and compare decoded
+        // pixels; state-only samples skip.
         rerender_check(&candidate)?;
         let changes = match baseline_bytes {
             None => ChangeSet::missing(),
@@ -589,32 +606,42 @@ impl ApprovalStore {
                 ChangeSet::from_present(comparison)
             }
         };
-        // Steps 13-18: validate paths, make parents, atomically replace.
-        let (baseline_path, evidence_dir) = write_baseline_and_evidence(
+        // Steps 13-18: validate paths, make parents, stage the baseline,
+        // prepare the outcome, and commit with one atomic rename.
+        // Step 20: return the approved test ID and sample digest.
+        write_baseline(
             baselines,
             &relative,
             &candidate,
             &candidate_bytes,
             &actual_candidate,
             &previous_digest,
-            &changes,
-        )?;
-        // Step 20: return the approved test ID and sample digest.
-        Ok(AcceptOutcome {
-            test_id: candidate.test_id().to_string(),
-            gate: candidate.gate(),
-            candidate_sha256: actual_candidate,
-            previous_baseline_sha256: previous_digest,
-            baseline_sha256: candidate_sha256.to_string(),
-            baseline_path,
-            evidence_dir,
-        })
+            changes,
+        )
     }
 }
 
 /// Derive the store-relative baseline path for a candidate test ID.
+///
+/// Every relative component must be [`Component::Normal`]: root, prefix,
+/// current-directory, and parent-directory components are rejected outright,
+/// never normalized, so no test ID can escape the baseline root through the
+/// derived path.
 fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
-    let mut relative = PathBuf::from(candidate.test_id());
+    let mut relative = PathBuf::new();
+    for component in Path::new(candidate.test_id()).components() {
+        match component {
+            Component::Normal(part) => relative.push(part),
+            other => {
+                return Err(ApproveError::InvalidStorePath {
+                    detail: format!(
+                        "test ID {:?} carries a non-normal path component ({other:?})",
+                        candidate.test_id()
+                    ),
+                });
+            }
+        }
+    }
     relative.set_extension("tui.json");
     if relative.parent().is_none() {
         return Err(ApproveError::InvalidStorePath {
@@ -644,17 +671,22 @@ fn read_baseline_bytes(baselines: &Path, relative: &Path) -> Result<Option<Vec<u
     })
 }
 
-/// Steps 13-18 plus evidence: validate paths, make parent directories,
-/// atomically replace the baseline, and save the approval records.
-fn write_baseline_and_evidence(
+/// Steps 13-18: validate paths, make parent directories, stage the
+/// approved bytes, prepare the outcome, and commit the baseline.
+///
+/// The approved bytes reach their name through one atomic rename, and that
+/// rename is the final fallible filesystem operation of the transaction: no
+/// approval-success record is persisted after the commit, so a refusal can
+/// never report an error after a commit.
+fn write_baseline(
     baselines: &Path,
     relative: &Path,
     candidate: &Sample,
     candidate_bytes: &[u8],
     candidate_digest: &str,
     previous_digest: &str,
-    changes: &ChangeSet,
-) -> Result<(PathBuf, PathBuf), ApproveError> {
+    changes: ChangeSet,
+) -> Result<AcceptOutcome, ApproveError> {
     let parent = relative
         .parent()
         .ok_or_else(|| ApproveError::InvalidStorePath {
@@ -669,29 +701,47 @@ fn write_baseline_and_evidence(
     // Step 14: make the baseline's parent directories under the lock.
     let parent_dir = baselines.join(parent);
     fs::create_dir_all(&parent_dir).map_err(|source| ApproveError::Io { source })?;
-    // Steps 15-18: write, flush, close, and atomically rename.
-    let baseline_path = atomic_replace(&parent_dir, file_name, candidate_bytes)
+    // Steps 15-17: write, flush, and close the staged temporary file. A
+    // failure here drops the uncommitted file without touching the baseline.
+    let (mut staged, temp) =
+        TempFile::create(&parent_dir, file_name).map_err(|source| ApproveError::Io { source })?;
+    staged
+        .write_all(candidate_bytes)
         .map_err(|source| ApproveError::Io { source })?;
-    let evidence_dir = write_accept_evidence(
-        baselines,
-        candidate,
-        candidate_bytes.len(),
-        candidate_digest,
-        previous_digest,
-        changes,
-    )?;
-    Ok((baseline_path, evidence_dir))
+    staged
+        .flush()
+        .map_err(|source| ApproveError::Io { source })?;
+    drop(staged);
+    // Prepare the outcome before the commit: everything below is pure.
+    let outcome = AcceptOutcome {
+        test_id: candidate.test_id().to_string(),
+        gate: candidate.gate(),
+        candidate_sha256: candidate_digest.to_string(),
+        previous_baseline_sha256: previous_digest.to_string(),
+        baseline_sha256: candidate_digest.to_string(),
+        baseline_path: parent_dir.join(file_name),
+        reason: changes.reason,
+        changed_fields: changes.fields,
+    };
+    // Step 18: atomically rename the staged file over the baseline. This is
+    // the final fallible filesystem operation of the transaction.
+    temp.commit(&outcome.baseline_path)
+        .map_err(|source| ApproveError::Io { source })?;
+    Ok(outcome)
 }
 
 /// Steps 10-12: for an image sample, resolve the candidate's specified
-/// render profile, re-render the snapshot through the upstream renderer,
-/// and compare the new decoded pixels with the candidate pixels.
+/// render profile, rebuild the expected render identity through the same
+/// typed constructor as sample creation, re-render the snapshot through the
+/// upstream renderer, and compare the expected identity and the new decoded
+/// pixels with the candidate record.
 ///
 /// State-only samples carry no image and skip all three steps. An unknown
 /// profile rejects with [`ApproveError::UnknownProfile`]; a renderer
 /// refusal rejects with [`ApproveError::RenderFailed`] (or
-/// [`ApproveError::MissingGlyph`]); differing pixels reject with
-/// [`ApproveError::InconsistentSample`].
+/// [`ApproveError::MissingGlyph`]); a recorded identity that disagrees with
+/// the re-rendered identity, or pixels that differ from the candidate
+/// pixels, reject with [`ApproveError::InconsistentSample`].
 fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
     let Some(image) = candidate.image() else {
         return Ok(());
@@ -718,6 +768,14 @@ fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
         }
         Err(other) => return Err(ApproveError::RenderFailed { source: other }),
     };
+    let expected = RenderContract::from_rendered(profile, &rendered)?;
+    if let Some(field) = contract_identity_change(contract, &expected) {
+        return Err(ApproveError::InconsistentSample {
+            detail: format!(
+                "recorded render contract field {field} differs from the re-rendered identity"
+            ),
+        });
+    }
     let fresh = decode_rendered_png(rendered.png())?;
     let stored = decode_stored_png(image)?;
     if fresh != stored {
@@ -729,6 +787,67 @@ fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
         });
     }
     Ok(())
+}
+
+/// The first material render-contract field where the recorded candidate
+/// identity differs from the freshly re-rendered identity, or `None` when
+/// they agree.
+///
+/// Every material field compares: profile, contract version, renderer
+/// version, raster policy, fonts with face indices and style slots,
+/// geometry, scale, title bar, palette digest, cursor phase, and blink. The
+/// platform key is addressing metadata, not rendered identity: a foreign
+/// platform alone never rejects reproducible pixels.
+fn contract_identity_change(
+    recorded: &RenderContract,
+    expected: &RenderContract,
+) -> Option<&'static str> {
+    if recorded.profile() != expected.profile() {
+        return Some("profile");
+    }
+    if recorded.contract_version() != expected.contract_version() {
+        return Some("contract_version");
+    }
+    if recorded.renderer_version() != expected.renderer_version() {
+        return Some("renderer_version");
+    }
+    if recorded.raster_policy() != expected.raster_policy() {
+        return Some("raster_policy");
+    }
+    if recorded.fonts() != expected.fonts() {
+        return Some("fonts");
+    }
+    // Float fields compare by bits: both sides derive from the same pinned
+    // profile constants (or an exact JSON round-trip of them), so any bit
+    // difference is a genuine identity change, not arithmetic noise.
+    if recorded.cell_width().to_bits() != expected.cell_width().to_bits() {
+        return Some("cell_width");
+    }
+    if recorded.cell_height().to_bits() != expected.cell_height().to_bits() {
+        return Some("cell_height");
+    }
+    if recorded.font_size().to_bits() != expected.font_size().to_bits() {
+        return Some("font_size");
+    }
+    if recorded.baseline().to_bits() != expected.baseline().to_bits() {
+        return Some("baseline");
+    }
+    if recorded.scale().to_bits() != expected.scale().to_bits() {
+        return Some("scale");
+    }
+    if recorded.title_bar() != expected.title_bar() {
+        return Some("title_bar");
+    }
+    if recorded.palette_digest() != expected.palette_digest() {
+        return Some("palette_digest");
+    }
+    if recorded.cursor_phase() != expected.cursor_phase() {
+        return Some("cursor_phase");
+    }
+    if recorded.blink() != expected.blink() {
+        return Some("blink");
+    }
+    None
 }
 
 /// Decoded PNG bytes with dimensions for pixel comparison.
@@ -803,73 +922,6 @@ fn decode_png(png: &[u8]) -> Result<DecodedPng, String> {
         height,
         pixels,
     })
-}
-
-/// Save `report.json` and `candidate_bytes.evidence.json` for one
-/// transaction under the reserved evidence directory.
-fn write_accept_evidence(
-    baselines: &Path,
-    candidate: &Sample,
-    candidate_len: usize,
-    candidate_digest: &str,
-    previous_digest: &str,
-    changes: &ChangeSet,
-) -> Result<PathBuf, ApproveError> {
-    let evidence_relative: PathBuf = [ACCEPT_EVIDENCE_DIR, candidate.test_id(), candidate_digest]
-        .iter()
-        .collect();
-    ensure_no_symlink(baselines, &evidence_relative)?;
-    let evidence_dir = baselines.join(&evidence_relative);
-    fs::create_dir_all(&evidence_dir).map_err(|source| ApproveError::Io { source })?;
-    let record = AcceptRecord {
-        schema: AcceptSchema,
-        test_id: candidate.test_id(),
-        gate: candidate.gate(),
-        reason: changes.reason,
-        candidate_sha256: candidate_digest,
-        previous_baseline_sha256: previous_digest,
-        baseline_sha256: candidate_digest,
-        changed_fields: &changes.fields,
-        changed_cells: &changes.cells,
-        changed_cell_total: changes.total,
-        pixel_changed_pixels: changes.pixel_changed,
-        pixel_compared_pixels: changes.pixel_compared,
-        pixel_bounds: changes.bounds.map(|bounds| BoundsRecord {
-            min_x: bounds[0],
-            min_y: bounds[1],
-            max_x: bounds[2],
-            max_y: bounds[3],
-        }),
-    };
-    let record_bytes = serde_json::to_vec(&record).map_err(|error| ApproveError::Check {
-        source: CheckError::EvidenceCorrupt {
-            detail: format!("approval record does not serialize: {error}"),
-        },
-    })?;
-    atomic_replace(&evidence_dir, "report.json", &record_bytes)
-        .map_err(|source| ApproveError::Io { source })?;
-    let image = candidate.image();
-    let evidence = CandidateEvidence {
-        schema: EvidenceSchema,
-        test_id: candidate.test_id(),
-        gate: candidate.gate(),
-        candidate_sha256: candidate_digest,
-        byte_length: candidate_len,
-        png_sha256: image.map(SampleImage::png_sha256),
-        rgba_sha256: image.map(SampleImage::rgba_sha256),
-    };
-    let evidence_bytes = serde_json::to_vec(&evidence).map_err(|error| ApproveError::Check {
-        source: CheckError::EvidenceCorrupt {
-            detail: format!("candidate evidence does not serialize: {error}"),
-        },
-    })?;
-    atomic_replace(
-        &evidence_dir,
-        "candidate_bytes.evidence.json",
-        &evidence_bytes,
-    )
-    .map_err(|source| ApproveError::Io { source })?;
-    Ok(evidence_dir)
 }
 
 /// True when the `CI` variable is present with any value, including empty.
@@ -1077,53 +1129,12 @@ impl Drop for TempFile {
     }
 }
 
-/// Write bytes through a temporary file with flush, close, and atomic
-/// rename. The temporary file lives in the target directory, so the rename
-/// is always same-directory and can never report `CrossesDevices`; no copy
-/// fallback exists. Readers never see a partial file.
-fn atomic_replace(dir: &Path, name: &str, bytes: &[u8]) -> Result<PathBuf, std::io::Error> {
-    if name.contains('/') || name.contains('\\') {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("evidence file name {name:?} must not carry separators"),
-        ));
-    }
-    let target = dir.join(name);
-    let (mut file, temp) = TempFile::create(dir, name)?;
-    file.write_all(bytes)?;
-    file.flush()?;
-    drop(file);
-    temp.commit(&target)?;
-    Ok(target)
-}
-
-/// The change set between the candidate and the previous baseline, in
+/// The change summary between the candidate and the previous baseline, in
 /// comparison order: the smallest difference the frozen comparison reports.
+/// The summary rides in the returned outcome; it is never persisted.
 struct ChangeSet {
     reason: Option<MismatchReason>,
     fields: Vec<String>,
-    cells: Vec<CellChange>,
-    total: usize,
-    pixel_changed: u64,
-    pixel_compared: u64,
-    bounds: Option<[u32; 4]>,
-}
-
-/// One changed cell in an approval record: coordinates plus field names.
-#[derive(serde::Serialize)]
-struct CellChange {
-    col: u32,
-    row: u32,
-    fields: Vec<String>,
-}
-
-/// One pixel-bounds record in an approval record.
-#[derive(serde::Serialize)]
-struct BoundsRecord {
-    min_x: u32,
-    min_y: u32,
-    max_x: u32,
-    max_y: u32,
 }
 
 impl ChangeSet {
@@ -1132,11 +1143,6 @@ impl ChangeSet {
         Self {
             reason: None,
             fields: Vec::new(),
-            cells: Vec::new(),
-            total: 0,
-            pixel_changed: 0,
-            pixel_compared: 0,
-            bounds: None,
         }
     }
 
@@ -1146,11 +1152,6 @@ impl ChangeSet {
         Self {
             reason: Some(MismatchReason::Missing),
             fields: vec!["baseline".to_string()],
-            cells: Vec::new(),
-            total: 0,
-            pixel_changed: 0,
-            pixel_compared: 0,
-            bounds: None,
         }
     }
 
@@ -1163,86 +1164,12 @@ impl ChangeSet {
             PresentComparison::Failure {
                 reason,
                 changed_fields,
-                changed_cells,
-                changed_cell_total,
-                pixel_changed,
-                pixel_compared,
-                pixel_bounds,
             } => Self {
                 reason: Some(reason),
                 fields: changed_fields,
-                cells: changed_cells
-                    .iter()
-                    .map(|cell| CellChange {
-                        col: cell.col(),
-                        row: cell.row(),
-                        fields: cell.fields().to_vec(),
-                    })
-                    .collect(),
-                total: changed_cell_total,
-                pixel_changed,
-                pixel_compared,
-                bounds: pixel_bounds,
             },
         }
     }
-}
-
-/// The schema identifier as an explicit type: only [`ACCEPT_SCHEMA`] writes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct AcceptSchema;
-
-impl serde::Serialize for AcceptSchema {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(ACCEPT_SCHEMA)
-    }
-}
-
-/// The schema identifier as an explicit type: only [`EVIDENCE_SCHEMA`] writes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct EvidenceSchema;
-
-impl serde::Serialize for EvidenceSchema {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(EVIDENCE_SCHEMA)
-    }
-}
-
-/// The versioned approval record saved as `report.json`.
-///
-/// Field order is fixed. The record carries no absolute paths, process IDs,
-/// timestamps, host names, or session names: only the test ID, gate,
-/// digests, and the compared change set.
-#[derive(serde::Serialize)]
-struct AcceptRecord<'a> {
-    schema: AcceptSchema,
-    test_id: &'a str,
-    gate: Gate,
-    reason: Option<MismatchReason>,
-    candidate_sha256: &'a str,
-    previous_baseline_sha256: &'a str,
-    baseline_sha256: &'a str,
-    changed_fields: &'a [String],
-    changed_cells: &'a [CellChange],
-    changed_cell_total: usize,
-    pixel_changed_pixels: u64,
-    pixel_compared_pixels: u64,
-    pixel_bounds: Option<BoundsRecord>,
-}
-
-/// The versioned candidate evidence saved as `candidate_bytes.evidence.json`.
-///
-/// It binds the approved byte length and the recorded image digests to the
-/// candidate digest, with no volatile data.
-#[derive(serde::Serialize)]
-struct CandidateEvidence<'a> {
-    schema: EvidenceSchema,
-    test_id: &'a str,
-    gate: Gate,
-    candidate_sha256: &'a str,
-    byte_length: usize,
-    png_sha256: Option<&'a str>,
-    rgba_sha256: Option<&'a str>,
 }
 
 #[cfg(test)]
@@ -1257,8 +1184,8 @@ mod tests {
     };
 
     use super::{
-        ApprovalStore, atomic_replace, is_hex_digest, require_digest, resolve_baseline_root,
-        sample_code, sha256_hex,
+        ApprovalStore, is_hex_digest, require_digest, resolve_baseline_root, sample_code,
+        sha256_hex,
     };
     use crate::sample::{Observation, Sample, SampleError};
     use crate::view::ViewSettings;
@@ -1353,14 +1280,42 @@ mod tests {
     }
 
     #[test]
-    fn atomic_replace_writes_without_temp_residue() {
+    fn staged_commit_writes_without_temp_residue() {
+        use std::io::Write as _;
         let dir = tempfile::tempdir().expect("scratch directory creates");
-        let target = atomic_replace(dir.path(), "report.json", b"{\"ok\":true}")
-            .expect("atomic write succeeds");
+        let (mut staged, temp) =
+            super::TempFile::create(dir.path(), "baseline.tui.json").expect("stage creates");
+        staged.write_all(b"{\"ok\":true}").expect("stage writes");
+        staged.flush().expect("stage flushes");
+        drop(staged);
+        let target = dir.path().join("baseline.tui.json");
+        temp.commit(&target).expect("commit renames");
         assert_eq!(
             std::fs::read(&target).expect("written bytes read"),
             b"{\"ok\":true}"
         );
+        for entry in std::fs::read_dir(dir.path()).expect("directory lists") {
+            let name = entry
+                .expect("entry reads")
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            assert!(
+                !name.starts_with(".tmp-accept-"),
+                "temporary file {name:?} left behind"
+            );
+        }
+    }
+
+    #[test]
+    fn dropped_stage_leaves_no_temp_residue() {
+        use std::io::Write as _;
+        let dir = tempfile::tempdir().expect("scratch directory creates");
+        let (mut staged, temp) =
+            super::TempFile::create(dir.path(), "baseline.tui.json").expect("stage creates");
+        staged.write_all(b"{\"ok\":true}").expect("stage writes");
+        drop(staged);
+        drop(temp);
         for entry in std::fs::read_dir(dir.path()).expect("directory lists") {
             let name = entry
                 .expect("entry reads")
@@ -1451,10 +1406,11 @@ mod tests {
         Ok(path)
     }
 
-    /// The core approves a first state-only sample: baseline, evidence,
-    /// and outcome digests, with the lock file kept.
+    /// The core approves a first state-only sample: baseline bytes and the
+    /// outcome-carried change summary, with the lock file kept and no
+    /// evidence directory.
     #[test]
-    fn core_first_approval_writes_baseline_and_evidence() {
+    fn core_first_approval_writes_baseline_and_outcome() {
         let dir = tempfile::tempdir().expect("scratch directory creates");
         let baselines = dir.path().join("baselines");
         let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
@@ -1470,16 +1426,30 @@ mod tests {
         assert_eq!(accepted.previous_baseline_sha256(), "missing");
         assert_eq!(accepted.baseline_sha256(), digest);
         assert_eq!(
+            accepted.reason(),
+            Some(crate::check::MismatchReason::Missing)
+        );
+        assert_eq!(accepted.changed_fields(), &["baseline".to_string()]);
+        assert_eq!(
             std::fs::read(unit_baseline_path(&baselines, "views/login")).expect("baseline reads"),
             bytes
         );
         assert!(accepted.baseline_path().is_file());
-        assert!(accepted.evidence_dir().join("report.json").is_file());
-        assert!(
-            accepted
-                .evidence_dir()
-                .join("candidate_bytes.evidence.json")
-                .is_file()
+        let mut entries: Vec<String> = std::fs::read_dir(&baselines)
+            .expect("baseline root lists")
+            .map(|entry| {
+                entry
+                    .expect("entry reads")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        entries.sort_unstable();
+        assert_eq!(
+            entries,
+            vec![".tuiscotti-approval.lock".to_string(), "views".to_string(),],
+            "a success writes exactly the baseline plus the stable lock file"
         );
     }
 
@@ -1571,8 +1541,9 @@ mod tests {
         let store = ApprovalStore::new(&baselines).expect("approval store opens");
         match store.accept_core(&candidate, &digest, "missing") {
             Err(error @ super::ApproveError::Io { .. }) => {
+                // The exit mapping lives at the CLI boundary
+                // (`accept_exit_code`); the library keeps the typed code.
                 assert_eq!(error.code(), "IO");
-                assert_eq!(error.exit_code(), 3);
             }
             other => panic!("a blocked lock path must fail I/O, got {other:?}"),
         }
@@ -1596,7 +1567,6 @@ mod tests {
             Err(error @ super::ApproveError::CiApprovalForbidden) => {
                 assert!(present, "a present CI variable refuses the gate");
                 assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-                assert_eq!(error.exit_code(), 3);
             }
             Err(other) => panic!("the CI gate reports only refusal, got {other:?}"),
         }

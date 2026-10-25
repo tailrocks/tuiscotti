@@ -44,8 +44,8 @@ use image::ImageDecoder as _;
 use serde::de::Error as _;
 use sha2::{Digest, Sha256};
 use tui_test::{
-    MAX_LINK_BYTES, MAX_TITLE_BYTES, RASTER_POLICY_PINNED_V1, RenderError, SNAPSHOT_SCHEMA_VERSION,
-    TerminalSnapshot,
+    MAX_LINK_BYTES, MAX_TITLE_BYTES, RASTER_POLICY_PINNED_V1, RenderError, RenderedPng,
+    SNAPSHOT_SCHEMA_VERSION, TerminalSnapshot,
 };
 
 use crate::render_profile::{PROFILE_NAME, Profile, platform_key};
@@ -555,6 +555,75 @@ pub struct RenderContract {
 }
 
 impl RenderContract {
+    /// Build the recorded render contract from a resolved profile and a
+    /// fresh upstream render: the single typed constructor for recorded
+    /// render identity.
+    ///
+    /// [`Sample::with_pixels`] records through it, and approval re-rendering
+    /// rebuilds the expected identity through it, so creation and
+    /// verification cannot disagree on profile, contract version, renderer
+    /// version, raster policy, fonts, geometry, scale, title bar, palette
+    /// digest, cursor phase, blink, or platform.
+    ///
+    /// The pinned-profile gate lives here deliberately, not beside the
+    /// approval field comparison: the comparison checks recorded identity
+    /// against re-rendered identity, both derived from the recorded profile,
+    /// so a self-consistent non-pinned identity would pass it. Only this
+    /// constructor (and the single-profile registry behind
+    /// `resolve_profile`) pins creation and verification to
+    /// [`PROFILE_NAME`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SampleError`] when the profile is not the pinned profile
+    /// or the upstream render records a foreign raster policy.
+    pub(crate) fn from_rendered(
+        profile: &Profile,
+        rendered: &RenderedPng,
+    ) -> Result<Self, SampleError> {
+        if profile.name() != PROFILE_NAME {
+            return Err(SampleError::GateMismatch {
+                detail: format!(
+                    "profile {:?} is not the pinned profile {PROFILE_NAME:?}",
+                    profile.name()
+                ),
+            });
+        }
+        let upstream = rendered.contract();
+        if upstream.raster_policy() != RASTER_POLICY_PINNED_V1 {
+            return Err(SampleError::UnexpectedPolicy {
+                policy: upstream.raster_policy().to_string(),
+            });
+        }
+        Ok(Self {
+            profile: PROFILE_NAME.to_string(),
+            contract_version: CONTRACT_VERSION,
+            renderer_version: upstream.renderer_version().to_string(),
+            raster_policy: upstream.raster_policy().to_string(),
+            fonts: upstream
+                .fonts()
+                .iter()
+                .map(|font| ContractFont {
+                    digest: font.digest().to_string(),
+                    face_index: font.face_index(),
+                    bold: font.bold(),
+                    italic: font.italic(),
+                    fallback_position: font.fallback_position(),
+                })
+                .collect(),
+            cell_width: upstream.cell_width(),
+            cell_height: upstream.cell_height(),
+            font_size: upstream.font_size(),
+            baseline: upstream.baseline(),
+            scale: upstream.scale(),
+            title_bar: upstream.title_bar(),
+            palette_digest: upstream.palette_digest().to_string(),
+            cursor_phase: CursorPhase::from(upstream.cursor_phase()),
+            blink: upstream.blink(),
+            platform_key: platform_key(),
+        })
+    }
+
     /// The logical profile name the image was rendered with.
     #[must_use]
     pub fn profile(&self) -> &str {
@@ -730,21 +799,12 @@ impl Sample {
         // Local capture generates the current-platform ID: the suffix must
         // match this host, and the stored contract below records it.
         validate_test_id(test_id, Gate::StateAndPixels, platform_key().as_str())?;
-        if profile.name() != PROFILE_NAME {
-            return Err(SampleError::GateMismatch {
-                detail: format!(
-                    "profile {:?} is not the pinned profile {PROFILE_NAME:?}",
-                    profile.name()
-                ),
-            });
-        }
         let rendered = tui_test::render_snapshot_png(snapshot, &profile.render_options())?;
-        let upstream = rendered.contract();
-        if upstream.raster_policy() != RASTER_POLICY_PINNED_V1 {
-            return Err(SampleError::UnexpectedPolicy {
-                policy: upstream.raster_policy().to_string(),
-            });
-        }
+        // The pinned-profile gate is kept by routing through the shared
+        // constructor (which also pins the raster policy), not by a second
+        // local check: creation and approval verification agree by
+        // construction.
+        let contract = RenderContract::from_rendered(profile, &rendered)?;
         let png = rendered.png().to_vec();
         let (width, height, pixels) = decode_png_bounded(&png)?;
         if (width, height) != (rendered.width(), rendered.height()) {
@@ -759,33 +819,6 @@ impl Sample {
             });
         }
         check_grid_image(snapshot, width, height)?;
-        let contract = RenderContract {
-            profile: PROFILE_NAME.to_string(),
-            contract_version: CONTRACT_VERSION,
-            renderer_version: upstream.renderer_version().to_string(),
-            raster_policy: upstream.raster_policy().to_string(),
-            fonts: upstream
-                .fonts()
-                .iter()
-                .map(|font| ContractFont {
-                    digest: font.digest().to_string(),
-                    face_index: font.face_index(),
-                    bold: font.bold(),
-                    italic: font.italic(),
-                    fallback_position: font.fallback_position(),
-                })
-                .collect(),
-            cell_width: upstream.cell_width(),
-            cell_height: upstream.cell_height(),
-            font_size: upstream.font_size(),
-            baseline: upstream.baseline(),
-            scale: upstream.scale(),
-            title_bar: upstream.title_bar(),
-            palette_digest: upstream.palette_digest().to_string(),
-            cursor_phase: CursorPhase::from(upstream.cursor_phase()),
-            blink: upstream.blink(),
-            platform_key: platform_key(),
-        };
         let image = SampleImage {
             format: ImageFormat::Png,
             width,
@@ -1141,37 +1174,19 @@ impl Sample {
     }
 }
 
-/// Validate a test ID for its gate: 240 ASCII bytes, 64 ASCII bytes per
-/// non-empty segment, and the pixels suffix pairing against the expected
-/// platform identity. Callers capturing locally pass the current platform;
-/// saved-sample parsing passes the stored contract identity, so historical
-/// samples keep parsing off the platform that recorded them.
+/// Validate a test ID for its gate: the Section 14.1 grammar plus the
+/// pixels suffix pairing against the expected platform identity. Callers
+/// capturing locally pass the current platform; saved-sample parsing passes
+/// the stored contract identity, so historical samples keep parsing off the
+/// platform that recorded them.
+///
+/// This is the single complete test-ID validator: construction
+/// ([`Sample::state`], [`Sample::with_pixels`]) and parsing
+/// ([`Sample::from_bytes`] through [`Sample::validate_structure`]) all run
+/// through it, and the frozen checker delegates its grammar-only check to
+/// [`validate_test_id_grammar`], so no second shape rule can drift.
 fn validate_test_id(test_id: &str, gate: Gate, pixels_platform: &str) -> Result<(), SampleError> {
-    let invalid = |detail: &str| SampleError::InvalidTestId {
-        detail: detail.to_string(),
-    };
-    if test_id.is_empty() {
-        return Err(invalid("test ID is empty"));
-    }
-    if test_id.len() > MAX_TEST_ID_BYTES {
-        return Err(invalid(&format!(
-            "test ID is {} bytes, above the {MAX_TEST_ID_BYTES} byte limit",
-            test_id.len()
-        )));
-    }
-    if !test_id.is_ascii() {
-        return Err(invalid("test ID is not ASCII"));
-    }
-    for segment in test_id.split('/') {
-        if segment.is_empty() {
-            return Err(invalid("test ID has an empty segment"));
-        }
-        if segment.len() > MAX_TEST_ID_SEGMENT_BYTES {
-            return Err(invalid(&format!(
-                "test ID segment {segment:?} passes the {MAX_TEST_ID_SEGMENT_BYTES} byte limit"
-            )));
-        }
-    }
+    validate_test_id_grammar(test_id)?;
     let suffix = format!("/pixels-{pixels_platform}");
     match gate {
         Gate::StateAndPixels => {
@@ -1198,6 +1213,102 @@ fn validate_test_id(test_id: &str, gate: Gate, pixels_platform: &str) -> Result<
         }
     }
     Ok(())
+}
+
+/// Validate a test ID against the Section 14.1 grammar on every platform:
+///
+/// ```text
+/// segment = [a-z0-9_-]{1,64}
+/// test_id = segment ("/" segment)*
+/// ```
+///
+/// Total length follows Section 8.4 (240 ASCII bytes). Absolute paths,
+/// empty segments, backslashes, and `.`/`..` segments are rejected without
+/// normalization. Windows device names (`con`, `prn`, `aux`, `nul`,
+/// `com1`-`com9`, `lpt1`-`lpt9`, case-insensitive, with or without an
+/// extension) are rejected as segments on all platforms.
+///
+/// # Errors
+///
+/// Returns [`SampleError::InvalidTestId`] for every rejected shape.
+pub(crate) fn validate_test_id_grammar(test_id: &str) -> Result<(), SampleError> {
+    let invalid = |detail: &str| SampleError::InvalidTestId {
+        detail: detail.to_string(),
+    };
+    if test_id.is_empty() {
+        return Err(invalid("test ID is empty"));
+    }
+    if test_id.len() > MAX_TEST_ID_BYTES {
+        return Err(SampleError::InvalidTestId {
+            detail: format!(
+                "test ID is {} bytes, above the {MAX_TEST_ID_BYTES} byte limit",
+                test_id.len()
+            ),
+        });
+    }
+    if !test_id.is_ascii() {
+        return Err(invalid("test ID is not ASCII"));
+    }
+    if test_id.contains('\\') {
+        return Err(invalid("test ID contains a backslash"));
+    }
+    if test_id.starts_with('/') {
+        return Err(invalid("test ID is an absolute path"));
+    }
+    for segment in test_id.split('/') {
+        if segment.is_empty() {
+            return Err(invalid("test ID has an empty segment"));
+        }
+        if segment.len() > MAX_TEST_ID_SEGMENT_BYTES {
+            return Err(SampleError::InvalidTestId {
+                detail: format!(
+                    "test ID segment {segment:?} passes the {MAX_TEST_ID_SEGMENT_BYTES} byte limit"
+                ),
+            });
+        }
+        if segment == "." || segment == ".." {
+            return Err(SampleError::InvalidTestId {
+                detail: format!("test ID segment {segment:?} is a directory reference"),
+            });
+        }
+        let shaped = segment.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        });
+        if !shaped {
+            return Err(SampleError::InvalidTestId {
+                detail: format!("test ID segment {segment:?} breaks the [a-z0-9_-] shape"),
+            });
+        }
+        if is_device_name(segment) {
+            return Err(SampleError::InvalidTestId {
+                detail: format!("test ID segment {segment:?} is a reserved device name"),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// True for Windows device names on any platform: `con`, `prn`, `aux`,
+/// `nul`, `com1`-`com9`, `lpt1`-`lpt9`, case-insensitive, with or without a
+/// dotted extension. The caller guarantees ASCII input.
+fn is_device_name(segment: &str) -> bool {
+    let lower = segment.to_ascii_lowercase();
+    let stem = match lower.split('.').next() {
+        Some(stem) => stem,
+        None => lower.as_str(),
+    };
+    if matches!(stem, "con" | "prn" | "aux" | "nul") {
+        return true;
+    }
+    let bytes = stem.as_bytes();
+    if bytes.len() == 4
+        && (stem.starts_with("com") || stem.starts_with("lpt"))
+        && bytes[3].is_ascii_digit()
+        && bytes[3] != b'0'
+    {
+        return true;
+    }
+    false
 }
 
 /// Enforce the encoded file limit on a loaded byte string.
