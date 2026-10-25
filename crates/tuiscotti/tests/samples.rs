@@ -374,6 +374,33 @@ fn d02_profile_registry_resolves_pinned_v1() {
     ));
 }
 
+/// Every byte the profile embeds — plus the license text that must ship
+/// with it — lives inside the library package, so `cargo package` cannot
+/// omit it. An `include_bytes!` path that escapes the crate still compiles
+/// (the file exists in the checkout) but silently drops out of the
+/// published crate; this test trips if that regresses.
+#[test]
+fn d02_profile_assets_ship_inside_the_crate() {
+    const SHIPPED: &[&str] = &[
+        "fonts/JetBrainsMonoNerdFontMono-Regular.ttf",
+        "fonts/JetBrainsMonoNerdFontMono-Bold.ttf",
+        "fonts/JetBrainsMonoNerdFontMono-Italic.ttf",
+        "fonts/JetBrainsMonoNerdFontMono-BoldItalic.ttf",
+        "fonts/DejaVuSansMNerdFontMono-Regular.ttf",
+        "fonts/NotoSansCJKjp-subset.otf",
+        "fonts/LICENSE-JetBrainsMono.txt",
+        "fonts/LICENSE-DejaVuSansMono.txt",
+        "fonts/LICENSE-Noto.txt",
+    ];
+    let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    for name in SHIPPED {
+        assert!(
+            root.join(name).is_file(),
+            "{name} must ship inside the tuiscotti package"
+        );
+    }
+}
+
 /// One render per mandatory glyph: name, cells, grid columns, and the glyph
 /// rect origin and width in columns.
 fn metric_cases() -> Vec<(&'static str, Vec<SnapshotCell>, u32, u32, u32)> {

@@ -12,24 +12,25 @@
 //! upstream `render/font.rs`) and the bundled Nerd symbol font is `pub(crate)`
 //! (`FONT_DATA` in upstream `render/nerd_font.rs`). Nothing public returns
 //! those bytes, so every slot below uses licensed downstream assets from
-//! `assets/fonts` (kept under version control, never fetched):
+//! `crates/tuiscotti/fonts` (kept under version control, never fetched):
 //!
 //! - Slots 1-2, primary text: `JetBrains Mono` Nerd Font Mono regular, bold,
-//!   italic, and bold-italic (`assets/fonts/JetBrainsMonoNerdFontMono-*`).
-//!   The Nerd Mono variant keeps every glyph cell one column wide, which the
-//!   terminal grid requires. License: `assets/fonts/LICENSE-JetBrainsMono.txt`
+//!   italic, and bold-italic
+//!   (`crates/tuiscotti/fonts/JetBrainsMonoNerdFontMono-*`). The Nerd Mono
+//!   variant keeps every glyph cell one column wide, which the terminal grid
+//!   requires. License: `crates/tuiscotti/fonts/LICENSE-JetBrainsMono.txt`
 //!   (OFL 1.1).
 //! - Slot 3, symbol font: `DejaVu Sans Mono` Nerd Font Mono
-//!   (`assets/fonts/DejaVuSansMNerdFontMono-Regular.ttf`). This is the
-//!   downstream stand-in for the upstream bundled Nerd symbol font
+//!   (`crates/tuiscotti/fonts/DejaVuSansMNerdFontMono-Regular.ttf`). This is
+//!   the downstream stand-in for the upstream bundled Nerd symbol font
 //!   (`SymbolsNerdFontMono`): it covers Private Use Area icons, powerline
 //!   symbols, and miscellaneous symbols. The Noto symbol subsets were
 //!   rejected for this slot because neither covers any Private Use Area
 //!   codepoint, which would leave the recorded PUA selection rule vacuous.
-//!   License: `assets/fonts/LICENSE-DejaVuSansMono.txt`.
-//! - Slot 4, CJK: `assets/fonts/NotoSansCJKjp-subset.otf` (678988 bytes,
-//!   SHA-256 `777bee41...d897`), the recorded subset. License:
-//!   `assets/fonts/LICENSE-Noto.txt`.
+//!   License: `crates/tuiscotti/fonts/LICENSE-DejaVuSansMono.txt`.
+//! - Slot 4, CJK: `crates/tuiscotti/fonts/NotoSansCJKjp-subset.otf`
+//!   (678988 bytes, SHA-256 `777bee41...d897`), the recorded subset.
+//!   License: `crates/tuiscotti/fonts/LICENSE-Noto.txt`.
 //!
 //! Fallback order for ordinary text (recorded in every render contract as
 //! per-face `fallback_position` entries with their style slots):
@@ -93,18 +94,15 @@ pub const CELL_HEIGHT_U32: u32 = 20;
 /// Face index inside every asset: each file holds one face.
 const FACE_INDEX: u32 = 0;
 
-// Embedded asset bytes. Paths resolve from this file to the repository root.
-const JB_REGULAR_BYTES: &[u8] =
-    include_bytes!("../../../assets/fonts/JetBrainsMonoNerdFontMono-Regular.ttf");
-const JB_BOLD_BYTES: &[u8] =
-    include_bytes!("../../../assets/fonts/JetBrainsMonoNerdFontMono-Bold.ttf");
-const JB_ITALIC_BYTES: &[u8] =
-    include_bytes!("../../../assets/fonts/JetBrainsMonoNerdFontMono-Italic.ttf");
+// Embedded asset bytes. Paths resolve from this file into the crate's
+// `fonts/` directory, so every byte travels inside the library package.
+const JB_REGULAR_BYTES: &[u8] = include_bytes!("../fonts/JetBrainsMonoNerdFontMono-Regular.ttf");
+const JB_BOLD_BYTES: &[u8] = include_bytes!("../fonts/JetBrainsMonoNerdFontMono-Bold.ttf");
+const JB_ITALIC_BYTES: &[u8] = include_bytes!("../fonts/JetBrainsMonoNerdFontMono-Italic.ttf");
 const JB_BOLD_ITALIC_BYTES: &[u8] =
-    include_bytes!("../../../assets/fonts/JetBrainsMonoNerdFontMono-BoldItalic.ttf");
-const SYMBOL_BYTES: &[u8] =
-    include_bytes!("../../../assets/fonts/DejaVuSansMNerdFontMono-Regular.ttf");
-const CJK_BYTES: &[u8] = include_bytes!("../../../assets/fonts/NotoSansCJKjp-subset.otf");
+    include_bytes!("../fonts/JetBrainsMonoNerdFontMono-BoldItalic.ttf");
+const SYMBOL_BYTES: &[u8] = include_bytes!("../fonts/DejaVuSansMNerdFontMono-Regular.ttf");
+const CJK_BYTES: &[u8] = include_bytes!("../fonts/NotoSansCJKjp-subset.otf");
 
 /// Pinned byte length of each asset, verified at profile build.
 const JB_REGULAR_LEN: usize = 2_573_248;

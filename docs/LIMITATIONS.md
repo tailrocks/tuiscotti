@@ -22,7 +22,7 @@ platforms the OS equivalent applies.
 
 One pinned profile, `tuiscotti-pinned-v1`: 16 px font, 10×20 cells,
 baseline 15 px, scale 1, zero padding, no title bar or decorations.
-Licensed downstream bytes under `assets/fonts` (never fetched):
+Licensed downstream bytes under `crates/tuiscotti/fonts` (never fetched):
 
 - Primary text: JetBrains Mono Nerd Font Mono (regular, bold,
   italic, bold-italic) — one column per glyph, as the grid requires.
