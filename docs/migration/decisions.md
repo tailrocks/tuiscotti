@@ -215,3 +215,41 @@ in session. Sync status: tuiscotti applied (af8efab); velnor-new#391
 pending follow-up agent; jackin#1231 needs its owner (cannot push
 there). Tuiscotti project rule preserved alongside: public API keeps
 rustdoc as a correctness requirement (documented in ## This project).
+
+## D-R2-1: Qual-stack-r2 (corrected U02-U11, U01 excluded)
+
+New integration branch `goal/qual-stack-r2` on the maintained fork
+(donbeave/tui-test), tip `6eb3b14`, forked from upstream main `f276059`.
+Merges the ten corrected rework heads in dependency order (U02..U11,
+U06 original approved head, U01 intentionally excluded — downstream
+owns the richer approval transaction). Two integration fallouts fixed
+at stack level: merge fallout (dup session import, spawn_with
+last_output init) and a stale wide-grapheme fixture that the corrected
+U02 relational validator rightly rejects (continuation cells now used).
+Stack suites: 126/126 integration + 563/563 lib, green. Pushed to the
+fork (fast-forward new branch, no force).
+
+## D-PIN-1: Downstream re-pin to 6eb3b14 + merge-breakage repair
+
+Re-pinned `tui-test-rs` to `6eb3b14` (Cargo.toml + Cargo.lock agree;
+fork branch tip verified). The re-pin build exposed that the batch-1
+CLI merge (3aa48a2) never compiled: R20 removed `ApproveError::
+exit_code` from the library but left four call sites. Repaired per
+R20 (exit-code mapping lives at the CLI boundary only): library and
+integration tests assert typed `code()`; new `accept_exit_code` unit
+test covers the 2/3 split in tuiscotti-cli. Lesson recorded: merged
+commits must build green, not just their pre-merge branches.
+Approval port (B1/B2/B4, c278c4b) merged clean onto the new pin; both
+lanes 201/201 green (default and CI=true).
+
+## D-SHARED-2: Merged 9-bullet testing rules verdict
+
+Two parallel panels (this session's proponent/skeptic/arbiter + the
+velnor-side panel review) were reconciled by a merge-reviewer under
+the keep-best/remove-worse rule: 7-bullet base kept, fused with the
+competing review's mirror-logic/snapshot/resulting-state/I-O/name-
+the-behavior wording; its unfollowable per-test subagent mandate
+dropped. Final 9-bullet text is byte-identical in tuiscotti
+(AGENTS.md, CLAUDE.md via symlink) and velnor-new, pushed normally;
+velnor-new#391 stays open. Jackin still needs its owner (no push
+access there).
