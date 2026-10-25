@@ -1434,3 +1434,111 @@ fn d03_sample_saves_atomically_without_temp_residue() {
     assert!(!missing.exists(), "failed save publishes nothing");
     assert_no_temp_residue(dir.path());
 }
+
+/// Re-encode valid sample bytes with one JSON field replaced.
+#[expect(clippy::expect_used, reason = "rework validation fixture")]
+fn sample_bytes_with_field(sample_bytes: &[u8], field: &str, value: serde_json::Value) -> Vec<u8> {
+    let mut object: serde_json::Value =
+        serde_json::from_slice(sample_bytes).expect("sample is JSON");
+    object[field] = value;
+    serde_json::to_vec(&object).expect("surgery serializes")
+}
+
+/// A minimal pixels sample on this platform for serde bypass probes.
+#[expect(clippy::expect_used, reason = "rework validation fixture")]
+fn pixels_sample_bytes() -> Vec<u8> {
+    let profile = resolve_profile(PROFILE_NAME).expect("pinned profile resolves");
+    Sample::with_pixels(
+        &pixels_test_id("r03/pixels"),
+        &c06_snapshot(),
+        Observation::empty(),
+        profile,
+    )
+    .expect("pixels fixture renders")
+    .to_bytes()
+    .expect("pixels fixture serializes")
+}
+
+/// R3: `serde_json::from_slice::<Sample>` must run the same validation as
+/// `from_bytes`. A gate/image mismatch the derived `Deserialize` used to
+/// accept must fail through the serde path too.
+#[test]
+fn r3_serde_path_rejects_gate_image_mismatch() {
+    let state_bytes = Sample::state("views/r03", c06_snapshot(), Observation::empty())
+        .expect("state fixture builds")
+        .to_bytes()
+        .expect("state fixture serializes");
+    Sample::from_bytes(&state_bytes).expect("control sample parses");
+    serde_json::from_slice::<Sample>(&state_bytes).expect("control serde parses");
+    let claimed = sample_bytes_with_field(
+        &state_bytes,
+        "gate",
+        serde_json::Value::String("state-and-pixels".to_string()),
+    );
+    assert!(
+        Sample::from_bytes(&claimed).is_err(),
+        "from_bytes rejects the gate/image mismatch"
+    );
+    assert!(
+        serde_json::from_slice::<Sample>(&claimed).is_err(),
+        "serde_json::from_slice::<Sample> rejects the gate/image mismatch"
+    );
+}
+
+/// R3: tampered digests must fail through the serde path, not just
+/// `from_bytes`.
+#[test]
+fn r3_serde_path_rejects_tampered_digest() {
+    let bytes = pixels_sample_bytes();
+    serde_json::from_slice::<Sample>(&bytes).expect("control serde parses");
+    let mut object: serde_json::Value = serde_json::from_slice(&bytes).expect("sample is JSON");
+    let image = object
+        .get_mut("image")
+        .expect("pixels sample carries an image");
+    image["png_sha256"] = serde_json::Value::String("0".repeat(64));
+    let tampered = serde_json::to_vec(&object).expect("surgery serializes");
+    assert!(
+        Sample::from_bytes(&tampered).is_err(),
+        "from_bytes rejects the tampered digest"
+    );
+    assert!(
+        serde_json::from_slice::<Sample>(&tampered).is_err(),
+        "serde_json::from_slice::<Sample> rejects the tampered digest"
+    );
+}
+
+/// R21: saved-sample parsing validates the pixels suffix against the
+/// stored contract identity, not the current platform. A sample recorded
+/// on another platform parses here when its ID matches its contract.
+#[test]
+fn r21_saved_sample_parses_against_stored_contract_identity() {
+    let bytes = pixels_sample_bytes();
+    let mut object: serde_json::Value = serde_json::from_slice(&bytes).expect("sample is JSON");
+    let platform = object
+        .get("render_contract")
+        .and_then(|contract| contract.get("platform_key"))
+        .and_then(|platform| platform.as_str())
+        .expect("pixels sample carries a platform key")
+        .to_string();
+    assert!(
+        Sample::from_bytes(&bytes).is_ok(),
+        "control sample parses"
+    );
+    object["render_contract"]["platform_key"] =
+        serde_json::Value::String("far-far-away".to_string());
+    let old_id = object
+        .get("test_id")
+        .and_then(|id| id.as_str())
+        .expect("sample carries a test ID")
+        .to_string();
+    let suffix = format!("/pixels-{platform}");
+    let logical = old_id
+        .strip_suffix(&suffix)
+        .expect("control ID carries the current suffix");
+    object["test_id"] = serde_json::Value::String(format!("{logical}/pixels-far-far-away"));
+    let foreign = serde_json::to_vec(&object).expect("surgery serializes");
+    assert!(
+        Sample::from_bytes(&foreign).is_ok(),
+        "stored-contract identity validates the foreign-platform sample"
+    );
+}

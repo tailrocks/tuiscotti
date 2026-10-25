@@ -851,3 +851,40 @@ fn upstream_snapshot_ignores_observation_metadata() {
         "metadata changes never change canonical state"
     );
 }
+
+/// R2: a zero-width cell outside any wide-cell coverage is not a
+/// continuation. Conversion rejects it with the cell coordinates.
+#[test]
+fn r2_uncovered_zero_width_cell_fails_closed() {
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 2, 1));
+    buffer[(1, 0)].set_symbol("");
+    let settings = ViewSettings::builtin().with_cursor(hidden_cursor());
+    let result = snapshot_from_buffer(&buffer, &settings);
+    assert!(
+        matches!(
+            result,
+            Err(ViewError::UncoveredZeroWidthCell { x: 1, y: 0 })
+        ),
+        "uncovered zero-width cell fails closed, got {result:?}"
+    );
+}
+
+/// R2: a covered zero-width cell stays a valid continuation, and a wide
+/// grapheme clipped at the row edge stays a blank narrow leading cell.
+#[test]
+fn r2_covered_and_clipped_edges_still_convert() {
+    let settings = ViewSettings::builtin().with_cursor(hidden_cursor());
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 3, 1));
+    buffer.set_stringn(0, 0, "東", 3, Style::default());
+    let snapshot = snapshot_from_buffer(&buffer, &settings).expect("covered edge converts");
+    assert_eq!(snapshot.cell_at(0, 0).expect("leading exists").text(), "東");
+    assert!(snapshot
+        .cell_at(1, 0)
+        .expect("continuation exists")
+        .is_continuation());
+    let mut clipped = Buffer::empty(Rect::new(0, 0, 1, 1));
+    clipped.set_stringn(0, 0, "東", 1, Style::default());
+    let snapshot = snapshot_from_buffer(&clipped, &settings).expect("clipped edge converts");
+    let cell = snapshot.cell_at(0, 0).expect("clipped cell exists");
+    assert!(!cell.is_continuation(), "clipped edge is a narrow leading cell");
+}

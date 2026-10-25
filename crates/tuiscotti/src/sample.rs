@@ -69,10 +69,55 @@ pub const MAX_TEST_ID_BYTES: usize = 240;
 /// One test ID segment limit: 64 ASCII bytes.
 pub const MAX_TEST_ID_SEGMENT_BYTES: usize = 64;
 
-/// Pixel suffix joining a logical test ID to its platform, for example
-/// `views/login/pixels-linux-x86_64`.
-fn pixels_suffix() -> String {
-    format!("/pixels-{}", platform_key())
+/// Read one evidence file through a shared bounded read: bytes past
+/// [`MAX_SAMPLE_FILE_BYTES`] fail as a resource limit instead of loading,
+/// so no evidence read can exhaust memory before validation runs.
+/// A missing file maps to `Ok(None)` so callers keep the
+/// missing-versus-unreadable distinction; every other I/O failure is `Io`.
+///
+/// # Errors
+///
+/// Returns [`SampleError::TooLarge`] when the file passes the limit and
+/// [`SampleError::Io`] when it cannot be read.
+pub(crate) fn read_bounded_optional(
+    path: &std::path::Path,
+) -> Result<Option<Vec<u8>>, SampleError> {
+    let file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(source) => return Err(SampleError::Io { source }),
+    };
+    let mut bounded = file.take(MAX_SAMPLE_FILE_BYTES + 1);
+    let mut bytes = Vec::new();
+    bounded
+        .read_to_end(&mut bytes)
+        .map_err(|source| SampleError::Io { source })?;
+    if bytes.len() as u64 > MAX_SAMPLE_FILE_BYTES {
+        return Err(SampleError::TooLarge {
+            what: "evidence file",
+            bytes: bytes.len() as u64,
+            limit: MAX_SAMPLE_FILE_BYTES,
+        });
+    }
+    Ok(Some(bytes))
+}
+
+/// Read one evidence file that must exist through the shared bounded read.
+///
+/// # Errors
+///
+/// Returns [`SampleError::Io`] for a missing or unreadable file and
+/// [`SampleError::TooLarge`] when the file passes the limit.
+pub(crate) fn read_bounded(path: &std::path::Path) -> Result<Vec<u8>, SampleError> {
+    match read_bounded_optional(path)? {
+        Some(bytes) => Ok(bytes),
+        None => Err(SampleError::Io {
+            source: std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("evidence file {} is missing", path.display()),
+            ),
+        }),
+    }
 }
 
 /// Every failure a sample operation can report, with sources retained.
@@ -602,8 +647,11 @@ impl RenderContract {
 ///
 /// Fields stay private; constructors and accessors are the whole surface.
 /// Field order in the file is the declaration order below and never changes.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+///
+/// There is no derived `Deserialize`: the manual implementation below runs
+/// the same complete validation as [`Sample::from_bytes`], so the serde
+/// path can never bypass gate pairing or digest checks.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Sample {
     schema: SampleSchema,
     test_id: String,
@@ -614,12 +662,19 @@ pub struct Sample {
     observation: Observation,
 }
 
-/// Envelope mirror with a deferred snapshot: lets classification tell an
-/// envelope failure (unknown field, bad gate) apart from a snapshot
-/// validation failure with one parse.
+impl<'de> serde::Deserialize<'de> for Sample {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let envelope = SampleWire::deserialize(deserializer)?;
+        Self::from_wire(envelope).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Private wire mirror with a deferred snapshot: lets classification tell
+/// an envelope failure (unknown field, bad gate) apart from a snapshot
+/// validation failure with one parse. The only way to a [`Sample`].
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct SampleEnvelope {
+struct SampleWire {
     schema: SampleSchema,
     test_id: String,
     gate: Gate,
@@ -640,7 +695,7 @@ impl Sample {
         snapshot: TerminalSnapshot,
         observation: Observation,
     ) -> Result<Self, SampleError> {
-        validate_test_id(test_id, Gate::State)?;
+        validate_test_id(test_id, Gate::State, platform_key().as_str())?;
         Ok(Self {
             schema: SampleSchema,
             test_id: test_id.to_string(),
@@ -669,7 +724,9 @@ impl Sample {
         observation: Observation,
         profile: &Profile,
     ) -> Result<Self, SampleError> {
-        validate_test_id(test_id, Gate::StateAndPixels)?;
+        // Local capture generates the current-platform ID: the suffix must
+        // match this host, and the stored contract below records it.
+        validate_test_id(test_id, Gate::StateAndPixels, platform_key().as_str())?;
         if profile.name() != PROFILE_NAME {
             return Err(SampleError::GateMismatch {
                 detail: format!(
@@ -790,13 +847,17 @@ impl Sample {
     }
 
     /// Serialize to canonical file bytes: declaration field order, stable
-    /// upstream snapshot order, row-major cells. Enforces the file limit.
+    /// upstream snapshot order, row-major cells. Validates before
+    /// serializing, then enforces the file limit, so only valid samples
+    /// ever reach the wire.
     ///
     /// # Errors
     ///
-    /// Returns [`SampleError`] when serialization fails or the bytes pass
-    /// the file limit.
+    /// Returns [`SampleError`] when the sample fails validation, when
+    /// serialization fails, or when the bytes pass the file limit.
     pub fn to_bytes(&self) -> Result<Vec<u8>, SampleError> {
+        self.validate_structure()?;
+        self.validate_image_bytes()?;
         let bytes = serde_json::to_vec(self)
             .map_err(|error| SampleError::InvalidFormat { source: error })?;
         check_file_size(&bytes)?;
@@ -837,7 +898,7 @@ impl Sample {
                 });
             }
         }
-        let envelope: SampleEnvelope = serde_json::from_value(probe).map_err(|error| {
+        let envelope: SampleWire = serde_json::from_value(probe).map_err(|error| {
             let message = error.to_string();
             if message.starts_with("unknown field") {
                 SampleError::UnknownField { detail: message }
@@ -845,6 +906,18 @@ impl Sample {
                 SampleError::InvalidFormat { source: error }
             }
         })?;
+        Self::from_wire(envelope)
+    }
+
+    /// Build a validated sample from one parsed wire envelope: the single
+    /// construction path shared by [`Sample::from_bytes`] and the manual
+    /// [`serde::Deserialize`] implementation, so no parse path can bypass
+    /// structural or image validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SampleError`] for every rejected input; see its variants.
+    fn from_wire(envelope: SampleWire) -> Result<Self, SampleError> {
         let snapshot: TerminalSnapshot =
             serde_json::from_value(envelope.snapshot).map_err(|error| {
                 SampleError::InvalidSnapshot {
@@ -873,13 +946,7 @@ impl Sample {
     /// Returns [`SampleError`] when the file is unreadable, too large, or
     /// fails [`Sample::from_bytes`] validation.
     pub fn from_file(path: &std::path::Path) -> Result<Self, SampleError> {
-        let file = std::fs::File::open(path).map_err(|source| SampleError::Io { source })?;
-        let mut bounded = file.take(MAX_SAMPLE_FILE_BYTES + 1);
-        let mut bytes = Vec::new();
-        bounded
-            .read_to_end(&mut bytes)
-            .map_err(|source| SampleError::Io { source })?;
-        Self::from_bytes(&bytes)
+        Self::from_bytes(&read_bounded(path)?)
     }
 
     /// Serialize and write one sample file through one atomic file write: a
@@ -954,12 +1021,24 @@ impl Sample {
     /// Structural validation without font resolution: gate pairing, test
     /// ID, contract version, grid limits, and cell text limits. Used both
     /// after construction and at comparison time for historical contracts.
+    /// The pixels suffix checks against the stored contract identity, so a
+    /// sample recorded on another platform parses wherever its own ID and
+    /// contract agree; local capture still generates the current-platform
+    /// ID through [`Sample::with_pixels`].
     ///
     /// # Errors
     ///
     /// Returns [`SampleError`] for every structural rejection.
     pub fn validate_structure(&self) -> Result<(), SampleError> {
-        validate_test_id(&self.test_id, self.gate)?;
+        let current_platform;
+        let pixels_platform = match &self.render_contract {
+            Some(contract) => contract.platform_key.as_str(),
+            None => {
+                current_platform = platform_key();
+                current_platform.as_str()
+            }
+        };
+        validate_test_id(&self.test_id, self.gate, pixels_platform)?;
         match self.gate {
             Gate::State => {
                 if self.render_contract.is_some() || self.image.is_some() {
@@ -1059,8 +1138,11 @@ impl Sample {
 }
 
 /// Validate a test ID for its gate: 240 ASCII bytes, 64 ASCII bytes per
-/// non-empty segment, and the platform pixel suffix pairing.
-fn validate_test_id(test_id: &str, gate: Gate) -> Result<(), SampleError> {
+/// non-empty segment, and the pixels suffix pairing against the expected
+/// platform identity. Callers capturing locally pass the current platform;
+/// saved-sample parsing passes the stored contract identity, so historical
+/// samples keep parsing off the platform that recorded them.
+fn validate_test_id(test_id: &str, gate: Gate, pixels_platform: &str) -> Result<(), SampleError> {
     let invalid = |detail: &str| SampleError::InvalidTestId {
         detail: detail.to_string(),
     };
@@ -1086,7 +1168,7 @@ fn validate_test_id(test_id: &str, gate: Gate) -> Result<(), SampleError> {
             )));
         }
     }
-    let suffix = pixels_suffix();
+    let suffix = format!("/pixels-{pixels_platform}");
     match gate {
         Gate::StateAndPixels => {
             if !test_id.ends_with(suffix.as_str()) {

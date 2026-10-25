@@ -377,6 +377,49 @@ fn ci_refusal_probed(
         "CI refusal writes nothing"
     );
     true
+/// Rewrite a pixels candidate's stored contract identity to a foreign
+/// platform, keeping its own test ID in agreement with that contract.
+#[expect(clippy::expect_used, reason = "rework validation fixture")]
+fn with_foreign_platform(bytes: &[u8], platform: &str) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    let old_id = value
+        .get("test_id")
+        .and_then(|id| id.as_str())
+        .expect("candidate carries a test ID")
+        .to_string();
+    let logical = old_id
+        .rsplit_once("/pixels-")
+        .expect("candidate carries a pixels suffix")
+        .0
+        .to_string();
+    value["render_contract"]["platform_key"] = serde_json::json!(platform);
+    value["test_id"] = serde_json::json!(format!("{logical}/pixels-{platform}"));
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// R21: approval of a sample recorded on another platform does not trust
+/// the stored pixels. Parsing validates the ID against the stored
+/// contract identity, and approval separately attempts exact reproduction
+/// by re-rendering the snapshot on the current host.
+#[test]
+fn r21_foreign_platform_candidate_approves_through_local_rerender() {
+    let (temp, baselines, _artifacts) = temp_store();
+    let local = pixel_sample_bytes("r21/login", &base_snapshot());
+    let candidate_bytes = with_foreign_platform(&local, "far-far-away");
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(temp.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
+    let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    assert_eq!(accepted.test_id(), "r21/login/pixels-far-far-away");
+    assert_eq!(accepted.baseline_sha256(), candidate_digest);
+    assert_eq!(
+        read_baseline_file(&baselines, "r21/login/pixels-far-far-away"),
+        candidate_bytes
+    );
 }
 
 /// C09: a missing baseline fails the frozen check without a baseline write,
