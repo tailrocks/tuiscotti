@@ -72,38 +72,40 @@ fn write_output(
 }
 
 /// Run `render` and return the process exit code.
+///
+/// Only the `--out` extension rejection is an argument error (exit 2);
+/// every sample-content failure, including `INVALID_SAMPLE` from a
+/// corrupt sample, exits 3 per Section 16.2.
 pub(crate) fn cmd_render(sample_path: &Path, out: &Path, as_json: bool) -> i32 {
-    let failed = |reason: String, code: &'static str, candidate_sha256: Option<String>| {
-        eprintln!("error: {reason}");
-        let result = CliResult::new(
-            "render",
-            "error",
-            None,
-            Some(reason),
-            Some(encode_path(sample_path)),
-            candidate_sha256,
-            None,
-            None,
-            Some(code.to_string()),
-        );
-        emit(
-            &result,
-            if code == "INVALID_SAMPLE" { 2 } else { 3 },
-            as_json,
-        )
-    };
+    let failed =
+        |reason: String, code: &'static str, candidate_sha256: Option<String>, exit_code: i32| {
+            eprintln!("error: {reason}");
+            let result = CliResult::new(
+                "render",
+                "error",
+                None,
+                Some(reason),
+                Some(encode_path(sample_path)),
+                candidate_sha256,
+                None,
+                None,
+                Some(code.to_string()),
+            );
+            emit(&result, exit_code, as_json)
+        };
     let extension = out.extension().and_then(OsStr::to_str);
     if extension != Some("png") && extension != Some("html") {
         return failed(
             "unsupported output extension: expected a `.png` or `.html` --out path".to_string(),
             "INVALID_SAMPLE",
             None,
+            2,
         );
     }
     let bytes = match read_sample_bytes(sample_path) {
         Ok(bytes) => bytes,
         Err(failure) => {
-            return failed(failure.message(sample_path), failure.code(), None);
+            return failed(failure.message(sample_path), failure.code(), None, 3);
         }
     };
     let candidate_sha256 = Sample::candidate_id(&bytes);
@@ -112,7 +114,7 @@ pub(crate) fn cmd_render(sample_path: &Path, out: &Path, as_json: bool) -> i32 {
         Err(error) => {
             let reason = error.to_string();
             let code = sample_code(&error);
-            return failed(reason, code, Some(candidate_sha256));
+            return failed(reason, code, Some(candidate_sha256), 3);
         }
     };
     let test_id = sample.test_id().to_string();
@@ -121,7 +123,7 @@ pub(crate) fn cmd_render(sample_path: &Path, out: &Path, as_json: bool) -> i32 {
     let (png_bytes, profile_text, reason) = match sample.image() {
         Some(image) => match decode_stored_png(image.png_base64(), image.width(), image.height()) {
             Ok(png) => (png, "stored image".to_string(), None),
-            Err(reason) => return failed(reason, "INVALID_IMAGE", Some(candidate_sha256)),
+            Err(reason) => return failed(reason, "INVALID_IMAGE", Some(candidate_sha256), 3),
         },
         None => match render_state_only(&sample) {
             Ok(png) => (
@@ -129,11 +131,11 @@ pub(crate) fn cmd_render(sample_path: &Path, out: &Path, as_json: bool) -> i32 {
                 PROFILE_NAME.to_string(),
                 Some(PROFILE_NAME.to_string()),
             ),
-            Err((reason, code)) => return failed(reason, code, Some(candidate_sha256)),
+            Err((reason, code)) => return failed(reason, code, Some(candidate_sha256), 3),
         },
     };
     if let Err(reason) = write_output(out, &sample, &profile_text, &png_bytes) {
-        return failed(reason, "IO", Some(candidate_sha256));
+        return failed(reason, "IO", Some(candidate_sha256), 3);
     }
     let result = CliResult::new(
         "render",

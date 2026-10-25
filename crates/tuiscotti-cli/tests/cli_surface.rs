@@ -70,7 +70,8 @@ fn unknown_command_is_usage_error_without_json() {
 #[test]
 fn removed_commands_stay_removed() {
     for name in [
-        "capture", "diff", "review", "session", "machine", "doctor", "schema",
+        "attach", "capture", "diff", "doctor", "import", "init", "input", "inspect", "machine",
+        "observe", "record", "review", "schema", "session", "start", "stop", "trace",
     ] {
         let out = run_cli(&[name]);
         assert_eq!(code(&out), Some(2), "{name} exits 2");

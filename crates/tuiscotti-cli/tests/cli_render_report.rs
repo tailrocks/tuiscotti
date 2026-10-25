@@ -162,6 +162,51 @@ fn render_rejects_other_extensions() {
     }
 }
 
+/// Corrupt sample content exits 3: garbage JSON is `INVALID_SAMPLE`,
+/// matching `check`. Only the `--out` extension rejection above exits 2.
+#[test]
+fn render_garbage_sample_exits_three_with_invalid_sample() {
+    let (dir, _baselines, _artifacts) = temp_store();
+    let garbage = write_file(dir.path(), "garbage.tui.json", b"{not json");
+    let result = run_cli(&[
+        "--json",
+        "render",
+        "--sample",
+        &garbage.to_string_lossy(),
+        "--out",
+        &dir.path().join("garbage.png").to_string_lossy(),
+    ]);
+    assert_eq!(code(&result), Some(3));
+    let value = parse_json(&result);
+    assert_eq!(value["status"], "error");
+    assert_eq!(value["error_code"], "INVALID_SAMPLE");
+    assert_no_color(&result, "garbage render");
+}
+
+/// An oversized sample exits 3 with `RESOURCE_LIMIT`: one byte past
+/// `MAX_SAMPLE_FILE_BYTES` never loads.
+#[test]
+fn render_oversized_sample_exits_three_with_resource_limit() {
+    let (dir, _baselines, _artifacts) = temp_store();
+    let len = usize::try_from(tuiscotti::sample::MAX_SAMPLE_FILE_BYTES + 1)
+        .expect("sample limit fits in usize");
+    let big = vec![b'x'; len];
+    let sample = write_file(dir.path(), "big.tui.json", &big);
+    let result = run_cli(&[
+        "--json",
+        "render",
+        "--sample",
+        &sample.to_string_lossy(),
+        "--out",
+        &dir.path().join("big.png").to_string_lossy(),
+    ]);
+    assert_eq!(code(&result), Some(3));
+    let value = parse_json(&result);
+    assert_eq!(value["status"], "error");
+    assert_eq!(value["error_code"], "RESOURCE_LIMIT");
+    assert_no_color(&result, "oversized render");
+}
+
 /// A stored PNG that does not decode exits 3 with `INVALID_IMAGE`.
 #[test]
 fn render_rejects_undecodable_stored_png() {

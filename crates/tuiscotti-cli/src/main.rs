@@ -19,8 +19,11 @@
 //! offline operation, 1 for a missing baseline or a differing sample, 2
 //! for invalid arguments (clap usage errors stay at 2 with no JSON
 //! result), and 3 for file, format, profile, rendering, approval, or I/O
-//! failures. Error codes follow the Section 16.3 table; malformed digest
-//! arguments report `INVALID_SAMPLE` at exit 2, everything else exits 3.
+//! failures. Error codes follow the Section 16.3 table. Exit 2 covers
+//! both argument-error shapes: `render`'s `--out` extension rejection
+//! and `accept`'s malformed-digest arguments (both report
+//! `INVALID_SAMPLE`); every sample-content failure, including corrupt
+//! samples, exits 3.
 //!
 //! The requested result goes to stdout (one JSON object plus a newline
 //! with `--json`, one summary line otherwise). Diagnostics go to stderr.
