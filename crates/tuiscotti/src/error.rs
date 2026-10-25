@@ -16,6 +16,10 @@ pub enum Error {
     Screen(tuiscotti_core::screen::ScreenError),
     /// Invalid canonical frame.
     Frame(tuiscotti_core::frame::FrameError),
+    /// Sample construction, validation, or rendering failed (D02).
+    Sample(crate::sample::SampleError),
+    /// Render profile lookup or build failed (D02).
+    Profile(crate::render_profile::ProfileError),
     /// Query construction, resolution, or action refusal.
     Locate(tuiscotti_core::locate::LocateError),
     /// Rendering or export refused the input.
@@ -46,6 +50,8 @@ impl Display for Error {
         match self {
             Self::Screen(e) => write!(f, "{e}"),
             Self::Frame(e) => write!(f, "{e}"),
+            Self::Sample(e) => write!(f, "{e}"),
+            Self::Profile(e) => write!(f, "{e}"),
             Self::Locate(e) => write!(f, "{e}"),
             Self::Render(e) => write!(f, "{e}"),
             Self::Assert(e) => write!(f, "{e}"),
@@ -68,6 +74,8 @@ impl std::error::Error for Error {
         match self {
             Self::Screen(e) => Some(e),
             Self::Frame(e) => Some(e),
+            Self::Sample(e) => Some(e),
+            Self::Profile(e) => Some(e),
             Self::Locate(e) => Some(e),
             Self::Render(e) => Some(e),
             Self::Assert(e) => Some(e),
@@ -97,6 +105,8 @@ macro_rules! convert {
 
 convert!(Screen, tuiscotti_core::screen::ScreenError);
 convert!(Frame, tuiscotti_core::frame::FrameError);
+convert!(Sample, crate::sample::SampleError);
+convert!(Profile, crate::render_profile::ProfileError);
 convert!(Locate, tuiscotti_core::locate::LocateError);
 convert!(Render, tuiscotti_render::render::RenderError);
 convert!(Assert, tuiscotti_insta::assert::AssertError);

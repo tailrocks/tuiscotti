@@ -19,7 +19,13 @@ test-overrides = ["tuiscotti-runtime/test-overrides"]
 # unpublished snapshot APIs resolve through the temporary patch procedure in
 # GOAL Section 23.1 (explicit `--config` patch arguments, never committed).
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
+# D02 sample format: canonical JSON, digests, PNG decoding for evidence.
+base64.workspace = true
+image.workspace = true
 ratatui.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 tuiscotti-core = { version = "0.2.0", path = "../tuiscotti-core" }
 tuiscotti-render = { version = "0.2.0", path = "../tuiscotti-render" }
 # default-features = false: the facade `pty` feature (default on) re-adds the

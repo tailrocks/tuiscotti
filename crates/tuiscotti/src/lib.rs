@@ -21,8 +21,23 @@ pub mod error;
 // model. This module owns the new reduced surface; the surrounding
 // re-exports below stay until D07 removes the replaced engine.
 pub mod view;
+// D02 sample format (GOAL 13.1/13.3) and render profile (GOAL 13.2)
+// over that snapshot model. The registry file keeps its packet name
+// `profile.rs`; the module is `render_profile` because `profile` still
+// names the replaced renderer until D07 removes it.
+#[path = "profile.rs"]
+pub mod render_profile;
+pub mod sample;
 
 pub use error::{Error, Result};
+// `sample::Observation` and `render_profile::Profile` stay behind their
+// module paths: those top-level names still belong to the replaced engine.
+pub use sample::{
+    CONTRACT_VERSION, ContractFont, CursorPhase, Gate, ImageFormat, MAX_CELL_TEXT_BYTES,
+    MAX_IMAGE_DIM, MAX_RGBA_BYTES, MAX_SAMPLE_CELLS, MAX_SAMPLE_FILE_BYTES, MAX_TEST_ID_BYTES,
+    MAX_TEST_ID_SEGMENT_BYTES, RenderContract, SAMPLE_SCHEMA, Sample, SampleError, SampleImage,
+    SampleSchema,
+};
 pub use view::{
     ViewCursor, ViewError, ViewResult, ViewSettings, capture_view, snapshot_from_buffer,
 };
