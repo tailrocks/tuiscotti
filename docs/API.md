@@ -39,8 +39,8 @@ because tuiscotti does not wrap or re-export them.
 
 | Item | Status | Notes |
 |---|---|---|
-| `approve::ApprovalStore::accept` | implemented | 19-step digest-arbitrated transaction: takes the candidate path, candidate SHA-256, and expected baseline (`missing` for first approval). Re-renders image samples through the upstream renderer and rejects inconsistent pixels, unknown profiles, stale digests, and malformed input with typed codes. |
-| `approve::{ApproveError, ACCEPT_SCHEMA, EVIDENCE_SCHEMA, sample_code}` | implemented | Machine-readable codes shared with the CLI; CI refusal is `approval is forbidden while CI is set`. |
+| `approve::ApprovalStore::accept` | implemented | 20-step digest-arbitrated transaction: takes the candidate path, candidate SHA-256, and expected baseline (`missing` for first approval). Validates the candidate test ID unconditionally, re-renders image samples through the upstream renderer with render-identity verification (recorded font/renderer/geometry/policy identity must match the re-render; a foreign platform key alone never rejects reproducible pixels), and commits the baseline with one atomic rename as the final fallible filesystem operation — no approval-success record is persisted, and the change summary rides in the returned outcome. Rejects inconsistent identity or pixels, unknown profiles, stale digests, and malformed input with typed codes. |
+| `approve::{ApproveError, AcceptOutcome, sample_code}` | implemented | Machine-readable codes and the in-memory change summary shared with the CLI; CI refusal is `approval is forbidden while CI is set`. |
 | Approval under `CI` | unsupported | Any set `CI` value refuses before any write. No override exists. |
 
 ## `tuiscotti`: reports (`report`)

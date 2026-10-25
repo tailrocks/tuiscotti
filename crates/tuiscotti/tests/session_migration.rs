@@ -316,6 +316,8 @@ fn d06_c02_live_session_sample_through_downstream_path() {
             MISSING_BASELINE,
         ) {
             Err(error @ ApproveError::CiApprovalForbidden) => {
+                // The exit-3 mapping lives at the CLI boundary; the
+                // library keeps the typed code.
                 assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
             }
             other => panic!("live approval under CI must refuse, got {other:?}"),

@@ -31,7 +31,7 @@ pub mod view;
 #[path = "profile.rs"]
 pub mod render_profile;
 
-pub use approve::{ACCEPT_SCHEMA, AcceptOutcome, ApprovalStore, ApproveError, EVIDENCE_SCHEMA};
+pub use approve::{AcceptOutcome, ApprovalStore, ApproveError};
 pub use check::{
     CHECK_SCHEMA, CheckError, CheckFailure, CheckOutcome, CheckSuccess, FrozenStore,
     MISSING_BASELINE, MismatchReason, validate_test_id,
