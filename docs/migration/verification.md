@@ -10,6 +10,7 @@ or `--config`); the `tui-test-rs` patch from untracked task-local
 - `cargo fmt --all -- --check`: clean.
 - `cargo clippy --workspace --all-targets --locked --offline -- -D warnings`: zero warnings.
 - `cargo nextest run --workspace --locked --offline`: 167 run, 167 passed, 0 skipped.
+- Final re-run on the F01 HEAD (docs-only changes after V01): 167/167 green, disk `ok`.
 - Per suite: `pure_view` 30, `approval` 30, `samples` 20, `tuiscotti`
   unit 19, `compare` 14, `session_migration` 12, `cli_check_accept` 12,
   `cli_render_report` 12, `cli_surface` 8, `no_duplicate_engine` 5,
