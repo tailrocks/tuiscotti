@@ -59,7 +59,7 @@ Do not recalculate this palette from a later dependency version. Copy these valu
 | U07 | `Session::mouse_checked`, `Session::paste`, `Session::focus` | raw `write_monitor_input_raw`, backend-aware key encoders | Add checked methods; keep raw methods unchanged |
 | U08 | `Session::spawn_with`, `LaunchOptions` (OsString env/args, ordered ops) | `RunOptions`/`OpenOptions` string-based launch | Add new types; do not add fields to `RunOptions`/`OpenOptions` |
 | U09 | `Session::write_bytes(&[u8])` | text input methods | Add additive method; keep text methods unchanged |
-| U10 | `Session::wait_quiet` plus a session method with request cancellation | `Operation::WaitIdle`, `Engine::execute_with_context_cancellable()` | Add new options type; keep `WaitIdle` behavior. The cancellation method has no proposed name in Section 8.2; the U10 writer selects it and records the mapping before dependent changes. |
+| U10 | `Session::wait_quiet` plus `Session::wait_quiet_cancellable(&WaitQuietOptions, &dyn Fn() -> bool)` | `Operation::WaitIdle`, `Engine::execute_with_context_cancellable()` | Add new options type; keep `WaitIdle` behavior. Cancellation name selected by the U10 writer: mirrors the engine's `execute_with_context_cancellable` vocabulary; no `Session::interrupt()`, no second framework. |
 | U11 | underline color in shared paint data | underline style recorded; raster geometry shared | Keep captured underline color through paint conversion |
 
 ## Snapshot contract fields (Section 8.3) and resource limits (Section 8.4)

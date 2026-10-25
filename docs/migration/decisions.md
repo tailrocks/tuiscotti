@@ -42,6 +42,14 @@ U09 review (verdict accept) left three SUGGESTIONs:
 - Windows PTY byte behavior: recorded as unavailable. The test file is `#![cfg(unix)]`; Windows CI gives vacuous passage only.
 - `write_bytes` insertion point (after `Session::write`): kept stable for U07/U08 sequencing. U07 and U08 add methods in distinct regions; merges stay mechanical.
 
+## D-U10-1: Deadline-tie race and review rework
+
+The first U10 review found a BLOCKER: coincident quiet and overall deadlines could return success when a blocking capture straddled the deadline. Fixed with one post-observation timestamp checked overall-before-quiet in both arms. The re-review closed all three findings after three consecutive 18/18 focused runs. Evidence: `request_waits.rs` U10-J stability runs.
+
+## D-U07-1: Paste-terminator test gap
+
+The first U07 review found one REQUIRED gap: the specified paste-terminator rejection had an implementation but no test. Fixed with `paste_terminator_rejected_before_write` (Rejected variant plus zero new bytes). Re-review closed all four findings. Empty-paste framing asymmetry is documented on the method; the unreachable `MouseMode::None` arm carries a comment.
+
 ## D-STACK-1: Dependent PR stacks
 
 U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.
