@@ -181,3 +181,22 @@ open. Additive merges only, never history rewrites. If a task branch
 moves, re-merge the stack forward, record the new head, bump the pinned
 rev, re-run the full gates, and re-review the swap. At R02, remove the
 `[patch]` section entirely and depend on the registry version.
+
+## D-EXT-1: Independent review verdict and rework plan
+
+Three-reviewer external audit (reviewed heads: tuiscotti#15 @ `b06721b`,
+U01 `b3a3991`, U06 `4fb316a`, U02 `364719a`, U09 `46a2864`, U03 `6a3c88f`,
+U10 `1742fba`, U07 `b0da622`, U11 `071bf75`, U04 `3c37c6a`, U05 `a9a412b`)
+returned REQUEST CHANGES on #15 and all upstream PRs except U06
+(APPROVE), plus NO-GO on v0.3.0: 7 BLOCKERs (approval ID bypass, commit
+ordering, U01 temp-file ownership, contract verification, CI-vs-refusal
+test conflict, registry-graph and font-asset package failures) and 27
+REQUIREDs. Two proposed rendering defects were withdrawn by the reviewers
+themselves. Disposition: merge of #15 and the v0.3.0 release are BLOCKED
+until the rework loop (fix → green gates → re-review) accepts. CI on #15
+independently confirms the B5 failure mode (lanes fail under `CI=true`).
+Downstream batch-1 rework runs on `goal/rework-{b5ci,cli,approval,
+validation,packaging}` worktrees off `b06721b`; upstream batch follows
+per-PR in the task worktrees, then qual-stack reintegration (a new
+reviewed head, incl. corrected U11) and downstream re-pin. Verify-first
+rule: reproduce before fixing; invalid findings return with proof.
