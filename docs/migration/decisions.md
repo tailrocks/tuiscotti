@@ -95,3 +95,16 @@ U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted
 ## D-SIGN-1: Sign-off identity
 
 Upstream history carries `Signed-off-by` on maintainer commits. Task commits get `Signed-off-by: Alexey Zhokhov <alexey@zhokhov.com>`, which matches both the repository git config and the `donbeave` GitHub identity (`gh api user`). No invented identity.
+
+## D-GUARD-1: rust-build-guard compliance path
+
+The standing Rust rule now routes all Cargo through `/Users/donbeave/.local/bin/rust-build-guard -- mise exec -- cargo ...`. The guard hard-denies (exit 125, no override): `cargo test` (only `nextest run/list` allowed), `--config` / `--manifest-path` args, and any applicable Cargo config containing `include` or `env`. Consequences recorded here because they overrule older packets (including D-QUAL-1's "`--config` args" direction):
+
+- All downstream builds/tests run as `rust-build-guard -- mise exec -- cargo nextest run ...` (or `check`/`clippy`/`fmt`), preceded by a `disk-check` probe. Never `cargo test`, never `--config`, never plain `cargo`.
+- The tui-test path patch is expressed as a task-local UNTRACKED `repos/downstream/.cargo/config.toml` (`[patch.crates-io] tui-test-rs = { path = ".../upstream-qual/crates/tui-test" }`), which passes the guard scan (no `include`/`env`). Never commit it, never add it to `.gitignore`; remove it at R02 when the released dependency is adopted.
+- Upstream checkouts (`repos/upstream*`) can never build via the guard: their committed `.cargo/config.toml` carries an `[env]` table (simdutf backend vars), which the guard rejects categorically. No bypass, no config edits upstream. Upstream merge validation therefore runs compilation-through-downstream-dependency (`cargo check -p tuiscotti` compiles the patched `tui-test-rs`), plus each task branch's own CI on its draft PR. Upstream test suites on merged stacks are re-run only where a guard exception is granted.
+- `cargo metadata` / `cargo tree` (needed at D07) are NOT in the guard's supported set (`build/check/clippy/fmt/doc/run/nextest` only); D07 must request a policy ruling or use `nextest`-reachable equivalents.
+
+## D-QUAL-2: Qual-stack merge fixups and validation
+
+Assembling `goal/qual-stack` (U07 `b0da622`, U08 `6175db3`, U09 `46a2864`, U10 `1742fba` merges) needed two fixups, both stack-assembly commits, not task work: `2482ff5` removed a leftover `<<<<<<< HEAD` marker in `session.rs`; `049fb8c` added the missing `last_output: None` field to the `spawn_with` `TermState` initializer (U10 added the field; the U08-side initializer was merged without it; E0063 caught by the guard-compliant downstream check). Validation: `cargo check -p tuiscotti --locked --offline` green through the guard (compiles `tui-test-rs` at the stack head). The stack is otherwise frozen; D06+ patch against it.
