@@ -21,6 +21,10 @@ test-overrides = ["tuiscotti-runtime/test-overrides"]
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 # D02 sample format: canonical JSON, digests, PNG decoding for evidence.
 base64.workspace = true
+# D04 approval locking: OS file locks (`flock`/`LockFileEx`) on the stable
+# lock file. Already in the graph through `tuiscotti-runtime`; promoted to a
+# direct dependency so `check.rs` names it, with no new lockfile entries.
+fs2.workspace = true
 image.workspace = true
 ratatui.workspace = true
 serde.workspace = true
@@ -36,6 +40,8 @@ tuiscotti-insta = { version = "0.2.0", path = "../tuiscotti-insta" }
 
 [dev-dependencies]
 base64.workspace = true
+# D04 cross-process lock tests hold the same stable lock file through `fs2`.
+fs2.workspace = true
 image.workspace = true
 insta.workspace = true
 ratatui.workspace = true

@@ -24,6 +24,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use fs2::FileExt as _;
 use image::ImageDecoder as _;
 use sha2::{Digest, Sha256};
 use tui_test::pixel::{PixelError, compare_rgba};
@@ -341,6 +342,51 @@ pub struct FrozenStore {
     artifacts: PathBuf,
 }
 
+/// What D04 approval records for a present baseline: pass, or the change
+/// set for the approval report.
+///
+/// No test-ID or gate cross-comparison shapes this value: the
+/// [`FrozenStore::check`] `TestId`/`Policy` arms never run here. Only snapshot state, render
+/// contracts, and decoded pixels do. No evidence files are written; the
+/// caller already holds the approval lock over both inputs.
+pub(crate) enum PresentComparison {
+    /// The candidate equals the baseline under the compared evidence.
+    Pass,
+    /// The candidate differs; the fields mirror [`CheckFailure`].
+    Failure {
+        /// The structured mismatch reason (`State`, `Policy`, `Contract`,
+        /// `Dimensions`, or `Pixels`; never `Missing` or `TestId`).
+        reason: MismatchReason,
+        /// Changed top-level state fields, in fixed order.
+        changed_fields: Vec<String>,
+        /// Changed cells with coordinates, row-major and bounded.
+        changed_cells: Vec<ReportedCell>,
+        /// The exact changed-cell count, without the report bound.
+        changed_cell_total: usize,
+        /// Changed pixel count (zero when pixels were not compared).
+        pixel_changed: u64,
+        /// Compared pixel count (zero after a dimension mismatch).
+        pixel_compared: u64,
+        /// Smallest changed rectangle as `(min_x, min_y, max_x, max_y)`.
+        pixel_bounds: Option<[u32; 4]>,
+    },
+}
+
+impl PresentComparison {
+    /// Wrap one state diff under its reason.
+    fn from_state(reason: MismatchReason, state: &StateDiff) -> Self {
+        Self::Failure {
+            reason,
+            changed_fields: state.changed_fields.clone(),
+            changed_cells: state.changed_cells.clone(),
+            changed_cell_total: state.changed_cell_total,
+            pixel_changed: state.pixel_changed,
+            pixel_compared: state.pixel_compared,
+            pixel_bounds: state.pixel_bounds,
+        }
+    }
+}
+
 impl FrozenStore {
     /// Open a frozen store over two roots.
     ///
@@ -565,6 +611,54 @@ impl FrozenStore {
                     Some(&diff),
                 )?;
                 Ok(CheckOutcome::Failure(failure))
+            }
+        }
+    }
+
+    /// Compare a validated candidate against known-present baseline bytes
+    /// for D04 approval evidence.
+    ///
+    /// Both samples are already parsed and validated by the caller; this
+    /// only diffs. A state-gate candidate passes on equal snapshots (the
+    /// `state` gate ignores image and render metadata entirely). A
+    /// baseline without image evidence records the gate shape without
+    /// comparing gate enums. Otherwise contracts then decoded pixels
+    /// decide, exactly as in [`FrozenStore::check`].
+    pub(crate) fn compare_present(
+        candidate: &Sample,
+        baseline: &Sample,
+    ) -> Result<PresentComparison, CheckError> {
+        let state = diff_snapshots(candidate.snapshot(), baseline.snapshot());
+        if !state.is_equal() {
+            return Ok(PresentComparison::from_state(MismatchReason::State, &state));
+        }
+        if candidate.gate() == Gate::State {
+            return Ok(PresentComparison::Pass);
+        }
+        if baseline.image().is_none() {
+            let gate = StateDiff::named("gate");
+            return Ok(PresentComparison::from_state(MismatchReason::Policy, &gate));
+        }
+        match decide_pixels(candidate, baseline)? {
+            PixelVerdict::Equal => Ok(PresentComparison::Pass),
+            PixelVerdict::Dimensions => {
+                let dimensions = StateDiff::named("image_dimensions");
+                Ok(PresentComparison::from_state(
+                    MismatchReason::Dimensions,
+                    &dimensions,
+                ))
+            }
+            PixelVerdict::Different {
+                changed,
+                compared,
+                bounds,
+                ..
+            } => {
+                let pixels = StateDiff::pixels(changed, compared, bounds);
+                Ok(PresentComparison::from_state(
+                    MismatchReason::Pixels,
+                    &pixels,
+                ))
             }
         }
     }
@@ -1645,18 +1739,22 @@ fn is_hex_digest(value: &str) -> bool {
 
 // ---------------------------------------------------------------------------
 // D04 approval-lock region (GOAL Section 15). Only approval-lock items live
-// in this region: the lock file name, the acquisition deadline, the
-// fresh-file lock guard, and its unit tests. No comparison, evidence, or
-// store-path logic changes here.
+// in this region: the lock file name, the acquisition deadline, the OS-lock
+// guard, and its unit tests. No comparison, evidence, or store-path logic
+// changes here.
 // ---------------------------------------------------------------------------
 
 /// File name of the per-root approval lock inside the baseline root.
 ///
-/// The lock file is created fresh by its holder with exclusive creation, so
-/// a holder never opens a pre-existing file as its lock. It exists only
-/// while the approval transaction runs and is removed on release. Presence
-/// of the file carries no cross-process meaning: locks are not portable, so
-/// no cross-process before-or-after file semantics follow from it.
+/// The lock file is STABLE: it is created once when missing and kept after
+/// every release. It is never unlinked, never truncated, and never created
+/// anew at a held path. Mutual exclusion is the OS file lock
+/// (`flock`/`LockFileEx` through `fs2`) on the open handle, held from lock
+/// acquisition (transaction step 4) through the baseline read, digest
+/// comparison, and atomic replacement, and released at step 19 when the
+/// guard drops. A stale file from a dead process never blocks: the file
+/// carries no lock state, so the next holder opens it and locks it
+/// promptly. Locks serialize holders across processes as well as threads.
 pub(crate) const APPROVAL_LOCK_FILE: &str = ".tuiscotti-approval.lock";
 
 /// How long approval waits for a held lock before it reports a timeout.
@@ -1667,21 +1765,26 @@ const APPROVAL_LOCK_POLL: std::time::Duration = std::time::Duration::from_millis
 
 /// A held per-root approval lock.
 ///
-/// The guard owns the exclusively created lock file: creation and removal
-/// bracket the transaction, so no stale lock file survives a completed or
-/// failed transaction. A process that dies mid-transaction can leave the
-/// empty file behind; its presence alone never grants the lock, and an
-/// operator removes it.
+/// The guard owns the open handle on the stable lock file: dropping it
+/// releases the OS lock while the file persists for the next holder.
 pub(crate) struct ApprovalFileLock {
-    path: std::path::PathBuf,
+    file: std::fs::File,
+}
+
+impl std::fmt::Debug for ApprovalFileLock {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ApprovalFileLock")
+            .finish_non_exhaustive()
+    }
 }
 
 /// Why approval lock acquisition failed.
 #[derive(Debug)]
 pub(crate) enum ApprovalLockError {
-    /// Another holder kept the lock past the acquisition deadline.
+    /// Another holder kept the OS lock past the acquisition deadline.
     Timeout,
-    /// The lock file could not be created, read, or removed.
+    /// The lock file could not be opened or created.
     Io(std::io::Error),
 }
 
@@ -1712,73 +1815,55 @@ impl From<std::io::Error> for ApprovalLockError {
 impl ApprovalFileLock {
     /// Acquire the approval lock for a canonical baseline root.
     ///
-    /// The lock file is created exclusively: when a regular file already
-    /// exists, this call waits for the deadline instead of opening the held
-    /// file, then reports [`ApprovalLockError::Timeout`]. A directory or
-    /// symlink at the lock path fails immediately. This call never creates
+    /// The stable file is opened or created (never exclusively: a held path
+    /// is opened, not recreated), then the OS lock is taken with
+    /// non-blocking attempts until `timeout`. A directory at the lock path,
+    /// a read-only root, or a missing root fails fast with
+    /// [`ApprovalLockError::Io`] without waiting. This call never creates
     /// directories; the root must already exist.
     pub(crate) fn acquire(
         baseline_root: &std::path::Path,
         timeout: std::time::Duration,
     ) -> Result<Self, ApprovalLockError> {
         let path = baseline_root.join(APPROVAL_LOCK_FILE);
+        let file = open_lock_file(&path)?;
         let start = std::time::Instant::now();
         loop {
-            match create_lock_file(&path) {
-                Ok(()) => return Ok(Self { path }),
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if !held_lock_is_a_file(&path)? {
-                        return Err(ApprovalLockError::Io(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            format!(
-                                "approval lock path {} is not a regular file",
-                                path.display()
-                            ),
-                        )));
-                    }
-                    if start.elapsed() >= timeout {
-                        return Err(ApprovalLockError::Timeout);
-                    }
-                    std::thread::sleep(APPROVAL_LOCK_POLL);
-                }
-                Err(error) => return Err(ApprovalLockError::Io(error)),
+            if file.try_lock_exclusive().is_ok() {
+                return Ok(Self { file });
             }
+            if start.elapsed() >= timeout {
+                return Err(ApprovalLockError::Timeout);
+            }
+            std::thread::sleep(APPROVAL_LOCK_POLL);
         }
     }
 }
 
 impl Drop for ApprovalFileLock {
     fn drop(&mut self) {
-        drop(std::fs::remove_file(&self.path));
+        // Best-effort unlock; closing the handle releases the OS lock
+        // regardless, and the file persists for the next holder.
+        if self.file.unlock().is_err() {
+            // The close below still releases the lock; nothing to report.
+        }
     }
 }
 
-/// True when the path blocking lock creation is a regular file: a held
-/// lock that may release. Anything else at the lock path (a directory, a
-/// symlink, or a raced removal) is never waited on: directories and links
-/// fail fast, and a disappearance retries creation.
-fn held_lock_is_a_file(path: &std::path::Path) -> Result<bool, ApprovalLockError> {
-    match std::fs::symlink_metadata(path) {
-        Ok(meta) => Ok(meta.file_type().is_file()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
-        Err(error) => Err(ApprovalLockError::Io(error)),
-    }
-}
-
-/// Create the lock file exclusively with owner-only permissions on Unix.
+/// Open or create the stable lock file without truncating it.
 ///
-/// `create_new` fails when the path already exists, so a second holder can
-/// never reuse the first holder's file as its own lock. The handle closes
-/// on return; the file's existence is the lock signal.
-fn create_lock_file(path: &std::path::Path) -> Result<(), std::io::Error> {
+/// Plain creation (not `create_new`): an existing file — held or stale — is
+/// opened as is, so a held path is never recreated and a stale file keeps
+/// no lock state. Owner-only permissions apply when the file is created.
+fn open_lock_file(path: &std::path::Path) -> Result<std::fs::File, ApprovalLockError> {
     let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
+    options.read(true).write(true).create(true).truncate(false);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt as _;
         options.mode(0o600);
     }
-    options.open(path).map(|_| ())
+    options.open(path).map_err(ApprovalLockError::Io)
 }
 
 #[cfg(test)]
@@ -1792,50 +1877,84 @@ mod approval_lock_tests {
     }
 
     #[test]
-    fn acquire_creates_a_fresh_lock_file() {
+    fn acquire_creates_the_stable_file_when_missing() {
         let dir = lock_dir();
         let expected = dir.path().join(APPROVAL_LOCK_FILE);
         assert!(!expected.exists(), "no lock file before acquisition");
         let _lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
             .expect("first acquisition succeeds");
-        assert!(expected.exists(), "lock file exists while held");
+        assert!(expected.is_file(), "lock file exists while held");
     }
 
     #[test]
-    fn release_removes_the_lock_file() {
+    fn acquire_opens_the_stable_file_without_recreating_it() {
+        let dir = lock_dir();
+        let expected = dir.path().join(APPROVAL_LOCK_FILE);
+        std::fs::write(&expected, b"stable").expect("stale file pre-creates");
+        let _lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
+            .expect("acquisition opens the stale file");
+        assert_eq!(
+            std::fs::read(&expected).expect("stable file reads"),
+            b"stable",
+            "a held path is opened, never recreated"
+        );
+    }
+
+    #[test]
+    fn release_keeps_the_lock_file() {
         let dir = lock_dir();
         let expected = dir.path().join(APPROVAL_LOCK_FILE);
         let lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
             .expect("acquisition succeeds");
         drop(lock);
-        assert!(!expected.exists(), "lock file is gone after release");
+        assert!(expected.is_file(), "lock file persists after release");
     }
 
     #[test]
-    fn held_lock_times_out_instead_of_opening_the_file() {
+    fn held_lock_times_out_without_stealing_the_file() {
         let dir = lock_dir();
+        let expected = dir.path().join(APPROVAL_LOCK_FILE);
         let _held = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
             .expect("first acquisition succeeds");
         let started = std::time::Instant::now();
         let outcome = ApprovalFileLock::acquire(dir.path(), Duration::from_millis(120));
         assert!(
             matches!(outcome, Err(super::ApprovalLockError::Timeout)),
-            "a held lock reports a timeout"
+            "a held OS lock reports a timeout"
         );
         assert!(
             started.elapsed() < Duration::from_secs(5),
             "the wait stops at its deadline"
         );
+        assert!(expected.is_file(), "the wait never removes the file");
     }
 
     #[test]
-    fn release_frees_the_lock_for_the_next_holder() {
+    fn release_frees_the_os_lock_on_the_same_file() {
         let dir = lock_dir();
+        let expected = dir.path().join(APPROVAL_LOCK_FILE);
         let first = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
             .expect("first acquisition succeeds");
         drop(first);
-        let second = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5));
-        assert!(second.is_ok(), "the next holder acquires a fresh file");
+        let _second = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
+            .expect("the next holder locks the same stable file");
+        assert!(expected.is_file(), "the stable file survives both holders");
+    }
+
+    #[test]
+    fn directory_at_lock_path_fails_fast() {
+        let dir = lock_dir();
+        std::fs::create_dir(dir.path().join(APPROVAL_LOCK_FILE)).expect("lock blocker creates");
+        let started = std::time::Instant::now();
+        let outcome = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5));
+        assert!(
+            matches!(outcome, Err(super::ApprovalLockError::Io(_))),
+            "a directory at the lock path fails I/O, got {outcome:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(1),
+            "an unopenable path never waits out the deadline"
+        );
     }
 }
 

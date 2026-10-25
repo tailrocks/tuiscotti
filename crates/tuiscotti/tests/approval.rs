@@ -7,19 +7,23 @@
 //!   write; the prepared accept transaction then writes the baseline,
 //!   including a first approval under an initially missing baseline root.
 //! - C10: candidate and baseline digests agree with the supplied values, and
-//!   frame and image data agree; approval never calls the renderer.
+//!   frame and image data agree; image samples re-render through the
+//!   specified profile (unknown profiles and pixel mismatches reject).
 //! - C11: a stale expected digest is rejected with the baseline left
 //!   untouched; concurrent accepts let at most one conflicting replacement
-//!   succeed; a fault before replacement keeps the previous baseline.
+//!   succeed, in threads and across child processes; a fault before
+//!   replacement keeps the previous baseline.
 //! - C12: the frozen store never writes (zero new files, no lock file); CI
 //!   approval is refused in a dedicated child process per value and writes
 //!   nothing; frozen-tree and frozen-store acceptance are both refused.
 //!
 //! Also: digest-mixture rejections, accept-to-accept idempotence, corrupt
 //! versus missing candidates, tamper-evident candidates, read-only roots,
-//! the lock lifecycle, and volatile-free evidence records. Barriers order
-//! concurrency; tempdirs isolate the filesystem; no test changes
-//! process-wide state (CI values live only in spawned child processes).
+//! the Section 16.3 code table, the stable-lock lifecycle (kept file, stale
+//! residue, cross-process deadline), and volatile-free evidence records.
+//! Barriers order thread concurrency; tempdirs isolate the filesystem; no
+//! test changes process-wide state (CI values and contender roles live only
+//! in spawned child processes).
 //! The suite needs `CI` unset in the runner environment: any set `CI`
 //! freezes every approval call by design.
 
@@ -28,6 +32,7 @@ use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use fs2::FileExt as _;
 use tui_test::profile::Rgb;
 use tui_test::terminal::cell::Attrs;
 use tui_test::{
@@ -35,7 +40,7 @@ use tui_test::{
     SnapshotParts, SnapshotScope, TerminalSnapshot,
 };
 use tuiscotti::approve::{ApprovalStore, ApproveError};
-use tuiscotti::check::{CheckOutcome, FrozenStore};
+use tuiscotti::check::{CheckOutcome, FrozenStore, MismatchReason};
 use tuiscotti::render_profile::{PROFILE_NAME, platform_key, resolve_profile};
 use tuiscotti::sample::{Observation, Sample};
 use tuiscotti::view::ViewSettings;
@@ -90,11 +95,21 @@ fn base_snapshot() -> TerminalSnapshot {
 }
 
 /// Snapshot fixture with explicit cells and metadata.
-#[expect(clippy::expect_used, reason = "test fixture setup")]
 fn snapshot_with_cells(cells: Vec<SnapshotCell>, metadata: SnapshotMetadata) -> TerminalSnapshot {
+    snapshot_with_grid(4, 2, cells, metadata)
+}
+
+/// Snapshot fixture with an explicit grid size.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn snapshot_with_grid(
+    cols: u32,
+    rows: u32,
+    cells: Vec<SnapshotCell>,
+    metadata: SnapshotMetadata,
+) -> TerminalSnapshot {
     TerminalSnapshot::try_new(SnapshotParts {
-        cols: 4,
-        rows: 2,
+        cols,
+        rows,
         scope: SnapshotScope::Viewport,
         viewport_origin: 0,
         cells,
@@ -131,6 +146,60 @@ fn pixel_sample_bytes(logical_id: &str, snapshot: &TerminalSnapshot) -> Vec<u8> 
     .expect("fixture pixel sample is valid")
     .to_bytes()
     .expect("fixture pixel sample serializes")
+}
+
+/// Rewrite one JSON sample's render-contract profile name.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn with_profile(bytes: &[u8], profile: &str) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    value["render_contract"]["profile"] = serde_json::json!(profile);
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// Rewrite one JSON sample's top-level schema identifier.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn with_schema(bytes: &[u8], schema: &str) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    value["schema"] = serde_json::json!(schema);
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// Set the first snapshot cell's text in a JSON sample, leaving the image
+/// evidence untouched so structural validation still passes.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn with_first_cell_text(bytes: &[u8], text: &str) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    value["snapshot"]["cells"][0]["text"] = serde_json::json!(text);
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// Rewrite one JSON sample's test ID, leaving everything else untouched.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn with_test_id(bytes: &[u8], test_id: &str) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    value["test_id"] = serde_json::json!(test_id);
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// Set the claimed image dimensions in a JSON sample, leaving the PNG
+/// bytes and digests untouched. Dimension limits are checked before the
+/// bytes decode, so an over-limit claim rejects as a resource limit.
+#[expect(clippy::expect_used, reason = "test fixture setup")]
+fn with_image_dims(bytes: &[u8], width: u32, height: u32) -> Vec<u8> {
+    let mut value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("candidate parses as JSON");
+    value["image"]["width"] = serde_json::json!(width);
+    value["image"]["height"] = serde_json::json!(height);
+    serde_json::to_vec(&value).expect("rewritten candidate serializes")
+}
+
+/// The stable per-root approval lock file, kept after every transaction.
+fn lock_path(root: &Path) -> PathBuf {
+    root.join(".tuiscotti-approval.lock")
 }
 
 /// Fresh tempdir with baseline and artifact roots.
@@ -292,10 +361,8 @@ fn d04_c09_missing_baseline_approval_writes_baseline() {
             .is_file()
     );
     assert!(
-        !entry_names(&baselines)
-            .iter()
-            .any(|name| name.contains("lock")),
-        "no lock file survives the transaction"
+        lock_path(&baselines).is_file(),
+        "the stable lock file persists after the transaction"
     );
     let success = success_of(frozen.check(&candidate_bytes).expect("second check runs"));
     assert_eq!(success.baseline_sha256(), candidate_digest);
@@ -365,11 +432,11 @@ fn d04_c10_digest_and_frame_image_agreement() {
     assert_eq!(report["baseline_sha256"], candidate_digest);
 }
 
-/// C10: approval validates the stored frame and image digests but never
-/// calls the renderer: a sample with an unresolvable render profile and
-/// valid image bytes still approves.
+/// C10: approval re-renders through the candidate's specified profile: an
+/// unresolvable profile rejects with `UNKNOWN_PROFILE` and writes nothing,
+/// even though the stored frame and image digests validate.
 #[test]
-fn d04_c10_unknown_profile_approves_without_rerender() {
+fn d04_c10_unknown_profile_rejected() {
     let dir = tempfile::tempdir().expect("tempdir creates");
     let baselines = dir.path().join("baselines");
     std::fs::create_dir_all(&baselines).expect("baseline root creates");
@@ -380,18 +447,88 @@ fn d04_c10_unknown_profile_approves_without_rerender() {
     let first = candidate_file(dir.path(), "first.tui.json", &first_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
     accepted_of(store.accept(&first, &first_digest, "missing"));
-    let mut rewritten: serde_json::Value =
-        serde_json::from_slice(&first_bytes).expect("candidate parses as JSON");
-    rewritten["observation"] = serde_json::json!({"note": "reviewed on another host"});
-    rewritten["render_contract"]["profile"] = serde_json::json!("no-such-profile");
-    let second_bytes = serde_json::to_vec(&rewritten).expect("rewritten candidate serializes");
+    let second_bytes = with_profile(&first_bytes, "no-such-profile");
     assert_ne!(sha256_hex(&second_bytes), first_digest);
     let second_digest = sha256_hex(&second_bytes);
     let second = candidate_file(dir.path(), "second.tui.json", &second_bytes);
-    let accepted = accepted_of(store.accept(&second, &second_digest, &first_digest));
-    assert_eq!(accepted.previous_baseline_sha256(), first_digest);
-    assert_eq!(accepted.baseline_sha256(), second_digest);
-    assert_eq!(read_baseline_file(&baselines, &test_id), second_bytes);
+    match store.accept(&second, &second_digest, &first_digest) {
+        Err(error @ ApproveError::UnknownProfile { .. }) => {
+            assert_eq!(error.code(), "UNKNOWN_PROFILE");
+            assert_eq!(error.exit_code(), 3);
+            assert!(
+                format!("{error}").contains("no-such-profile"),
+                "rejection names the profile, got {error}"
+            );
+        }
+        other => panic!("unknown profile must fail re-render, got {other:?}"),
+    }
+    assert_eq!(
+        read_baseline_file(&baselines, &test_id),
+        first_bytes,
+        "rejections keep the previous baseline bytes"
+    );
+    assert!(
+        !all_files_below(&baselines)
+            .iter()
+            .any(|name| name.contains(".tmp-accept-")),
+        "rejections leave no temporary files"
+    );
+}
+
+/// C10: re-rendered pixels that differ from the stored candidate pixels
+/// reject with `INCONSISTENT_SAMPLE` and write no baseline. The rewritten
+/// snapshot keeps valid structure and image digests, so only the
+/// pixel comparison can refuse it.
+#[test]
+fn d04_c10_rerender_mismatch_rejected() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let candidate_bytes = with_first_cell_text(&pixel_sample_bytes(logical, &base_snapshot()), "b");
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    match store.accept(&candidate, &candidate_digest, "missing") {
+        Err(error @ ApproveError::InconsistentSample { .. }) => {
+            assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("divergent pixels must fail re-render, got {other:?}"),
+    }
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "rejections write nothing but the stable lock file"
+    );
+}
+
+/// C10: a snapshot no specified face can render rejects with `MISSING_GLYPH`
+/// and writes no baseline. The crab keeps valid structure and image
+/// digests, so only the re-render can refuse it.
+#[test]
+fn d04_c10_missing_glyph_rejected() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let candidate_bytes =
+        with_first_cell_text(&pixel_sample_bytes(logical, &base_snapshot()), "🦀");
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    match store.accept(&candidate, &candidate_digest, "missing") {
+        Err(error @ ApproveError::MissingGlyph { .. }) => {
+            assert_eq!(error.code(), "MISSING_GLYPH");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("unrenderable text must fail re-render, got {other:?}"),
+    }
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "rejections write nothing but the stable lock file"
+    );
 }
 
 /// C10: image bytes that disagree with their recorded digests fail approval
@@ -417,10 +554,17 @@ fn d04_c10_tampered_image_rejected_without_write() {
     let candidate = candidate_file(dir.path(), "tampered.tui.json", &tampered);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
     match store.accept(&candidate, &digest, "missing") {
-        Err(ApproveError::Check { .. }) => {}
+        Err(error @ ApproveError::Check { .. }) => {
+            assert_eq!(error.code(), "INVALID_IMAGE");
+            assert_eq!(error.exit_code(), 3);
+        }
         other => panic!("tampered image must fail validation, got {other:?}"),
     }
-    assert_eq!(entry_names(&baselines), Vec::<String>::new());
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "rejections write nothing but the stable lock file"
+    );
 }
 
 /// C11: a stale expected digest is rejected, and the frozen baselines
@@ -453,12 +597,19 @@ fn d04_c11_stale_baseline_rejected_baseline_untouched() {
         sha256_hex(&read_baseline_file(&baselines, "views/login")),
         first_digest
     );
-    assert_eq!(all_files_below(&baselines), before_files);
+    let mut expected_files = before_files;
+    expected_files.push(".tuiscotti-approval.lock".to_string());
+    expected_files.sort();
+    assert_eq!(
+        all_files_below(&baselines),
+        expected_files,
+        "refusals keep the baseline tree plus the stable lock file"
+    );
     assert!(
         !all_files_below(&baselines)
             .iter()
-            .any(|name| name.contains("lock") || name.contains(".tmp-accept-")),
-        "refusals leave no lock or temporary files"
+            .any(|name| name.contains(".tmp-accept-")),
+        "refusals leave no temporary files"
     );
 }
 
@@ -537,6 +688,114 @@ fn d04_c11_concurrent_accepts_single_winner() {
     });
 }
 
+/// Cross-process contender body: accept once, print the outcome line, and
+/// always exit successfully so the parent can arbitrate the results.
+#[expect(clippy::expect_used, reason = "cross-process child harness")]
+fn cross_child_main() {
+    let baselines = PathBuf::from(
+        std::env::var_os("TUISCOTTI_D04_CROSS_BASELINES").expect("child baselines dir"),
+    );
+    let candidate = PathBuf::from(
+        std::env::var_os("TUISCOTTI_D04_CROSS_CANDIDATE").expect("child candidate file"),
+    );
+    let digest = std::env::var("TUISCOTTI_D04_CROSS_DIGEST").expect("child candidate digest");
+    let expected = std::env::var("TUISCOTTI_D04_CROSS_EXPECTED").expect("child expected digest");
+    let store = ApprovalStore::new(&baselines).expect("child store opens");
+    match store.accept(&candidate, &digest, &expected) {
+        Ok(accepted) => println!("CROSS_WIN:{}", accepted.baseline_sha256()),
+        Err(error) => println!("CROSS_LOSE:{}:{}", error.code(), error.exit_code()),
+    }
+}
+
+/// Spawn one contender child for the cross-process winner test.
+#[expect(clippy::expect_used, reason = "test spawns child processes")]
+fn spawn_contender(
+    baselines: &Path,
+    candidate: &Path,
+    digest: &str,
+    expected: &str,
+) -> std::process::Child {
+    std::process::Command::new(std::env::current_exe().expect("test binary resolves"))
+        .arg("--exact")
+        .arg("d04_c11_cross_process_accepts_single_winner")
+        .arg("--nocapture")
+        .env("TUISCOTTI_D04_CROSS_CHILD", "1")
+        .env("TUISCOTTI_D04_CROSS_BASELINES", baselines)
+        .env("TUISCOTTI_D04_CROSS_CANDIDATE", candidate)
+        .env("TUISCOTTI_D04_CROSS_DIGEST", digest)
+        .env("TUISCOTTI_D04_CROSS_EXPECTED", expected)
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("contender child spawns")
+}
+
+/// C11: two child processes contend for one baseline root with the same
+/// expected digest; exactly one conflicting replacement wins, the loser
+/// sees the winner's digest as stale, and the lock file persists.
+#[test]
+fn d04_c11_cross_process_accepts_single_winner() {
+    if std::env::var_os("TUISCOTTI_D04_CROSS_CHILD").is_some() {
+        cross_child_main();
+        return;
+    }
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let first_bytes = state_sample_bytes("views/login", &base_snapshot());
+    let first_digest = sha256_hex(&first_bytes);
+    write_baseline_file(&baselines, "views/login", &first_bytes);
+    let bytes_a = state_sample_bytes(
+        "views/login",
+        &snapshot_with_cells(filled_cells("b"), SnapshotMetadata::default()),
+    );
+    let digest_a = sha256_hex(&bytes_a);
+    let bytes_b = state_sample_bytes(
+        "views/login",
+        &snapshot_with_cells(filled_cells("c"), SnapshotMetadata::default()),
+    );
+    let digest_b = sha256_hex(&bytes_b);
+    let file_a = candidate_file(dir.path(), "a.tui.json", &bytes_a);
+    let file_b = candidate_file(dir.path(), "b.tui.json", &bytes_b);
+    let child_a = spawn_contender(&baselines, &file_a, &digest_a, &first_digest);
+    let child_b = spawn_contender(&baselines, &file_b, &digest_b, &first_digest);
+    let out_a = child_a.wait_with_output().expect("contender A finishes");
+    let out_b = child_b.wait_with_output().expect("contender B finishes");
+    assert!(out_a.status.success(), "contender A exits cleanly");
+    assert!(out_b.status.success(), "contender B exits cleanly");
+    let text_a = String::from_utf8(out_a.stdout).expect("child output is UTF-8");
+    let text_b = String::from_utf8(out_b.stdout).expect("child output is UTF-8");
+    let wins = [text_a.as_str(), text_b.as_str()]
+        .iter()
+        .filter(|text| text.contains("CROSS_WIN:"))
+        .count();
+    assert_eq!(wins, 1, "exactly one contender wins: {text_a:?} {text_b:?}");
+    let (winner_text, loser_text) = if text_a.contains("CROSS_WIN:") {
+        (text_a, text_b)
+    } else {
+        (text_b, text_a)
+    };
+    assert!(
+        loser_text.contains("CROSS_LOSE:STALE_BASELINE:3"),
+        "the loser sees stale arbitration, got {loser_text:?}"
+    );
+    let winner_digest = winner_text
+        .lines()
+        .find_map(|line| line.strip_prefix("CROSS_WIN:"))
+        .expect("winner reports its digest")
+        .trim()
+        .to_string();
+    assert!(winner_digest == digest_a || winner_digest == digest_b);
+    assert_eq!(
+        sha256_hex(&read_baseline_file(&baselines, "views/login")),
+        winner_digest,
+        "the baseline holds the winner's bytes"
+    );
+    assert!(
+        lock_path(&baselines).is_file(),
+        "the stable lock file persists after contended approvals"
+    );
+}
+
 /// C11: a fault before the last replacement keeps the previous baseline
 /// bytes unchanged: a file blocking the baseline parent directory fails the
 /// transaction without touching the approved baseline.
@@ -561,7 +820,66 @@ fn d04_c11_fault_before_replace_keeps_previous() {
         other => panic!("a blocked parent directory must fail I/O, got {other:?}"),
     }
     assert_eq!(read_baseline_file(&baselines, "views/other"), kept_bytes);
-    assert_eq!(all_files_below(&baselines), before);
+    let mut expected_files = before;
+    expected_files.push(".tuiscotti-approval.lock".to_string());
+    expected_files.sort();
+    assert_eq!(
+        all_files_below(&baselines),
+        expected_files,
+        "faults keep the previous tree plus the stable lock file"
+    );
+}
+
+/// A present baseline skips test-ID and gate cross-comparison: a planted
+/// baseline with a different embedded test ID (or a different gate) but an
+/// equal snapshot still approves, and the report records no `test-id` or
+/// `policy` mismatch. Only the digests arbitrate.
+#[test]
+fn d04_present_baseline_skips_id_gate_comparison() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    // Different embedded test ID, equal snapshot and gate.
+    let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let planted_id = with_test_id(&candidate_bytes, "views/other");
+    let planted_digest = sha256_hex(&planted_id);
+    write_baseline_file(&baselines, "views/login", &planted_id);
+    let artifacts = dir.path().join("artifacts");
+    let frozen = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    assert_eq!(
+        failure_of(frozen.check(&candidate_bytes).expect("check runs")).reason(),
+        MismatchReason::TestId,
+        "frozen comparison still cross-compares IDs"
+    );
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let accepted = accepted_of(store.accept(&candidate, &candidate_digest, &planted_digest));
+    assert_eq!(accepted.previous_baseline_sha256(), planted_digest);
+    assert_eq!(
+        read_baseline_file(&baselines, "views/login"),
+        candidate_bytes
+    );
+    let report: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(accepted.evidence_dir().join("report.json")).expect("report reads"),
+    )
+    .expect("report parses");
+    assert_eq!(report["reason"], serde_json::Value::Null);
+    // Different gate shape: a pixel baseline under a state candidate path.
+    let pixel_bytes = pixel_sample_bytes("views/login", &base_snapshot());
+    let pixel_digest = sha256_hex(&pixel_bytes);
+    write_baseline_file(&baselines, "views/login", &pixel_bytes);
+    let second = accepted_of(store.accept(&candidate, &candidate_digest, &pixel_digest));
+    assert_eq!(second.previous_baseline_sha256(), pixel_digest);
+    assert_eq!(
+        read_baseline_file(&baselines, "views/login"),
+        candidate_bytes
+    );
+    let second_report: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(second.evidence_dir().join("report.json")).expect("report reads"),
+    )
+    .expect("report parses");
+    assert_eq!(second_report["reason"], serde_json::Value::Null);
 }
 
 /// Digest mixtures: a wrong candidate digest fails first as stale, a wrong
@@ -603,19 +921,212 @@ fn d04_digest_mixtures_rejected_with_codes() {
     ];
     for bad in &shapes {
         match store.accept(&candidate, bad, "missing") {
-            Err(error @ ApproveError::InvalidDigest { .. }) => {
-                assert_eq!(error.code(), "INVALID_DIGEST");
+            Err(error @ ApproveError::InvalidArgument { .. }) => {
+                assert_eq!(error.code(), "INVALID_SAMPLE");
                 assert_eq!(error.exit_code(), 2);
             }
             other => panic!("malformed candidate digest {bad:?} must fail, got {other:?}"),
         }
         match store.accept(&candidate, &candidate_digest, bad) {
-            Err(error @ ApproveError::InvalidDigest { .. }) => {
-                assert_eq!(error.code(), "INVALID_DIGEST");
+            Err(error @ ApproveError::InvalidArgument { .. }) => {
+                assert_eq!(error.code(), "INVALID_SAMPLE");
+                assert_eq!(error.exit_code(), 2);
             }
             other => panic!("malformed baseline digest {bad:?} must fail, got {other:?}"),
         }
     }
+}
+
+/// Section 16.3 table, arguments and samples: every malformed, corrupt,
+/// foreign-schema, over-limit, and image shape maps 1:1 with its exit code.
+#[test]
+fn d04_error_codes_arguments_and_samples() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    // Unknown sample schema rejects as UNSUPPORTED_SCHEMA.
+    let schema_bytes = with_schema(&candidate_bytes, "tuiscotti.sample.v99");
+    let schema_digest = sha256_hex(&schema_bytes);
+    let schema_file = candidate_file(dir.path(), "schema.tui.json", &schema_bytes);
+    match store.accept(&schema_file, &schema_digest, "missing") {
+        Err(error @ ApproveError::Check { .. }) => {
+            assert_eq!(error.code(), "UNSUPPORTED_SCHEMA");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("unknown schema must fail, got {other:?}"),
+    }
+    // An over-limit image dimension claim rejects as RESOURCE_LIMIT. (An
+    // overlong cell string rejects earlier inside upstream parsing as
+    // INVALID_SAMPLE; the dimension claim is the live resource-limit shape.)
+    let pixel_bytes = pixel_sample_bytes("views/login", &base_snapshot());
+    let big_bytes = with_image_dims(&pixel_bytes, 40_000, 40);
+    let big_digest = sha256_hex(&big_bytes);
+    let big_file = candidate_file(dir.path(), "big.tui.json", &big_bytes);
+    match store.accept(&big_file, &big_digest, "missing") {
+        Err(error @ ApproveError::Check { .. }) => {
+            assert_eq!(error.code(), "RESOURCE_LIMIT");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("over-limit dimensions must fail, got {other:?}"),
+    }
+    // Tampered image bytes reject as INVALID_IMAGE.
+    let mut rewritten: serde_json::Value =
+        serde_json::from_slice(&pixel_bytes).expect("candidate parses as JSON");
+    let png = rewritten["image"]["png_base64"]
+        .as_str()
+        .expect("image carries base64 PNG");
+    let mut flipped = png.to_string();
+    let last = flipped.pop().expect("PNG base64 is not empty");
+    flipped.push(if last == 'A' { 'B' } else { 'A' });
+    rewritten["image"]["png_base64"] = serde_json::json!(flipped);
+    let tampered = serde_json::to_vec(&rewritten).expect("tampered candidate serializes");
+    let tampered_digest = sha256_hex(&tampered);
+    let tampered_file = candidate_file(dir.path(), "tampered.tui.json", &tampered);
+    match store.accept(&tampered_file, &tampered_digest, "missing") {
+        Err(error @ ApproveError::Check { .. }) => {
+            assert_eq!(error.code(), "INVALID_IMAGE");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("tampered image must fail, got {other:?}"),
+    }
+    // A missing candidate file rejects as IO.
+    match store.accept(
+        &dir.path().join("absent.tui.json"),
+        &candidate_digest,
+        "missing",
+    ) {
+        Err(error @ ApproveError::Io { .. }) => {
+            assert_eq!(error.code(), "IO");
+            assert_eq!(error.exit_code(), 3);
+        }
+        other => panic!("a missing candidate must fail I/O, got {other:?}"),
+    }
+    // An empty store root rejects as INVALID_STORE_PATH.
+    match ApprovalStore::new(Path::new("")) {
+        Err(error) => {
+            assert_eq!(error.code(), "INVALID_STORE_PATH");
+            assert_eq!(error.exit_code(), 3);
+        }
+        Ok(_) => panic!("an empty root must fail"),
+    }
+    // The corrupt and malformed shapes above never approved anything.
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "rejections write nothing but the stable lock file"
+    );
+}
+
+/// Section 16.3 table, re-render: profile, render, glyph, and consistency
+/// shapes map 1:1. `RENDER_FAILED` maps a constructed upstream rejection
+/// (its live source is proven producible in
+/// `d04_rerender_failed_source_producible`; approval itself cannot hit it
+/// live because a past-budget grid exceeds the sample file cap first).
+#[test]
+fn d04_error_codes_rerender() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let pixel_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    let accept_rewritten = |name: &str, bytes: &[u8]| {
+        let digest = sha256_hex(bytes);
+        let file = candidate_file(dir.path(), name, bytes);
+        (digest, file)
+    };
+    let (profile_digest, profile_file) = accept_rewritten(
+        "profile.tui.json",
+        &with_profile(&pixel_bytes, "no-such-profile"),
+    );
+    match store.accept(&profile_file, &profile_digest, "missing") {
+        Err(error) => {
+            assert_eq!(error.code(), "UNKNOWN_PROFILE");
+            assert_eq!(error.exit_code(), 3);
+        }
+        Ok(_) => panic!("unknown profile must fail"),
+    }
+    let (glyph_digest, glyph_file) =
+        accept_rewritten("glyph.tui.json", &with_first_cell_text(&pixel_bytes, "🦀"));
+    match store.accept(&glyph_file, &glyph_digest, "missing") {
+        Err(error) => {
+            assert_eq!(error.code(), "MISSING_GLYPH");
+            assert_eq!(error.exit_code(), 3);
+        }
+        Ok(_) => panic!("unrenderable text must fail"),
+    }
+    let (pixels_digest, pixels_file) =
+        accept_rewritten("pixels.tui.json", &with_first_cell_text(&pixel_bytes, "b"));
+    match store.accept(&pixels_file, &pixels_digest, "missing") {
+        Err(error) => {
+            assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
+            assert_eq!(error.exit_code(), 3);
+        }
+        Ok(_) => panic!("divergent pixels must fail"),
+    }
+    let render_failed = ApproveError::RenderFailed {
+        source: tui_test::RenderError::ImageTooLarge {
+            cols: 1000,
+            rows: 600,
+        },
+    };
+    assert_eq!(render_failed.code(), "RENDER_FAILED");
+    assert_eq!(render_failed.exit_code(), 3);
+}
+
+/// Section 16.3 table, arbitration and control: stale digests map 1:1, and
+/// the CI and lock-timeout codes map on their constructed shapes (both are
+/// produced live in their dedicated cross-process tests).
+#[test]
+fn d04_error_codes_arbitration_and_control() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    match store.accept(&candidate, &"d".repeat(64), "missing") {
+        Err(error) => {
+            assert_eq!(error.code(), "STALE_CANDIDATE");
+            assert_eq!(error.exit_code(), 3);
+        }
+        Ok(_) => panic!("a wrong candidate digest must fail"),
+    }
+    match store.accept(&candidate, &candidate_digest, &"d".repeat(64)) {
+        Err(error) => {
+            assert_eq!(error.code(), "STALE_BASELINE");
+            assert_eq!(error.exit_code(), 3);
+        }
+        Ok(_) => panic!("a wrong baseline digest must fail"),
+    }
+    assert_eq!(
+        ApproveError::CiApprovalForbidden.code(),
+        "CI_APPROVAL_FORBIDDEN"
+    );
+    assert_eq!(ApproveError::CiApprovalForbidden.exit_code(), 3);
+    assert_eq!(ApproveError::LockTimeout.code(), "LOCK_TIMEOUT");
+    assert_eq!(ApproveError::LockTimeout.exit_code(), 3);
+}
+
+/// The `RENDER_FAILED` source is producible upstream: a structurally valid
+/// snapshot past the render pixel budget fails `render_snapshot_png` with
+/// `ImageTooLarge`, the shape approval maps to `RENDER_FAILED`.
+#[test]
+fn d04_rerender_failed_source_producible() {
+    let profile = resolve_profile(PROFILE_NAME).expect("pinned profile resolves");
+    let cells = vec![plain_cell("a", 1); 600_000];
+    let snapshot = snapshot_with_grid(1000, 600, cells, SnapshotMetadata::default());
+    assert!(
+        matches!(
+            tui_test::render_snapshot_png(&snapshot, &profile.render_options()),
+            Err(tui_test::RenderError::ImageTooLarge { .. })
+        ),
+        "a 120M-pixel render past the 100M budget must fail"
+    );
 }
 
 /// The candidate digest is tamper-evident: mutated candidate bytes fail
@@ -640,7 +1151,11 @@ fn d04_tamper_evident_candidate_rejected() {
         }
         other => panic!("mutated bytes must fail the digest check, got {other:?}"),
     }
-    assert_eq!(entry_names(&baselines), Vec::<String>::new());
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "rejections write nothing but the stable lock file"
+    );
 }
 
 /// A missing candidate file and a corrupt candidate file fail differently:
@@ -902,11 +1417,12 @@ fn d04_c12_readonly_root_checks_but_refuses_approval() {
     );
 }
 
-/// The lock lifecycle: no lock file before the transaction, one exists
-/// while checking runs, and none survives after. Locks are not portable, so
-/// this observes one process only and re-acquires after release.
+/// The lock lifecycle: no lock file before the first transaction, one exists
+/// while checking runs, and it persists after release for the next holder
+/// to lock. Locks are OS-held, so this observes one process only and
+/// re-acquires the same file after release.
 #[test]
-fn d04_lock_lifecycle_fresh_held_gone() {
+fn d04_lock_lifecycle_stable_file_reused() {
     let temp = tempfile::tempdir().expect("tempdir creates");
     let baselines = temp.path().join("baselines");
     std::fs::create_dir_all(&baselines).expect("baseline root creates");
@@ -946,7 +1462,10 @@ fn d04_lock_lifecycle_fresh_held_gone() {
     }
     worker.join().expect("worker finishes");
     assert!(seen, "a lock file exists while the transaction runs");
-    assert!(!has_lock_file(), "no lock file survives the transaction");
+    assert!(
+        has_lock_file(),
+        "the stable lock file persists after release"
+    );
     assert!(
         !all_files_below(&baselines)
             .iter()
@@ -959,6 +1478,102 @@ fn d04_lock_lifecycle_fresh_held_gone() {
     let path = candidates.join("final.tui.json");
     std::fs::write(&path, &bytes).expect("final candidate writes");
     accepted_of(store.accept(&path, &digest, "missing"));
+}
+
+/// A stale lock file from a dead process never blocks: with the file
+/// present but no holder, approval takes the OS lock promptly and the
+/// transaction succeeds. An existence-based lock would wait out the
+/// deadline on this residue instead.
+#[test]
+fn d04_lock_stale_file_does_not_block() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    std::fs::write(lock_path(&baselines), b"stale").expect("stale file writes");
+    let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    let started = Instant::now();
+    let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    assert!(
+        started.elapsed() < Duration::from_secs(20),
+        "a stale file never costs the deadline"
+    );
+    assert_eq!(accepted.baseline_sha256(), candidate_digest);
+    assert_eq!(
+        read_baseline_file(&baselines, "views/login"),
+        candidate_bytes
+    );
+}
+
+/// Attempt-child body for the cross-process deadline test: accept once and
+/// print the machine code with its exit code.
+#[expect(clippy::expect_used, reason = "cross-process child harness")]
+fn attempt_child_main() {
+    let baselines = PathBuf::from(
+        std::env::var_os("TUISCOTTI_D04_ATTEMPT_BASELINES").expect("child baselines dir"),
+    );
+    let candidate = PathBuf::from(
+        std::env::var_os("TUISCOTTI_D04_ATTEMPT_CANDIDATE").expect("child candidate file"),
+    );
+    let digest = std::env::var("TUISCOTTI_D04_ATTEMPT_DIGEST").expect("child candidate digest");
+    let store = ApprovalStore::new(&baselines).expect("child store opens");
+    match store.accept(&candidate, &digest, "missing") {
+        Ok(_) => println!("ATTEMPT_OK"),
+        Err(error) => println!("ATTEMPT:{}:{}", error.code(), error.exit_code()),
+    }
+}
+
+/// The lock deadline fires across processes: with the OS lock held in the
+/// parent, a child accept waits the full 30 seconds and reports
+/// `LOCK_TIMEOUT` with exit code 3, writing nothing. After release the same
+/// accept succeeds, proving no residue blocks.
+#[test]
+fn d04_lock_timeout_while_held_cross_process() {
+    if std::env::var_os("TUISCOTTI_D04_ATTEMPT_CHILD").is_some() {
+        attempt_child_main();
+        return;
+    }
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let holder = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(lock_path(&baselines))
+        .expect("parent opens the stable file");
+    holder.lock_exclusive().expect("parent holds the OS lock");
+    let output = std::process::Command::new(std::env::current_exe().expect("test binary resolves"))
+        .arg("--exact")
+        .arg("d04_lock_timeout_while_held_cross_process")
+        .arg("--nocapture")
+        .env("TUISCOTTI_D04_ATTEMPT_CHILD", "1")
+        .env("TUISCOTTI_D04_ATTEMPT_BASELINES", &baselines)
+        .env("TUISCOTTI_D04_ATTEMPT_CANDIDATE", &candidate)
+        .env("TUISCOTTI_D04_ATTEMPT_DIGEST", &candidate_digest)
+        .output()
+        .expect("attempt child runs");
+    assert!(output.status.success(), "attempt child exits cleanly");
+    let stdout = String::from_utf8(output.stdout).expect("child output is UTF-8");
+    assert!(
+        stdout.contains("ATTEMPT:LOCK_TIMEOUT:3"),
+        "the held lock reports code 3, got {stdout:?}"
+    );
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "the timed-out attempt writes nothing"
+    );
+    holder.unlock().expect("parent releases the OS lock");
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    let accepted = accepted_of(store.accept(&candidate, &candidate_digest, "missing"));
+    assert_eq!(accepted.baseline_sha256(), candidate_digest);
 }
 
 /// The candidate file is read-only input: approval never writes it, and a

@@ -1,8 +1,9 @@
 //! Baseline approval with digests and frozen checking (D04, GOAL Section 15).
 //!
 //! [`ApprovalStore::accept`] runs one explicit approval transaction for one
-//! test ID: it validates the candidate bytes and both digests first, checks
-//! the candidate against the present baseline under a per-root lock, then
+//! test ID: it refuses under `CI`, validates both digests, locks the stable
+//! per-root file, reads the candidate once, arbitrates digests against the
+//! baseline read under the same lock, re-renders image samples, then
 //! atomically upserts the baseline and saves the approval evidence. The
 //! baseline root is never trusted blindly: the expected previous digest (or
 //! the literal `missing` for a first approval) must match the digest of the
@@ -15,53 +16,63 @@
 //!   the schema, test ID, gate pairing, snapshot, and, for a
 //!   `state-and-pixels` sample, the recorded PNG and RGBA digests against the
 //!   decoded image bytes. Frame and image agreement is structural.
-//! - It never calls the upstream renderer during approval: a historical or
-//!   foreign render contract that passes structural validation is accepted
-//!   when its image bytes validate, and approval never resolves font
-//!   profiles. Unknown profiles therefore do not fail approval.
-//! - It never compares the test ID inside the candidate with the test ID
-//!   claimed inside the baseline. The operation targets the candidate test
-//!   ID; the baseline path derives from that ID, and only the grammar of the
-//!   candidate ID is validated.
-//! - It computes the change set for `report.json` with the same comparison
-//!   used by [`FrozenStore::check`] (state first, then render contract, then
-//!   decoded RGBA pixels through upstream `compare_rgba`), over the stored
-//!   bytes only. The smallest change set wins; no caller-supplied flags steer
-//!   it.
-//! - It reads the baseline bytes exactly once per transaction: the inner
-//!   [`FrozenStore::check`] run is the single baseline read. The candidate
-//!   bytes are read once and reused by digest, validation, comparison, and
-//!   upsert, so the candidate reference stays consistent between check and
-//!   accept.
+//! - For an image sample it then re-renders the candidate snapshot through
+//!   the upstream renderer under the candidate's SPECIFIED profile (steps
+//!   10-12): an unresolvable profile rejects with
+//!   [`ApproveError::UnknownProfile`], a renderer refusal rejects with
+//!   [`ApproveError::RenderFailed`] (or [`ApproveError::MissingGlyph`] when
+//!   no specified face holds mandatory text), and decoded pixels that differ
+//!   from the candidate pixels reject with
+//!   [`ApproveError::InconsistentSample`]. State-only samples skip steps
+//!   10-12 ("if the sample has an image").
+//! - It validates the candidate test-ID grammar only on first approval
+//!   (absent baseline). When a baseline is present, no test-ID or gate
+//!   cross-comparison runs at all: the present-baseline diff
+//!   ([`FrozenStore::compare_present`]) classifies observed evidence shapes
+//!   (snapshot state, render contracts, decoded pixels) without comparing
+//!   ID or gate enums. The operation targets the candidate test ID; the
+//!   baseline path derives from that ID.
+//! - It records the change set for `report.json` from that same comparison
+//!   (state first, then render contract, then decoded RGBA pixels through
+//!   upstream `compare_rgba`), over the stored bytes only. The smallest
+//!   change set wins; no caller-supplied flags steer it.
+//! - It reads the baseline bytes exactly once per transaction, directly
+//!   from the store under the held lock. The candidate bytes are read once
+//!   and reused by digest, validation, comparison, and upsert, so the
+//!   candidate reference stays consistent throughout.
 //!
-//! Transaction order:
+//! Transaction order (GOAL Section 15, numbered steps):
 //!
 //! 1. Refuse when the `CI` variable is set, before any write.
 //! 2. Validate the digest arguments (missing, malformed, and zero digests
-//!    are rejected).
-//! 3. Read the candidate bytes once with the file-size limit.
-//! 4. Compare their digest with the mandatory candidate digest.
-//! 5. Validate the candidate schema, test ID grammar, and snapshot.
-//! 6. Resolve the baseline root, making it when missing.
-//! 7. Acquire the per-root approval lock (fresh exclusive file, 30 seconds).
-//! 8. Run [`FrozenStore::check`] on the candidate bytes with a single secure
-//!    scratch directory as its artifact root: the one baseline read, and the
-//!    change set for the evidence.
-//! 9. Compare the observed previous digest with the expected digest.
-//! 10. Atomically upsert `baselines/<test_id>.tui.json` with the candidate
-//!     bytes unchanged (temporary file plus rename, with a copy fallback for
-//!     cross-device mounts).
-//! 11. Save `report.json` and `candidate_bytes.evidence.json` beside it.
-//! 12. Release the lock and return the digests.
+//!    are rejected as `INVALID_SAMPLE` with exit code 2) and store paths.
+//! 3. Make the baseline root when missing.
+//! 4. Acquire the operating-system lock on the stable approval file.
+//! 5. Read the candidate bytes one time with the file-size limit.
+//! 6. Compare their digest with the mandatory candidate digest.
+//! 7. Validate the candidate schema and snapshot.
+//! 8. Read the baseline from the store under the same lock.
+//! 9. Compare its digest with the mandatory baseline digest.
+//! 10. For an image sample, resolve the candidate's specified render profile.
+//! 11. Re-render the candidate snapshot through the upstream renderer.
+//! 12. Compare the new decoded pixels with the candidate pixels.
+//! 13. Validate the store-relative paths for the baseline's parent directories.
+//! 14. Make the baseline's parent directories under the locked baseline root.
+//! 15. Write the approved sample bytes unchanged to a same-directory temporary file (exclusive, owner-only, no symlinks).
+//! 16. Flush the temporary file.
+//! 17. Close the temporary file.
+//! 18. Atomically rename the temporary file over the baseline (same-directory renames cannot EXDEV, so no copy fallback).
+//! 19. Release the lock (the stable lock file persists).
+//! 20. Return the approved test ID and sample digest.
 //!
-//! Locking: one lock per baseline root, held from the comparison through the
-//! replacement. The lock file `<root>/.tuiscotti-approval.lock` is created
-//! fresh by each holder with exclusive creation and removed on release, so a
-//! completed transaction leaves no lock file behind. Locks are not portable:
-//! no cross-process before-or-after file semantics follow from the lock file,
-//! and a process that dies mid-transaction can leave the empty file behind
-//! for an operator to remove. The wait stops after 30 seconds with a typed
-//! timeout.
+//! Locking: one lock per baseline root, held from step 4 through step 19,
+//! across the baseline read, digest comparison, re-render, and atomic
+//! replacement. The lock file `<root>/.tuiscotti-approval.lock` is stable:
+//! it is created once when missing, opened (never recreated) by every
+//! holder, and kept after release. Mutual exclusion is the OS file lock on
+//! the open handle, so holders serialize across processes as well as
+//! threads, and a dead process leaves a stale file that never blocks. The
+//! wait stops after 30 seconds with a typed timeout.
 //!
 //! Frozen checking: [`FrozenStore`] has no approval method and gains none
 //! here; checking never writes the baseline root. Approval under a frozen
@@ -71,6 +82,15 @@
 //! with [`ApproveError::CiApprovalForbidden`]. Each approval call is its own
 //! explicit opt-in through its digest arguments; nothing unfreezes a root
 //! persistently.
+//!
+//! Error codes (GOAL Section 16.3): there is no `INVALID_DIGEST` code.
+//! Malformed digest arguments report `INVALID_SAMPLE` with exit code 2;
+//! every other failure reports its Section 16.3 code with exit code 3,
+//! mapped per failure shape in [`ApproveError::code`] (unsupported schemas,
+//! resource limits, image errors, unknown profiles, render failures,
+//! missing glyphs, stale digests, inconsistent samples, lock timeouts,
+//! store paths, and I/O each keep their own code instead of flattening to
+//! `INVALID_SAMPLE` or `INVALID_IMAGE`).
 //!
 //! Volatile-data exclusion: the records written during approval
 //! (`report.json` and `candidate_bytes.evidence.json`) carry no absolute
@@ -90,11 +110,12 @@
 //! [`ApproveError::code`] and the process codes from
 //! [`ApproveError::exit_code`] are the mapping inputs for that command.
 //!
-//! Design notes: approval reuses the frozen comparison instead of
-//! duplicating its differ, so check and accept cannot disagree on the change
-//! set. Small byte-level helpers (digest shape, root resolution, symlink
-//! guard, SHA-256) mirror `check.rs` without sharing code, because the task
-//! packet restricts `check.rs` to lock additions only.
+//! Design notes: approval reuses the frozen differ through
+//! [`FrozenStore::compare_present`] instead of duplicating it, so check and
+//! accept cannot disagree on the change set. Small byte-level helpers
+//! (digest shape, root resolution, symlink guard, SHA-256) mirror `check.rs`
+//! without sharing code, because only lock and comparison helpers are
+//! shared across the two files.
 
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -105,10 +126,13 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
+use tui_test::{PinnedFontError, RenderError, render_snapshot_png};
+
 use crate::check::{
-    APPROVAL_LOCK_TIMEOUT_SECS, ApprovalFileLock, ApprovalLockError, CheckError, CheckOutcome,
-    FrozenStore, MISSING_BASELINE, MismatchReason, validate_test_id,
+    APPROVAL_LOCK_TIMEOUT_SECS, ApprovalFileLock, ApprovalLockError, CheckError, FrozenStore,
+    MISSING_BASELINE, MismatchReason, PresentComparison, validate_test_id,
 };
+use crate::render_profile::{ProfileError, resolve_profile};
 use crate::sample::{Gate, MAX_SAMPLE_FILE_BYTES, Sample, SampleError, SampleImage};
 
 /// Schema identifier for the `report.json` files written by approval.
@@ -129,7 +153,9 @@ pub enum ApproveError {
     /// The `CI` variable is set, so approval is refused before any write.
     CiApprovalForbidden,
     /// A digest argument is missing, malformed, or a zero placeholder.
-    InvalidDigest {
+    /// Digest arguments are sample-selection input, so these report
+    /// `INVALID_SAMPLE` with the argument-error exit code 2.
+    InvalidArgument {
         /// Which argument failed and how.
         detail: String,
     },
@@ -149,6 +175,30 @@ pub enum ApproveError {
     },
     /// The approval lock stayed held past the acquisition deadline.
     LockTimeout,
+    /// The candidate names a render profile outside the D02 registry, so
+    /// steps 10-12 cannot resolve it.
+    UnknownProfile {
+        /// The rejected profile name.
+        requested: String,
+    },
+    /// The upstream renderer refused the candidate snapshot during the
+    /// step-11 re-render.
+    RenderFailed {
+        /// The upstream rejection, with its source chain.
+        source: RenderError,
+    },
+    /// No specified font can render mandatory text in the candidate
+    /// snapshot during the step-11 re-render.
+    MissingGlyph {
+        /// The upstream missing-glyph rejection.
+        source: PinnedFontError,
+    },
+    /// The step-12 comparison found re-rendered pixels that differ from
+    /// the stored candidate pixels.
+    InconsistentSample {
+        /// What disagreed (dimensions and compared byte counts).
+        detail: String,
+    },
     /// A baseline or evidence path is empty, unresolvable, or escapes its
     /// root through a symlink.
     InvalidStorePath {
@@ -174,7 +224,9 @@ impl Display for ApproveError {
             Self::CiApprovalForbidden => {
                 write!(formatter, "approval is forbidden while CI is set")
             }
-            Self::InvalidDigest { detail } => write!(formatter, "invalid digest: {detail}"),
+            Self::InvalidArgument { detail } => {
+                write!(formatter, "invalid approval argument: {detail}")
+            }
             Self::StaleCandidate { expected, actual } => write!(
                 formatter,
                 "candidate changed: expected digest {expected}, read bytes digest {actual}"
@@ -184,6 +236,21 @@ impl Display for ApproveError {
                 "baseline changed: expected previous digest {expected}, present digest {actual}"
             ),
             Self::LockTimeout => write!(formatter, "approval lock deadline passed"),
+            Self::UnknownProfile { requested } => {
+                write!(formatter, "unknown render profile {requested:?}")
+            }
+            Self::RenderFailed { source } => {
+                write!(formatter, "candidate re-render failed: {source}")
+            }
+            Self::MissingGlyph { source } => {
+                write!(
+                    formatter,
+                    "candidate re-render needs an unavailable glyph: {source}"
+                )
+            }
+            Self::InconsistentSample { detail } => {
+                write!(formatter, "candidate re-render is inconsistent: {detail}")
+            }
             Self::InvalidStorePath { detail } => {
                 write!(formatter, "invalid store path: {detail}")
             }
@@ -197,6 +264,8 @@ impl std::error::Error for ApproveError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Check { source } => Some(source),
+            Self::RenderFailed { source } => Some(source),
+            Self::MissingGlyph { source } => Some(source),
             Self::Io { source } => Some(source),
             _ => None,
         }
@@ -226,20 +295,26 @@ impl From<std::io::Error> for ApproveError {
 impl ApproveError {
     /// The stable machine code for this failure, shared with the CLI map.
     ///
-    /// `INVALID_DIGEST` covers malformed digest arguments; every stale,
-    /// frozen, lock, sample, image, or filesystem failure maps to its
-    /// Section 16.3 code.
+    /// Every Section 16.3 code is producible here and maps 1:1 with its
+    /// failure shape: malformed digest arguments are `INVALID_SAMPLE`
+    /// (there is no `INVALID_DIGEST` code), and sample, image, profile,
+    /// render, stale, lock, path, and filesystem failures keep their own
+    /// codes instead of flattening to `INVALID_SAMPLE` or `INVALID_IMAGE`.
     #[must_use]
-    pub const fn code(&self) -> &'static str {
+    pub fn code(&self) -> &'static str {
         match self {
             Self::CiApprovalForbidden => "CI_APPROVAL_FORBIDDEN",
-            Self::InvalidDigest { .. } => "INVALID_DIGEST",
+            Self::InvalidArgument { .. } => "INVALID_SAMPLE",
             Self::StaleCandidate { .. } => "STALE_CANDIDATE",
             Self::StaleBaseline { .. } => "STALE_BASELINE",
             Self::LockTimeout => "LOCK_TIMEOUT",
+            Self::UnknownProfile { .. } => "UNKNOWN_PROFILE",
+            Self::RenderFailed { .. } => "RENDER_FAILED",
+            Self::MissingGlyph { .. } => "MISSING_GLYPH",
+            Self::InconsistentSample { .. } => "INCONSISTENT_SAMPLE",
             Self::InvalidStorePath { .. } => "INVALID_STORE_PATH",
             Self::Check { source } => match source {
-                CheckError::Sample(_) => "INVALID_SAMPLE",
+                CheckError::Sample(source) => sample_code(source),
                 CheckError::InvalidTestId { .. } | CheckError::InvalidStorePath { .. } => {
                     "INVALID_STORE_PATH"
                 }
@@ -254,14 +329,44 @@ impl ApproveError {
     }
 
     /// The process exit code for this failure: `2` for malformed digest
-    /// arguments, `3` for stale, frozen, lock, sample, image, and I/O
-    /// failures.
+    /// arguments, `3` for stale, frozen, lock, sample, image, profile,
+    /// render, and I/O failures.
     #[must_use]
     pub const fn exit_code(&self) -> i32 {
         match self {
-            Self::InvalidDigest { .. } => 2,
+            Self::InvalidArgument { .. } => 2,
             _ => 3,
         }
+    }
+}
+
+/// The Section 16.3 code for one validated sample failure.
+///
+/// Resource exhaustion (`TooLarge`, `DimensionTooLarge`, `RgbaTooLarge`)
+/// is `RESOURCE_LIMIT`; an unknown sample schema is `UNSUPPORTED_SCHEMA`;
+/// PNG, digest, and dimension disagreements are `INVALID_IMAGE`; renderer
+/// refusals are `RENDER_FAILED` except a missing glyph, which is
+/// `MISSING_GLYPH`; filesystem failures are `IO`. Everything else —
+/// test IDs, gates, formats, snapshots, contracts, and evidence shapes —
+/// is `INVALID_SAMPLE`.
+#[must_use]
+pub fn sample_code(source: &SampleError) -> &'static str {
+    match source {
+        SampleError::TooLarge { .. }
+        | SampleError::DimensionTooLarge { .. }
+        | SampleError::RgbaTooLarge { .. } => "RESOURCE_LIMIT",
+        SampleError::UnsupportedSchema { .. } => "UNSUPPORTED_SCHEMA",
+        SampleError::PngInvalid { .. }
+        | SampleError::PngDecode { .. }
+        | SampleError::Base64Invalid { .. }
+        | SampleError::DigestMismatch { .. }
+        | SampleError::DimensionMismatch { .. } => "INVALID_IMAGE",
+        SampleError::Render { source } => match source {
+            RenderError::PinnedFont(PinnedFontError::MissingGlyph { .. }) => "MISSING_GLYPH",
+            _ => "RENDER_FAILED",
+        },
+        SampleError::Io { .. } => "IO",
+        _ => "INVALID_SAMPLE",
     }
 }
 
@@ -378,10 +483,45 @@ impl ApprovalStore {
         candidate_sha256: &str,
         expected_baseline_sha256: &str,
     ) -> Result<AcceptOutcome, ApproveError> {
+        // Step 1: refuse under CI before making the root or lock file.
         require_no_ci()?;
+        // Step 2: validate the digest arguments and store paths.
         require_digest("candidate", candidate_sha256, false)?;
         require_digest("expected baseline", expected_baseline_sha256, true)?;
+        let baselines = resolve_baseline_root(&self.baselines)?;
+        // Step 3: make the baseline root when missing.
+        if !baselines.exists() {
+            fs::create_dir_all(&baselines).map_err(|source| ApproveError::Io { source })?;
+        }
+        // Step 4: take the OS lock on the stable file, before any read.
+        let lock =
+            ApprovalFileLock::acquire(&baselines, Duration::from_secs(APPROVAL_LOCK_TIMEOUT_SECS))
+                .map_err(|error| match error {
+                    ApprovalLockError::Timeout => ApproveError::LockTimeout,
+                    ApprovalLockError::Io(source) => ApproveError::Io { source },
+                })?;
+        // Steps 5-9 run under the lock; step 19 releases it on return.
+        let transaction = Self::accept_locked(
+            &baselines,
+            candidate_path,
+            candidate_sha256,
+            expected_baseline_sha256,
+        );
+        drop(lock);
+        transaction
+    }
+
+    /// Run the locked transaction: the single candidate read, digest
+    /// arbitration, re-render, atomic upsert, and evidence writes.
+    fn accept_locked(
+        baselines: &Path,
+        candidate_path: &Path,
+        candidate_sha256: &str,
+        expected_baseline: &str,
+    ) -> Result<AcceptOutcome, ApproveError> {
+        // Step 5: read the candidate bytes one time with the size limit.
         let candidate_bytes = read_candidate_bytes(candidate_path)?;
+        // Step 6: compare their digest with the mandatory candidate digest.
         let actual_candidate = sha256_hex(&candidate_bytes);
         if actual_candidate != candidate_sha256 {
             return Err(ApproveError::StaleCandidate {
@@ -389,96 +529,250 @@ impl ApprovalStore {
                 actual: actual_candidate,
             });
         }
+        // Step 7: validate the candidate schema and snapshot.
         let candidate = Sample::from_bytes(&candidate_bytes)?;
-        validate_test_id(candidate.test_id())?;
-        let baselines = resolve_baseline_root(&self.baselines)?;
-        if !baselines.exists() {
-            fs::create_dir_all(&baselines).map_err(|source| ApproveError::Io { source })?;
-        }
-        let scratch = AcceptTempDir::create().map_err(|source| ApproveError::Io { source })?;
-        let frozen = FrozenStore::new(&baselines, scratch.path())?;
-        let lock = ApprovalFileLock::acquire(
-            frozen.baseline_root(),
-            Duration::from_secs(APPROVAL_LOCK_TIMEOUT_SECS),
-        )
-        .map_err(|error| match error {
-            ApprovalLockError::Timeout => ApproveError::LockTimeout,
-            ApprovalLockError::Io(source) => ApproveError::Io { source },
-        })?;
-        let transaction = Self::accept_locked(
-            frozen.baseline_root(),
-            &candidate,
-            &candidate_bytes,
-            &actual_candidate,
-            expected_baseline_sha256,
-            &frozen,
-        );
-        drop(lock);
-        transaction
-    }
-
-    /// Run the locked transaction: the single comparison, digest
-    /// arbitration, atomic upsert, and evidence writes.
-    fn accept_locked(
-        baselines: &Path,
-        candidate: &Sample,
-        candidate_bytes: &[u8],
-        candidate_digest: &str,
-        expected_baseline: &str,
-        frozen: &FrozenStore,
-    ) -> Result<AcceptOutcome, ApproveError> {
-        let outcome = frozen.check(candidate_bytes)?;
-        let (previous_digest, changes) = match &outcome {
-            CheckOutcome::Pass(success) => {
-                (success.baseline_sha256().to_string(), ChangeSet::empty())
-            }
-            CheckOutcome::Failure(failure) => (
-                failure.baseline_sha256().to_string(),
-                ChangeSet::from_failure(failure),
-            ),
-        };
+        // Steps 8-9: read the baseline under the same lock and arbitrate.
+        let relative = baseline_relative(&candidate)?;
+        ensure_no_symlink(baselines, &relative)?;
+        let baseline_bytes = read_baseline_bytes(baselines, &relative)?;
+        let previous_digest = baseline_bytes
+            .as_deref()
+            .map_or_else(|| MISSING_BASELINE.to_string(), sha256_hex);
         if previous_digest != expected_baseline {
             return Err(ApproveError::StaleBaseline {
                 expected: expected_baseline.to_string(),
                 actual: previous_digest,
             });
         }
-        let mut relative = PathBuf::from(candidate.test_id());
-        relative.set_extension("tui.json");
-        ensure_no_symlink(baselines, &relative)?;
-        let parent = relative
-            .parent()
-            .ok_or_else(|| ApproveError::InvalidStorePath {
-                detail: "baseline path has no parent directory".to_string(),
-            })?;
-        let parent_dir = baselines.join(parent);
-        fs::create_dir_all(&parent_dir).map_err(|source| ApproveError::Io { source })?;
-        let file_name = relative
-            .file_name()
-            .and_then(|name| name.to_str())
-            .ok_or_else(|| ApproveError::InvalidStorePath {
-                detail: "baseline path has no file name".to_string(),
-            })?;
-        let baseline_path = atomic_replace(&parent_dir, file_name, candidate_bytes)
-            .map_err(|source| ApproveError::Io { source })?;
-        let evidence_dir = write_accept_evidence(
+        // First approval only: validate the candidate test ID. A present
+        // baseline skips ID and gate cross-comparison entirely.
+        if baseline_bytes.is_none() {
+            validate_test_id(candidate.test_id())?;
+        }
+        // Steps 10-12: re-render image samples through the specified
+        // profile and compare decoded pixels; state-only samples skip.
+        rerender_check(&candidate)?;
+        let changes = match baseline_bytes {
+            None => ChangeSet::missing(),
+            Some(bytes) => {
+                let baseline = Sample::from_bytes(&bytes)?;
+                let comparison = FrozenStore::compare_present(&candidate, &baseline)?;
+                ChangeSet::from_present(comparison)
+            }
+        };
+        // Steps 13-18: validate paths, make parents, atomically replace.
+        let (baseline_path, evidence_dir) = write_baseline_and_evidence(
             baselines,
-            candidate,
-            candidate_bytes.len(),
-            candidate_digest,
+            &relative,
+            &candidate,
+            &candidate_bytes,
+            &actual_candidate,
             &previous_digest,
             &changes,
         )?;
+        // Step 20: return the approved test ID and sample digest.
         Ok(AcceptOutcome {
             test_id: candidate.test_id().to_string(),
             gate: candidate.gate(),
-            candidate_sha256: candidate_digest.to_string(),
+            candidate_sha256: actual_candidate,
             previous_baseline_sha256: previous_digest,
-            baseline_sha256: candidate_digest.to_string(),
+            baseline_sha256: candidate_sha256.to_string(),
             baseline_path,
             evidence_dir,
         })
     }
+}
+
+/// Derive the store-relative baseline path for a candidate test ID.
+fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
+    let mut relative = PathBuf::from(candidate.test_id());
+    relative.set_extension("tui.json");
+    if relative.parent().is_none() {
+        return Err(ApproveError::InvalidStorePath {
+            detail: "baseline path has no parent directory".to_string(),
+        });
+    }
+    if relative
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_none()
+    {
+        return Err(ApproveError::InvalidStorePath {
+            detail: "baseline path has no file name".to_string(),
+        });
+    }
+    Ok(relative)
+}
+
+/// Read the baseline file under the held lock: `None` when absent, an I/O
+/// error for any other read failure.
+fn read_baseline_bytes(baselines: &Path, relative: &Path) -> Result<Option<Vec<u8>>, ApproveError> {
+    match fs::read(baselines.join(relative)) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(source) => Err(ApproveError::Io { source }),
+    }
+}
+
+/// Steps 13-18 plus evidence: validate paths, make parent directories,
+/// atomically replace the baseline, and save the approval records.
+fn write_baseline_and_evidence(
+    baselines: &Path,
+    relative: &Path,
+    candidate: &Sample,
+    candidate_bytes: &[u8],
+    candidate_digest: &str,
+    previous_digest: &str,
+    changes: &ChangeSet,
+) -> Result<(PathBuf, PathBuf), ApproveError> {
+    let parent = relative
+        .parent()
+        .ok_or_else(|| ApproveError::InvalidStorePath {
+            detail: "baseline path has no parent directory".to_string(),
+        })?;
+    let file_name = relative
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| ApproveError::InvalidStorePath {
+            detail: "baseline path has no file name".to_string(),
+        })?;
+    // Step 14: make the baseline's parent directories under the lock.
+    let parent_dir = baselines.join(parent);
+    fs::create_dir_all(&parent_dir).map_err(|source| ApproveError::Io { source })?;
+    // Steps 15-18: write, flush, close, and atomically rename.
+    let baseline_path = atomic_replace(&parent_dir, file_name, candidate_bytes)
+        .map_err(|source| ApproveError::Io { source })?;
+    let evidence_dir = write_accept_evidence(
+        baselines,
+        candidate,
+        candidate_bytes.len(),
+        candidate_digest,
+        previous_digest,
+        changes,
+    )?;
+    Ok((baseline_path, evidence_dir))
+}
+
+/// Steps 10-12: for an image sample, resolve the candidate's specified
+/// render profile, re-render the snapshot through the upstream renderer,
+/// and compare the new decoded pixels with the candidate pixels.
+///
+/// State-only samples carry no image and skip all three steps. An unknown
+/// profile rejects with [`ApproveError::UnknownProfile`]; a renderer
+/// refusal rejects with [`ApproveError::RenderFailed`] (or
+/// [`ApproveError::MissingGlyph`]); differing pixels reject with
+/// [`ApproveError::InconsistentSample`].
+fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
+    let Some(image) = candidate.image() else {
+        return Ok(());
+    };
+    let contract = candidate
+        .render_contract()
+        .ok_or_else(|| ApproveError::Check {
+            source: CheckError::Sample(SampleError::GateMismatch {
+                detail: "state-and-pixels gate requires a render contract".to_string(),
+            }),
+        })?;
+    let profile = resolve_profile(contract.profile()).map_err(|error| match error {
+        ProfileError::UnknownProfile { requested } => ApproveError::UnknownProfile { requested },
+        other => ApproveError::RenderFailed {
+            source: RenderError::RasterFailed {
+                message: format!("render profile does not build: {other}"),
+            },
+        },
+    })?;
+    let rendered = match render_snapshot_png(candidate.snapshot(), &profile.render_options()) {
+        Ok(rendered) => rendered,
+        Err(RenderError::PinnedFont(source @ PinnedFontError::MissingGlyph { .. })) => {
+            return Err(ApproveError::MissingGlyph { source });
+        }
+        Err(other) => return Err(ApproveError::RenderFailed { source: other }),
+    };
+    let fresh = decode_rendered_png(rendered.png())?;
+    let stored = decode_stored_png(image)?;
+    if fresh != stored {
+        return Err(ApproveError::InconsistentSample {
+            detail: format!(
+                "re-rendered {}x{} pixels differ from the candidate {}x{} pixels",
+                fresh.width, fresh.height, stored.width, stored.height,
+            ),
+        });
+    }
+    Ok(())
+}
+
+/// Decoded PNG bytes with dimensions for pixel comparison.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DecodedPng {
+    /// Decoded image width in pixels.
+    width: u32,
+    /// Decoded image height in pixels.
+    height: u32,
+    /// Row-major 8-bit RGBA pixels.
+    pixels: Vec<u8>,
+}
+
+/// Decode freshly rendered PNG bytes: failures are render failures, since
+/// the upstream renderer just encoded these bytes.
+fn decode_rendered_png(png: &[u8]) -> Result<DecodedPng, ApproveError> {
+    decode_png(png).map_err(|detail| ApproveError::RenderFailed {
+        source: RenderError::RasterFailed {
+            message: format!("re-rendered PNG does not decode: {detail}"),
+        },
+    })
+}
+
+/// Decode the stored candidate PNG bytes: failures are image errors. These
+/// bytes already passed [`Sample::from_bytes`] validation, so failure here
+/// is unreachable outside memory corruption.
+fn decode_stored_png(image: &SampleImage) -> Result<DecodedPng, ApproveError> {
+    use base64::Engine as _;
+    let raw = base64::engine::general_purpose::STANDARD
+        .decode(image.png_base64().as_bytes())
+        .map_err(|source| ApproveError::Check {
+            source: CheckError::Sample(SampleError::Base64Invalid { source }),
+        })?;
+    if sha256_hex(&raw) != image.png_sha256() {
+        return Err(ApproveError::Check {
+            source: CheckError::Sample(SampleError::DigestMismatch {
+                field: "png_sha256",
+                expected: image.png_sha256().to_string(),
+                actual: sha256_hex(&raw),
+            }),
+        });
+    }
+    decode_png(&raw).map_err(|detail| ApproveError::Check {
+        source: CheckError::Sample(SampleError::PngInvalid { detail }),
+    })
+}
+
+/// Decode 8-bit RGBA PNG bytes with their dimensions.
+fn decode_png(png: &[u8]) -> Result<DecodedPng, String> {
+    use image::ImageDecoder as _;
+    let decoder = image::codecs::png::PngDecoder::new(std::io::Cursor::new(png))
+        .map_err(|error| format!("PNG does not decode: {error}"))?;
+    if decoder.color_type() != image::ColorType::Rgba8 {
+        return Err(format!(
+            "PNG color type is {:?}; only 8-bit RGBA is supported",
+            decoder.color_type()
+        ));
+    }
+    let (width, height) = decoder.dimensions();
+    let total = u64::from(width)
+        .checked_mul(u64::from(height))
+        .and_then(|pixels| pixels.checked_mul(4));
+    let Some(total) = total.and_then(|bytes| usize::try_from(bytes).ok()) else {
+        return Err("PNG dimensions overflow the pixel buffer".to_string());
+    };
+    let mut pixels = vec![0u8; total];
+    decoder
+        .read_image(&mut pixels)
+        .map_err(|error| format!("PNG pixels do not read: {error}"))?;
+    Ok(DecodedPng {
+        width,
+        height,
+        pixels,
+    })
 }
 
 /// Save `report.json` and `candidate_bytes.evidence.json` for one
@@ -566,10 +860,10 @@ fn require_no_ci() -> Result<(), ApproveError> {
 }
 
 /// Validate one mandatory digest argument: missing, malformed, and zero
-/// placeholder digests are rejected. Only the expected baseline digest may
-/// carry the literal `missing`.
+/// placeholder digests are rejected as invalid sample-selection input.
+/// Only the expected baseline digest may carry the literal `missing`.
 fn require_digest(role: &str, value: &str, allow_missing: bool) -> Result<(), ApproveError> {
-    let invalid = |detail: String| ApproveError::InvalidDigest { detail };
+    let invalid = |detail: String| ApproveError::InvalidArgument { detail };
     if value.is_empty() {
         return Err(invalid(format!("{role} digest is missing")));
     }
@@ -698,51 +992,6 @@ fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), ApproveError> {
     Ok(())
 }
 
-/// One secure scratch directory for an approval transaction, removed on
-/// drop. Creation never follows symlinks: an existing link at the fresh name
-/// fails creation and the next name is tried.
-struct AcceptTempDir {
-    path: PathBuf,
-}
-
-impl AcceptTempDir {
-    /// Create the single scratch directory for one transaction.
-    fn create() -> Result<Self, std::io::Error> {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let base = std::env::temp_dir();
-        for _ in 0..64u32 {
-            let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-            let path = base.join(format!(".tmp-tuiscotti-accept-{}-{id}", std::process::id()));
-            #[cfg(unix)]
-            let created = {
-                use std::os::unix::fs::DirBuilderExt as _;
-                fs::DirBuilder::new().mode(0o700).create(&path)
-            };
-            #[cfg(not(unix))]
-            let created = fs::create_dir(&path);
-            match created {
-                Ok(()) => return Ok(Self { path }),
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
-                Err(error) => return Err(error),
-            }
-        }
-        Err(std::io::Error::other(
-            "too many approval scratch directory collisions",
-        ))
-    }
-
-    /// The scratch directory holding the transaction's inner comparison.
-    fn path(&self) -> &Path {
-        &self.path
-    }
-}
-
-impl Drop for AcceptTempDir {
-    fn drop(&mut self) {
-        drop(fs::remove_dir_all(&self.path));
-    }
-}
-
 /// A temporary file that removes itself on drop unless committed. Writes go
 /// to the destination directory, flush before the handle closes, and reach
 /// their name through one atomic rename.
@@ -752,15 +1001,30 @@ struct TempFile {
 
 impl TempFile {
     /// Create a uniquely named temporary file in a directory.
+    ///
+    /// Exclusive creation with owner-only mode: the call never follows a
+    /// symlink (a planted link at the fresh name fails creation), and the
+    /// file is never truncated or reused.
     fn create(dir: &Path, name: &str) -> Result<(fs::File, Self), std::io::Error> {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = dir.join(format!(".tmp-accept-{}-{id}-{name}", std::process::id()));
-        let file = fs::File::create(&path)?;
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        let file = options.open(&path)?;
         Ok((file, Self { path: Some(path) }))
     }
 
     /// Flush, close, and atomically rename the temporary file.
+    ///
+    /// Both paths share one directory, so the rename cannot cross devices:
+    /// there is no copy fallback (a copy would not be atomic), and any
+    /// rename failure removes the temporary file and reports I/O.
     fn commit(mut self, target: &Path) -> Result<(), std::io::Error> {
         let Some(path) = self.path.take() else {
             return Err(std::io::Error::other(
@@ -769,11 +1033,6 @@ impl TempFile {
         };
         match fs::rename(&path, target) {
             Ok(()) => Ok(()),
-            Err(error) if error.kind() == std::io::ErrorKind::CrossesDevices => {
-                let _copied: u64 = fs::copy(&path, target)?;
-                drop(fs::remove_file(&path));
-                Ok(())
-            }
             Err(error) => {
                 drop(fs::remove_file(&path));
                 Err(error)
@@ -791,9 +1050,9 @@ impl Drop for TempFile {
 }
 
 /// Write bytes through a temporary file with flush, close, and atomic
-/// rename. The rename targets the same directory, so it cannot cross
-/// devices; a copy fallback still covers exotic mounts. Readers never see a
-/// partial file.
+/// rename. The temporary file lives in the target directory, so the rename
+/// is always same-directory and can never report `CrossesDevices`; no copy
+/// fallback exists. Readers never see a partial file.
 fn atomic_replace(dir: &Path, name: &str, bytes: &[u8]) -> Result<PathBuf, std::io::Error> {
     if name.contains('/') || name.contains('\\') {
         return Err(std::io::Error::new(
@@ -853,24 +1112,50 @@ impl ChangeSet {
         }
     }
 
-    /// The change set from a failing frozen comparison, verbatim.
-    fn from_failure(failure: &crate::check::CheckFailure) -> Self {
+    /// The change set for a first approval: no baseline to compare, so
+    /// the single changed field is the missing baseline itself.
+    fn missing() -> Self {
         Self {
-            reason: Some(failure.reason()),
-            fields: failure.changed_fields().to_vec(),
-            cells: failure
-                .changed_cells()
-                .iter()
-                .map(|cell| CellChange {
-                    col: cell.col(),
-                    row: cell.row(),
-                    fields: cell.fields().to_vec(),
-                })
-                .collect(),
-            total: failure.changed_cell_total(),
-            pixel_changed: failure.pixel_changed(),
-            pixel_compared: failure.pixel_compared(),
-            bounds: failure.pixel_bounds(),
+            reason: Some(MismatchReason::Missing),
+            fields: vec!["baseline".to_string()],
+            cells: Vec::new(),
+            total: 0,
+            pixel_changed: 0,
+            pixel_compared: 0,
+            bounds: None,
+        }
+    }
+
+    /// The change set from a present-baseline comparison, verbatim. The
+    /// comparison never ran test-ID or gate cross-comparison; a pass is an
+    /// empty change set.
+    fn from_present(comparison: PresentComparison) -> Self {
+        match comparison {
+            PresentComparison::Pass => Self::empty(),
+            PresentComparison::Failure {
+                reason,
+                changed_fields,
+                changed_cells,
+                changed_cell_total,
+                pixel_changed,
+                pixel_compared,
+                pixel_bounds,
+            } => Self {
+                reason: Some(reason),
+                fields: changed_fields,
+                cells: changed_cells
+                    .iter()
+                    .map(|cell| CellChange {
+                        col: cell.col(),
+                        row: cell.row(),
+                        fields: cell.fields().to_vec(),
+                    })
+                    .collect(),
+                total: changed_cell_total,
+                pixel_changed,
+                pixel_compared,
+                bounds: pixel_bounds,
+            },
         }
     }
 }
@@ -934,7 +1219,11 @@ struct CandidateEvidence<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{atomic_replace, is_hex_digest, require_digest, resolve_baseline_root, sha256_hex};
+    use super::{
+        atomic_replace, is_hex_digest, require_digest, resolve_baseline_root, sample_code,
+        sha256_hex,
+    };
+    use crate::sample::SampleError;
 
     #[test]
     fn sha256_matches_the_known_vector() {
@@ -958,10 +1247,13 @@ mod tests {
         assert!(require_digest("candidate", &"a".repeat(64), false).is_ok());
         assert!(require_digest("expected baseline", "missing", true).is_ok());
         for bad in ["", "abc", &"A".repeat(64), &"0".repeat(64)] {
-            assert!(
-                require_digest("candidate", bad, false).is_err(),
-                "{bad:?} must fail"
-            );
+            match require_digest("candidate", bad, false) {
+                Err(error @ super::ApproveError::InvalidArgument { .. }) => {
+                    assert_eq!(error.code(), "INVALID_SAMPLE");
+                    assert_eq!(error.exit_code(), 2);
+                }
+                other => panic!("{bad:?} must fail as an invalid argument, got {other:?}"),
+            }
         }
         assert!(
             require_digest("expected baseline", "", true).is_err(),
@@ -970,6 +1262,46 @@ mod tests {
         assert!(
             require_digest("expected baseline", "missing", false).is_err(),
             "`missing` needs its own argument slot"
+        );
+    }
+
+    #[test]
+    fn sample_errors_keep_their_section_16_3_codes() {
+        let invalid_sample = [
+            SampleError::InvalidTestId {
+                detail: "bad".to_string(),
+            },
+            SampleError::GateMismatch {
+                detail: "bad".to_string(),
+            },
+            SampleError::UnknownField {
+                detail: "bad".to_string(),
+            },
+        ];
+        for error in &invalid_sample {
+            assert_eq!(sample_code(error), "INVALID_SAMPLE", "{error:?}");
+        }
+        let resource_limit = [
+            SampleError::TooLarge {
+                what: "sample file",
+                bytes: 1,
+                limit: 0,
+            },
+            SampleError::DimensionTooLarge {
+                width: 1,
+                height: 1,
+                limit: 0,
+            },
+            SampleError::RgbaTooLarge { bytes: 1, limit: 0 },
+        ];
+        for error in &resource_limit {
+            assert_eq!(sample_code(error), "RESOURCE_LIMIT", "{error:?}");
+        }
+        assert_eq!(
+            sample_code(&SampleError::UnsupportedSchema {
+                version: "tuiscotti.sample.v2".to_string(),
+            }),
+            "UNSUPPORTED_SCHEMA"
         );
     }
 
