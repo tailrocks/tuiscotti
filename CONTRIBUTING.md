@@ -11,9 +11,11 @@ cargo build --locked --offline
 cargo nextest run --locked --offline   # full suite (preferred runner)
 ```
 
-Pure-view-only build (no PTY engine): append `--no-default-features`
-to `cargo build` / `cargo test`. The `tuiscotti` binary requires the
-default `pty` feature.
+Pure-view execution is structural: tuiscotti holds no PTY, renderer,
+engine, or approval-adapter dependency, and the workspace defines no
+cargo features. Live sessions, input, locators, waits, capture,
+rendering, and comparison come from `tui-test-rs`; application tests
+drive `tui_test::Session` directly.
 
 ## Gates (run before every push)
 
@@ -30,20 +32,12 @@ Workspace lints forbid `unwrap_used`, `expect_used`, `panic!`,
 
 ## Layout
 
-- `crates/tuiscotti` — public facade (re-exports only, plus examples).
-  New public API goes in the owning leaf crate and is re-exported here.
-- `crates/tuiscotti-core` — pure models: `frame`, `screen`, `locate`,
-  `semant`, `names`, `ratatui` adapter. No rendering, PTY, or I/O.
-- `crates/tuiscotti-render` — profiles, PNG/SVG/ANSI/HTML rendering,
-  decoded-pixel diff, evidence export.
-- `crates/tuiscotti-runtime` — PTY sessions (`tui`, `tui_shell`),
-  piped `command`, `runner`, op `proto`, `snapshot`/`grouped` stores.
-- `crates/tuiscotti-insta` — `assert_snapshot!` / `assert_screenshot!`
-  gates over Insta.
-- `crates/tuiscotti-cli` — the `tuiscotti` binary. Thin: parse args,
-  call the facade.
-- `crates/tuiscotti-fixtures` — shared fixture app + committed approvals.
-- `crates/xtask` — repo automation entry point (`cargo xtask …`).
+- `crates/tuiscotti` — public facade: `view` (Ratatui buffer capture),
+  `sample` (versioned visual samples), `check` (frozen-store checks),
+  `approve` (`ApprovalStore` transaction), `report` (static evidence),
+  `error`, plus the usage examples.
+- `crates/tuiscotti-cli` — the `tuiscotti` offline binary
+  (`check`/`accept`/`render`/`report`). Thin: parse args, call the facade.
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -52,8 +46,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **No legacy code.** Remove old paths completely — no shims, aliases,
   or deprecation periods. Breaking changes are preferred.
 - **CI must never auto-accept.** There is no bless flag or variable;
-  do not add one. Approval is `Store::accept` / `GroupedStore::accept`
-  / `tuiscotti accept` / `cargo insta review`, on a workstation only.
+  do not add one. Approval is `ApprovalStore::accept` /
+  `tuiscotti accept`, on a workstation only.
   See [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md).
 - **Fail closed.** Missing or corrupt approvals fail the gate; unknown
   input to a guard fails rather than passes. New statuses go through

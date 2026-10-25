@@ -44,14 +44,6 @@ run = [
   'out=$(cargo tree -p tuiscotti --no-default-features --locked --prefix none) || exit 1; printf "%s\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true',
 ]
 
-[tasks.ci-xtask-policy]
-description = "xtask umbrella: source policies (crates-only, scripts, line limits)"
-run = "cargo run -p xtask -- policy"
-
-[tasks.ci-xtask-deps]
-description = "xtask umbrella: dependency inspection (bans, git sources, lockfile)"
-run = "cargo run -p xtask -- deps"
-
 [tasks.ci-no-default-graph]
 description = "Pty-free negative guard: tuiscotti no-default graph must not contain portable-pty/alacritty_terminal/termpane (a green no-default build alone cannot catch a silently reintroduced pty dep)"
 run = 'out=$(cargo tree -p tuiscotti --no-default-features --locked --prefix none) || exit 1; printf "%s\\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true'
@@ -66,10 +58,6 @@ run = [
   "cargo check --workspace --locked --all-targets --all-features",
   "cargo clippy --workspace --locked --all-targets --all-features -- -D warnings",
 ]
-
-[tasks.ci-package]
-description = "xtask umbrella: packaging dry-run for publishable members"
-run = "cargo run -p xtask -- package"
 
 [tasks.ci-msrv]
 description = "MSRV gate: 1.98.0 (the declared rust-version floor) builds and tests all"

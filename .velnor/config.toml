@@ -43,7 +43,7 @@ test_runner = "cargo_nextest"
 # Repo-wide gates as `mise run <name>` steps appended to every crate job
 # (sorted, unique; each also runnable locally). Native obligations already
 # cover fmt/clippy/build/nextest/doctest/doc per crate and configuration.
-# custom_tasks = ["alint", "ci-check-all-features", "ci-deny", "ci-no-default-graph", "ci-package", "ci-rustdoc", "ci-xtask-deps", "ci-xtask-policy"]
+# custom_tasks = ["alint", "ci-check-all-features", "ci-deny", "ci-no-default-graph", "ci-rustdoc"]
 
 # Optional repository-relative POSIX globs excluded before detector input.
 # (No excludes: D07 removed the fixture workspace; nothing is excluded.)
