@@ -200,3 +200,18 @@ validation,packaging}` worktrees off `b06721b`; upstream batch follows
 per-PR in the task worktrees, then qual-stack reintegration (a new
 reviewed head, incl. corrected U11) and downstream re-pin. Verify-first
 rule: reproduce before fixing; invalid findings return with proof.
+
+## D-SHARED-1: Shared testing-philosophy block (tuiscotti/velnor-new/jackin)
+
+Owner-directed shared text (byte-identical across the three repos'
+AGENTS.md shared sections): testing proves real behavior, never
+coverage percentage; no test without a reviewed plan first (positive +
+negative real scenarios, fewer-better); red must mean clearly broken
+(prefer integration/functional over mocked hypotheticals); every new
+test seen failing first; on escape, analyze the gap then spawn an
+architect subagent to rethink coverage before designing/refactoring
+tests. Researched brief (Google/Fowler/Beck/Qodo/DEV sources) on file
+in session. Sync status: tuiscotti applied (af8efab); velnor-new#391
+pending follow-up agent; jackin#1231 needs its owner (cannot push
+there). Tuiscotti project rule preserved alongside: public API keeps
+rustdoc as a correctness requirement (documented in ## This project).
