@@ -50,6 +50,10 @@ The first U10 review found a BLOCKER: coincident quiet and overall deadlines cou
 
 The first U07 review found one REQUIRED gap: the specified paste-terminator rejection had an implementation but no test. Fixed with `paste_terminator_rejected_before_write` (Rejected variant plus zero new bytes). Re-review closed all four findings. Empty-paste framing asymmetry is documented on the method; the unreachable `MouseMode::None` arm carries a comment.
 
+## D-U11-1: Underline color interactions
+
+An explicit underline color is undimmed and wins over the inverse swap; a missing underline color follows the dimmed and swapped foreground. This matches prior pixel behavior for the missing case and is unspecified in Section 11.11; recorded here per Section 2.2. All underline styles draw the recorded single bar; only `Single` is exercised in U11's suite because canonical equality already compares full cells including every style value.
+
 ## D-STACK-1: Dependent PR stacks
 
 U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.

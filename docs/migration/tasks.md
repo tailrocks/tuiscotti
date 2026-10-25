@@ -9,7 +9,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | U01 | Strict upstream snapshot policy | upstream writer | done ([draft PR 276](https://github.com/microsoft/tui-test/pull/276)) | `goal/u01-strict-snapshots` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U02 | Owned snapshot and atomic capture | upstream writer | done ([draft PR 278](https://github.com/microsoft/tui-test/pull/278)) | `goal/u02-owned-snapshot` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U03 | Public offline rendering | upstream writer | done ([draft PR 280](https://github.com/microsoft/tui-test/pull/280)) | `goal/u03-offline-rendering` | U02 head (`364719a`, parent PR #278) |
-| U11 | Explicit underline color | upstream writer | todo | `goal/u11-underline-color` | U03 head |
+| U11 | Explicit underline color | upstream writer | done ([draft PR 283](https://github.com/microsoft/tui-test/pull/283)) | `goal/u11-underline-color` | U03 head (`6a3c88f`, parent PR #280) |
 | U04 | Pinned fonts and render evidence | upstream writer | todo | `goal/u04-pinned-fonts` | U03 head |
 | U05 | Grapheme rendering | upstream writer | todo | `goal/u05-graphemes` | U04 head |
 | U06 | Pure pixel comparison | upstream writer | done ([draft PR 277](https://github.com/microsoft/tui-test/pull/277)) | `goal/u06-pixel-comparison` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
@@ -25,7 +25,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | D06 | Test and example migration | downstream writer | todo | `goal/tui-test-extension` | D05 + U07/U08/U09/U10 heads |
 | D07 | Code removal and documentation | downstream writer | todo | `goal/tui-test-extension` | D06 head |
 | V01 | Full checks and last code review | code reviewer | todo | both repos | D07 head |
-| R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282) | one branch per U task | accepted heads |
+| R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283) | one branch per U task | accepted heads |
 | R02 | Released dependency adoption | primary agent | todo | `goal/tui-test-extension` | V01 + release |
 | F01 | Last evidence and completion report | primary agent | todo | `goal/tui-test-extension` | all local tasks |
 
