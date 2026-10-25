@@ -73,6 +73,10 @@ U08 review (verdict accept) left five SUGGESTIONs. Two were fixed: the launch-pr
 
 A probe showed upstream `TerminalSnapshot::try_new` accepts content-incoherent covered cells (non-blank grapheme in a covered column; width-2 leading cell overhanging the row end). Its `check_at` validates structural continuation errors only (continuation at column 0 or with nonzero width). Live capture never produces incoherent combos, and Section 11.2 U02-F requires rejection of invalid geometry, which holds. The Section 12 producer-side rule ("reject invalid leading and continuation combinations") is enforced fail-closed at the D01 conversion (`CoveredCellOccupied`, `LeadingCellOverhang` with coordinates). No U02 rework: reopening an accepted task for beyond-spec hardening would churn the open PR for no specified requirement.
 
+## D-QUAL-1: Qualification stack
+
+Downstream tasks D03 onward patch against `goal/qual-stack` in `/Users/donbeave/tuiscotti/repos/upstream-qual` (frozen; never commit there): main `f276059` + U05-stack head `a9a412b` (U02, U03, U11, U04, U05) + U06 head `4fb316a`, merged as `fb72d00`. Both merges applied cleanly. Verified: `owned_snapshot` 11/11 and `pixel_compare` 5/5 green on the stack. U07-U10 heads join the stack when D06 needs them. Patch order recorded here; reproducible via the merge commands above. Never commit absolute patch paths; all downstream builds use explicit `--config` args.
+
 ## D-STACK-1: Dependent PR stacks
 
 U03 and U10 build on the U02 snapshot API, so their worktrees merge the accepted U02 head and record it as the parent PR. U11 and U04 then stack on U03; U05 stacks on U04. Each PR body records its parent. U07 follows U09 in time (same file, distinct regions) but stays based on `main` with no functional dependency.
