@@ -77,6 +77,29 @@ A probe showed upstream `TerminalSnapshot::try_new` accepts content-incoherent c
 
 Downstream tasks D03 onward patch against `goal/qual-stack` in `/Users/donbeave/tuiscotti/repos/upstream-qual` (frozen; never commit task work there): main `f276059` + U05-stack head `a9a412b` (U02, U03, U04, U05 — CORRECTION at V01: U11 was never in this stack; the original record wrongly listed it) + U06 head `4fb316a`, merged as `fb72d00`, plus U07/U08/U09/U10 merges and the `last_output`/`<<<<<<<` fixups (`2482ff5`, `049fb8c`). Stack assembly merges applied cleanly. Verified: `owned_snapshot` 11/11 and `pixel_compare` 5/5 green on the early stack; full downstream `cargo check` green on the final head `049fb8c` (V01: 167/167 nextest green through the patched dep). Disposition: U11 (underline color in shared paint) qualifies upstream on draft PR #283 only; no downstream test depends on its renderer delta (no pixel baselines are committed downstream), so the stack stays without it. Re-check U11 inclusion at R02 when the released dependency version is adopted. Never commit absolute patch paths; per D-GUARD-1 the patch is expressed as untracked task-local `.cargo/config.toml`, never `--config` args (the original direction is superseded).
 
+## D-QUAL-3: Qual-stack reproduction commands
+
+`a9a412b` is the `goal/u05-graphemes` stacked tip (U02→U03→U04→U05 by
+branch ancestry, D-STACK-1), not a merge. From upstream `main`
+`f276059`, in a new directory:
+
+```sh
+git checkout -b goal/qual-stack f2760592ed00e90436f8c3bae124dab712eaecf8
+git merge a9a412b  # U02..U05 via stack ancestry
+git merge 4fb316aa56c65cc659b4a43ee4921c45e33cecc0  # U06 pixel compare
+git merge b0da6225c87d06ea3dc95624172052012ca229f2  # U07 checked input
+git merge 6175db32c2a9c3841311813d58d8a339e012b92b  # U08 launch options
+git merge 46a2864b934050cb099b6775381664f8b34e8f81  # U09 raw bytes
+git merge 1742fba903495948d75fce50b285ac2e4ca0dac4  # U10 waits (resolve: keep U07 input methods + U10 last_output field)
+```
+
+Then the two assembly fixups: remove the leftover `<<<<<<<` marker in
+`session.rs`, and add the missing `last_output: None` field to the
+`spawn_with` `TermState` initializer. Result must equal `049fb8c`.
+Downstream builds against the stack only through the untracked
+task-local `.cargo/config.toml` patch (D-GUARD-1); upstream checkouts
+never build through the guard (committed `[env]` config).
+
 ## D-D04-1: Packet errors corrected by spec
 
 The first D04 review returned 3 BLOCKERs + 3 REQUIREDs, several caused by wrong directions in the primary agent's D04 packet. The GOAL text overrules the packet. Corrections for the rework:
