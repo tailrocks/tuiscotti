@@ -22,9 +22,7 @@
 
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use image::ImageDecoder as _;
 use sha2::{Digest, Sha256};
@@ -32,7 +30,7 @@ use tui_test::pixel::{PixelError, compare_rgba};
 use tui_test::terminal::cell::Attrs;
 use tui_test::{SnapshotCell, TerminalSnapshot};
 
-use crate::report::{PixelSummary, ReportInput, ReportedCell, write_report};
+use crate::report::{PixelSummary, ReportInput, ReportedCell, atomic_write, write_report};
 use crate::sample::{
     Gate, MAX_IMAGE_DIM, MAX_RGBA_BYTES, MAX_TEST_ID_BYTES, MAX_TEST_ID_SEGMENT_BYTES, Sample,
     SampleError,
@@ -757,8 +755,9 @@ fn decide_pixels(actual: &Sample, baseline: &Sample) -> Result<PixelVerdict, Che
         .bounds
         .map(|found| [found.min_x, found.min_y, found.max_x, found.max_y]);
     let Some(difference_image) = comparison.difference_image else {
-        return Err(SampleError::DimensionMismatch {
-            detail: "pixel comparison reports changes without a difference image".to_string(),
+        return Err(SampleError::MissingDifferenceImage {
+            detail: "upstream pixel comparison reports changed pixels without a difference image"
+                .to_string(),
         }
         .into());
     };
@@ -1312,7 +1311,8 @@ impl FrozenStore {
             validate_saved_sample(&path, &saved, candidate_digest)?;
             return Ok(path);
         }
-        atomic_write(candidate_dir, "sample.tui.json", candidate_bytes)?;
+        atomic_write(candidate_dir, "sample.tui.json", candidate_bytes)
+            .map_err(|source| CheckError::Io { source })?;
         Ok(path)
     }
 
@@ -1333,7 +1333,8 @@ impl FrozenStore {
             validate_saved_sample(&path, &saved, baseline_digest)?;
             return Ok(());
         }
-        atomic_write(check_dir, "expected.tui.json", bytes)?;
+        atomic_write(check_dir, "expected.tui.json", bytes)
+            .map_err(|source| CheckError::Io { source })?;
         Ok(())
     }
 
@@ -1428,7 +1429,7 @@ fn save_png(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> 
         }
         return Ok(());
     }
-    atomic_write(check_dir, name, png)?;
+    atomic_write(check_dir, name, png).map_err(|source| CheckError::Io { source })?;
     Ok(())
 }
 
@@ -1447,7 +1448,7 @@ fn save_png_bytes(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckE
         }
         return Ok(());
     }
-    atomic_write(check_dir, name, png)?;
+    atomic_write(check_dir, name, png).map_err(|source| CheckError::Io { source })?;
     Ok(())
 }
 
@@ -1576,7 +1577,8 @@ impl ResultRecord {
         let bytes = serde_json::to_vec(self).map_err(|source| CheckError::EvidenceCorrupt {
             detail: format!("comparison record does not serialize: {source}"),
         })?;
-        atomic_write(check_dir, "result.json", &bytes)?;
+        atomic_write(check_dir, "result.json", &bytes)
+            .map_err(|source| CheckError::Io { source })?;
         Ok(())
     }
 
@@ -1641,59 +1643,10 @@ fn is_hex_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
-/// A temporary file that removes itself on drop unless committed. Writes go
-/// to the destination directory, flush before the handle closes, and reach
-/// their name through one atomic rename.
-struct TempFile {
-    path: Option<PathBuf>,
-}
-
-impl TempFile {
-    /// Create a uniquely named temporary file in a directory.
-    fn create(dir: &Path, name: &str) -> Result<(fs::File, Self), CheckError> {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let temp_name = format!(".tmp-{}-{id}-{name}", std::process::id());
-        let path = dir.join(temp_name);
-        let file = fs::File::create(&path).map_err(|source| CheckError::Io { source })?;
-        Ok((file, Self { path: Some(path) }))
-    }
-
-    /// Flush, close, and atomically rename the temporary file.
-    fn commit(mut self, target: &Path) -> Result<(), CheckError> {
-        let Some(path) = self.path.take() else {
-            return Err(CheckError::EvidenceCorrupt {
-                detail: "temporary evidence file is already committed".to_string(),
-            });
-        };
-        fs::rename(&path, target).map_err(|source| CheckError::Io { source })?;
-        Ok(())
-    }
-}
-
-impl Drop for TempFile {
-    fn drop(&mut self) {
-        if let Some(path) = self.path.take() {
-            drop(fs::remove_file(path));
-        }
-    }
-}
-
-/// Write bytes through a temporary file with flush, close, and atomic rename.
-fn atomic_write(dir: &Path, name: &str, bytes: &[u8]) -> Result<PathBuf, CheckError> {
-    let target = dir.join(name);
-    let (mut file, temp) = TempFile::create(dir, name)?;
-    file.write_all(bytes)
-        .map_err(|source| CheckError::Io { source })?;
-    file.flush().map_err(|source| CheckError::Io { source })?;
-    drop(file);
-    temp.commit(&target)?;
-    Ok(target)
-}
-
 #[cfg(test)]
 mod tests {
     use super::validate_test_id;
+    use crate::sample::SampleError;
 
     /// The full Section 14.1 reserved device list, platform-independent.
     fn device_names() -> Vec<String> {
@@ -1773,5 +1726,18 @@ mod tests {
         .join("/");
         assert!(long_id.len() > 240);
         assert!(validate_test_id(&long_id).is_err());
+    }
+
+    /// A missing upstream difference image is its own error variant, never a
+    /// dimension mismatch.
+    #[test]
+    fn missing_difference_image_has_dedicated_variant() {
+        let error = SampleError::MissingDifferenceImage {
+            detail: "upstream pixel comparison reports changed pixels without a difference image"
+                .to_string(),
+        };
+        assert!(matches!(error, SampleError::MissingDifferenceImage { .. }));
+        assert!(!matches!(error, SampleError::DimensionMismatch { .. }));
+        assert!(error.to_string().contains("difference image"));
     }
 }

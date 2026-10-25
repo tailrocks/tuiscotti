@@ -12,7 +12,9 @@
 
 use std::fmt::{Display, Formatter, Write as _};
 use std::fs;
-use std::path::Path;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Every failure a report render or save can report.
 #[derive(Debug)]
@@ -160,14 +162,86 @@ pub fn render_report(input: &ReportInput<'_>) -> String {
     html
 }
 
-/// Render and save the static HTML report through one file write.
+/// Render and save the static HTML report through one atomic file write: a
+/// temporary file in the destination directory, flushed and closed before
+/// one atomic rename, like all sibling evidence.
 ///
 /// # Errors
 ///
-/// Returns [`ReportError`] when the report file cannot be written.
+/// Returns [`ReportError`] when the report path has no file name or the
+/// report file cannot be written.
 pub fn write_report(input: &ReportInput<'_>, path: &Path) -> Result<(), ReportError> {
-    fs::write(path, render_report(input)).map_err(ReportError::Io)?;
+    let html = render_report(input);
+    let invalid = |what: &str| {
+        ReportError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("report path {} has {what}", path.display()),
+        ))
+    };
+    let dir = path
+        .parent()
+        .ok_or_else(|| invalid("no parent directory"))?;
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| invalid("no file name"))?;
+    atomic_write(dir, name, html.as_bytes()).map_err(ReportError::Io)?;
     Ok(())
+}
+
+/// A temporary file that removes itself on drop unless committed. Writes go
+/// to the destination directory, flush before the handle closes, and reach
+/// their name through one atomic rename.
+struct TempFile {
+    path: Option<PathBuf>,
+}
+
+impl TempFile {
+    /// Create a uniquely named temporary file in a directory.
+    fn create(dir: &Path, name: &str) -> Result<(fs::File, Self), std::io::Error> {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let temp_name = format!(".tmp-{}-{id}-{name}", std::process::id());
+        let path = dir.join(temp_name);
+        let file = fs::File::create(&path)?;
+        Ok((file, Self { path: Some(path) }))
+    }
+
+    /// Flush, close, and atomically rename the temporary file.
+    fn commit(mut self, target: &Path) -> Result<(), std::io::Error> {
+        let Some(path) = self.path.take() else {
+            return Err(std::io::Error::other(
+                "temporary evidence file is already committed",
+            ));
+        };
+        fs::rename(&path, target)?;
+        Ok(())
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            drop(fs::remove_file(path));
+        }
+    }
+}
+
+/// Write bytes through a temporary file with flush, close, and atomic
+/// rename. Every evidence write, including the HTML report, goes through
+/// this helper so readers never see a partial file.
+pub(crate) fn atomic_write(
+    dir: &Path,
+    name: &str,
+    bytes: &[u8],
+) -> Result<PathBuf, std::io::Error> {
+    let target = dir.join(name);
+    let (mut file, temp) = TempFile::create(dir, name)?;
+    file.write_all(bytes)?;
+    file.flush()?;
+    drop(file);
+    temp.commit(&target)?;
+    Ok(target)
 }
 
 /// Escape text and attribute values for HTML: no code from a sample runs.
@@ -190,16 +264,15 @@ pub fn escape_html(text: &str) -> String {
 /// Write the document head: escaped title, no script, no absolute path.
 fn push_header(html: &mut String, input: &ReportInput<'_>) {
     let title = escape_html(input.test_id);
-    write!(
+    let _result = write!(
         html,
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>tuiscotti check: {title}</title>\n</head>\n<body>\n<h1>tuiscotti check: {title}</h1>\n"
-    )
-    .unwrap_or_default();
+    );
 }
 
 /// Write the outcome summary: reason, gate, and both digests escaped.
 fn push_summary(html: &mut String, input: &ReportInput<'_>) {
-    write!(
+    let _result = write!(
         html,
         "<h2>Outcome</h2>\n<dl>\n<dt>test ID</dt><dd>{}</dd>\n<dt>gate</dt><dd>{}</dd>\n<dt>reason</dt><dd>{}</dd>\n<dt>candidate SHA-256</dt><dd>{}</dd>\n<dt>baseline SHA-256</dt><dd>{}</dd>\n</dl>\n",
         escape_html(input.test_id),
@@ -207,8 +280,7 @@ fn push_summary(html: &mut String, input: &ReportInput<'_>) {
         escape_html(input.reason),
         escape_html(input.candidate_sha256),
         escape_html(input.baseline_sha256),
-    )
-    .unwrap_or_default();
+    );
 }
 
 /// Write changed fields, values, and cell coordinates with an exact total.
@@ -220,7 +292,7 @@ fn push_state(html: &mut String, input: &ReportInput<'_>) {
     } else {
         html.push_str("<h3>Changed fields</h3>\n<ul>\n");
         for field in input.changed_fields {
-            writeln!(html, "<li>{}</li>", escape_html(field)).unwrap_or_default();
+            let _result = writeln!(html, "<li>{}</li>", escape_html(field));
         }
         html.push_str("</ul>\n");
         push_title_values(html, input);
@@ -232,31 +304,29 @@ fn push_state(html: &mut String, input: &ReportInput<'_>) {
 /// Write the compared window titles when the title moved.
 fn push_title_values(html: &mut String, input: &ReportInput<'_>) {
     if let Some((actual, baseline)) = input.title_values {
-        write!(
+        let _result = write!(
             html,
             "<h3>Changed values</h3>\n<table>\n<tr><th>field</th><th>candidate</th><th>baseline</th></tr>\n<tr><td>title</td><td>{}</td><td>{}</td></tr>\n</table>\n",
             escape_html(actual),
             escape_html(baseline),
-        )
-        .unwrap_or_default();
+        );
     }
 }
 
 /// Write the changed-cell table with coordinates and display text.
 fn push_cells(html: &mut String, input: &ReportInput<'_>) {
-    write!(
+    let _result = write!(
         html,
         "<p>Changed cells: {}</p>\n<table>\n<tr><th>column</th><th>row</th><th>fields</th><th>candidate text</th><th>baseline text</th></tr>\n",
         input.changed_cell_total
-    )
-    .unwrap_or_default();
+    );
     for cell in input.changed_cells {
         let fields: Vec<String> = cell
             .fields()
             .iter()
             .map(|field| escape_html(field))
             .collect();
-        writeln!(
+        let _result = writeln!(
             html,
             "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
             cell.col(),
@@ -264,8 +334,7 @@ fn push_cells(html: &mut String, input: &ReportInput<'_>) {
             fields.join(", "),
             escape_html(cell.actual_text()),
             escape_html(cell.baseline_text()),
-        )
-        .unwrap_or_default();
+        );
     }
     html.push_str("</table>\n");
 }
@@ -274,12 +343,11 @@ fn push_cells(html: &mut String, input: &ReportInput<'_>) {
 fn push_pixels(html: &mut String, input: &ReportInput<'_>) {
     if let Some(pixels) = input.pixels {
         let bounds = pixels.bounds;
-        writeln!(
+        let _result = writeln!(
             html,
             "<p>Changed pixels: {} of {} compared; bounds ({}-{}, {}-{}).</p>",
             pixels.changed, pixels.compared, bounds[0], bounds[1], bounds[2], bounds[3],
-        )
-        .unwrap_or_default();
+        );
     }
 }
 
@@ -295,21 +363,19 @@ fn push_images(html: &mut String, input: &ReportInput<'_>) {
 /// no expected image exists or an image does not apply to this gate.
 fn push_image(html: &mut String, label: &str, file: &str, present: bool) {
     if present {
-        write!(
+        let _result = write!(
             html,
             "<h3>{label}</h3>\n<img src=\"{file}\" alt=\"{label} image\">\n"
-        )
-        .unwrap_or_default();
+        );
     } else if label == "Expected" {
         html.push_str(
             "<h3>Expected</h3>\n<p>The expected image is missing: no baseline image was compared.</p>\n",
         );
     } else {
-        write!(
+        let _result = write!(
             html,
             "<h3>{label}</h3>\n<p>The {label} image is missing for this comparison.</p>\n"
-        )
-        .unwrap_or_default();
+        );
     }
 }
 
@@ -320,7 +386,7 @@ fn push_footer(html: &mut String) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReportInput, escape_html, render_report};
+    use super::{ReportInput, escape_html, render_report, write_report};
 
     #[test]
     fn escaping_keeps_markup_inert() {
@@ -354,5 +420,47 @@ mod tests {
         let html = render_report(&input);
         assert!(html.contains("The expected image is missing"));
         assert!(!html.contains("<script"));
+    }
+
+    /// The report write is atomic: the saved bytes equal the full rendering
+    /// and no temporary file is left behind in the destination directory.
+    #[test]
+    fn write_report_saves_complete_bytes_without_temp_residue() {
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let fields = vec!["title".to_string()];
+        let cells = Vec::new();
+        let input = ReportInput {
+            test_id: "views/login",
+            gate: "state",
+            reason: "state",
+            candidate_sha256: "cc",
+            baseline_sha256: "bb",
+            changed_fields: &fields,
+            changed_cells: &cells,
+            changed_cell_total: 0,
+            pixels: None,
+            has_expected_image: false,
+            has_actual_image: false,
+            has_diff_image: false,
+            title_values: None,
+        };
+        let path = dir.path().join("report.html");
+        write_report(&input, &path).expect("report writes");
+        let saved = std::fs::read(&path).expect("report reads");
+        assert_eq!(saved, render_report(&input).as_bytes());
+        let text = String::from_utf8(saved).expect("report is UTF-8");
+        assert!(text.starts_with("<!DOCTYPE html>"));
+        assert!(text.ends_with("</html>\n"));
+        for entry in std::fs::read_dir(dir.path()).expect("directory lists") {
+            let name = entry
+                .expect("entry reads")
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            assert!(
+                !name.starts_with(".tmp-"),
+                "temporary file {name:?} left behind"
+            );
+        }
     }
 }

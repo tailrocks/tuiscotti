@@ -138,6 +138,12 @@ pub enum SampleError {
         /// What disagreed.
         detail: String,
     },
+    /// Upstream pixel comparison reports changed pixels without a
+    /// difference image.
+    MissingDifferenceImage {
+        /// What the comparison reported.
+        detail: String,
+    },
     /// The embedded PNG does not decode as 8-bit RGBA.
     PngInvalid {
         /// What decoding found.
@@ -221,6 +227,9 @@ impl Display for SampleError {
             }
             Self::DimensionMismatch { detail } => {
                 write!(f, "image dimension mismatch: {detail}")
+            }
+            Self::MissingDifferenceImage { detail } => {
+                write!(f, "missing difference image: {detail}")
             }
             Self::PngInvalid { detail } => write!(f, "invalid sample PNG: {detail}"),
             Self::PngDecode { source } => write!(f, "sample PNG does not decode: {source}"),

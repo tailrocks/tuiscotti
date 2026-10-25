@@ -634,3 +634,48 @@ fn hostile_cells() -> Vec<SnapshotCell> {
     .expect("hostile cell is valid");
     cells
 }
+
+/// No `.tmp-*` file may survive beside saved evidence.
+#[expect(clippy::expect_used, reason = "test helper reads evidence entries")]
+fn assert_no_temp_residue(dir: &Path) {
+    for entry in std::fs::read_dir(dir).expect("evidence lists") {
+        let name = entry
+            .expect("entry reads")
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            !name.starts_with(".tmp-"),
+            "temporary file {name:?} left behind in {}",
+            dir.display()
+        );
+    }
+}
+
+/// The failing-check report saves atomically: complete bytes, stable across
+/// a re-check, with no temporary file left behind in the evidence dir.
+#[test]
+fn d03_report_html_saves_atomically_without_temp_residue() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let baseline_bytes = state_sample_bytes("views/login", &base_snapshot());
+    write_baseline_file(&baselines, "views/login", &baseline_bytes);
+    let mut changed = filled_cells("a");
+    changed[0] = plain_cell("b", 1);
+    let changed_snapshot = snapshot_with_cells(changed, SnapshotMetadata::default());
+    let actual_bytes = state_sample_bytes("views/login", &changed_snapshot);
+    let failure = failure_of(store.check(&actual_bytes).expect("state check runs"));
+    let first = std::fs::read(failure.report_path()).expect("report reads");
+    let text = String::from_utf8(first.clone()).expect("report is UTF-8");
+    assert!(text.starts_with("<!DOCTYPE html>"));
+    assert!(text.ends_with("</html>\n"));
+    assert!(text.contains("views/login"));
+    assert!(text.contains(&sha256_hex(&actual_bytes)));
+    assert!(text.contains(failure.baseline_sha256()));
+    assert_no_temp_residue(failure.evidence_dir());
+    let recheck = failure_of(store.check(&actual_bytes).expect("recheck runs"));
+    assert_eq!(recheck.report_path(), failure.report_path());
+    let second = std::fs::read(failure.report_path()).expect("report rereads");
+    assert_eq!(second, first);
+    assert_no_temp_residue(failure.evidence_dir());
+}
