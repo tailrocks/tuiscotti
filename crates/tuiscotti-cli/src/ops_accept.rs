@@ -73,3 +73,29 @@ pub(crate) fn cmd_accept(
         Err(error) => failed(&error),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tuiscotti::approve::ApproveError;
+
+    #[test]
+    fn accept_exit_code_splits_argument_from_operational() {
+        assert_eq!(
+            accept_exit_code(&ApproveError::InvalidArgument {
+                detail: "bad digest".to_string(),
+            }),
+            2
+        );
+        for error in [
+            ApproveError::CiApprovalForbidden,
+            ApproveError::LockTimeout,
+            ApproveError::StaleCandidate {
+                expected: "a".to_string(),
+                actual: "b".to_string(),
+            },
+        ] {
+            assert_eq!(accept_exit_code(&error), 3, "{error:?}");
+        }
+    }
+}

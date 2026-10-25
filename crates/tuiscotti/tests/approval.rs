@@ -367,7 +367,6 @@ fn ci_refusal_probed(
     match store.accept(candidate, candidate_digest, expected_baseline) {
         Err(error @ ApproveError::CiApprovalForbidden) => {
             assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-            assert_eq!(error.exit_code(), 3);
         }
         other => panic!("approval under CI must refuse, got {other:?}"),
     }

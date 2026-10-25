@@ -72,4 +72,4 @@ debug = "line-tables-only"
 # carries the accepted upstream APIs until the PRs merge and a registry
 # release exists. Pinned to the full commit SHA; remove at R02 adoption.
 [patch.crates-io]
-tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "049fb8ca70ecee56cf35d584101e0ed5d4b0f659" }
+tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "6eb3b1415a293947373db8def00a1fa178178859" }

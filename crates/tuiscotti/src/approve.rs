@@ -1572,7 +1572,6 @@ mod tests {
         match store.accept_core(&candidate, &digest, "missing") {
             Err(error @ super::ApproveError::Io { .. }) => {
                 assert_eq!(error.code(), "IO");
-                assert_eq!(error.exit_code(), 3);
             }
             other => panic!("a blocked lock path must fail I/O, got {other:?}"),
         }
@@ -1596,7 +1595,6 @@ mod tests {
             Err(error @ super::ApproveError::CiApprovalForbidden) => {
                 assert!(present, "a present CI variable refuses the gate");
                 assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-                assert_eq!(error.exit_code(), 3);
             }
             Err(other) => panic!("the CI gate reports only refusal, got {other:?}"),
         }

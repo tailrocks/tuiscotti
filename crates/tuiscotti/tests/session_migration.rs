@@ -317,7 +317,6 @@ fn d06_c02_live_session_sample_through_downstream_path() {
         ) {
             Err(error @ ApproveError::CiApprovalForbidden) => {
                 assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-                assert_eq!(error.exit_code(), 3);
             }
             other => panic!("live approval under CI must refuse, got {other:?}"),
         }
