@@ -46,6 +46,7 @@ use sha2::{Digest, Sha256};
 use tui_test::{RASTER_POLICY_PINNED_V1, RenderError, TerminalSnapshot};
 
 use crate::render_profile::{PROFILE_NAME, Profile, platform_key};
+use crate::report::atomic_write;
 
 /// Sample schema identifier. Only this value parses.
 pub const SAMPLE_SCHEMA: &str = "tuiscotti.sample.v1";
@@ -881,15 +882,32 @@ impl Sample {
         Self::from_bytes(&bytes)
     }
 
-    /// Serialize and write one sample file.
+    /// Serialize and write one sample file through one atomic file write: a
+    /// temporary file in the destination directory, flushed and closed
+    /// before one atomic rename, like all sibling evidence. Readers never
+    /// see a partial file.
     ///
     /// # Errors
     ///
-    /// Returns [`SampleError`] when serialization fails or the write fails.
+    /// Returns [`SampleError`] when serialization fails, when the sample
+    /// path has no parent directory or file name, or when the write fails.
     /// A partial write is a failure, never a success value.
     pub fn save(&self, path: &std::path::Path) -> Result<(), SampleError> {
         let bytes = self.to_bytes()?;
-        std::fs::write(path, &bytes).map_err(|source| SampleError::Io { source })?;
+        let invalid = |what: &str| SampleError::Io {
+            source: std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("sample path {} has {what}", path.display()),
+            ),
+        };
+        let dir = path
+            .parent()
+            .ok_or_else(|| invalid("no parent directory"))?;
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| invalid("no file name"))?;
+        atomic_write(dir, name, &bytes).map_err(|source| SampleError::Io { source })?;
         Ok(())
     }
 

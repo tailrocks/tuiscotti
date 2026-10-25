@@ -1358,3 +1358,52 @@ fn d02_rejects_oversize_file() {
         "past-limit files fail before parsing"
     );
 }
+
+/// No `.tmp-*` file may survive beside a saved sample.
+#[expect(clippy::expect_used, reason = "test helper reads saved samples")]
+fn assert_no_temp_residue(dir: &std::path::Path) {
+    for entry in std::fs::read_dir(dir).expect("sample dir lists") {
+        let name = entry
+            .expect("entry reads")
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            !name.starts_with(".tmp-"),
+            "temporary file {name:?} left behind in {}",
+            dir.display()
+        );
+    }
+}
+
+/// The sample file saves atomically: complete bytes, stable across a
+/// re-save, with no temporary file left behind; a failing save publishes
+/// no truncated sample either.
+#[test]
+fn d03_sample_saves_atomically_without_temp_residue() {
+    let sample = Sample::state("views/atomic", c06_snapshot(), Observation::empty())
+        .expect("state sample builds");
+    let expected = sample.to_bytes().expect("sample serializes");
+    let dir = tempfile::tempdir().expect("tempdir builds");
+    let path = dir.path().join("atomic.tuiscotti.json");
+    sample.save(&path).expect("sample saves");
+    assert_eq!(std::fs::read(&path).expect("sample reads"), expected);
+    assert_no_temp_residue(dir.path());
+    let loaded = Sample::from_file(&path).expect("sample loads");
+    assert_eq!(
+        loaded.to_bytes().expect("loaded serializes"),
+        expected,
+        "saved bytes round-trip"
+    );
+    sample.save(&path).expect("sample resaves");
+    assert_eq!(std::fs::read(&path).expect("sample rereads"), expected);
+    assert_no_temp_residue(dir.path());
+    // A failing save publishes nothing: no truncated file, no residue.
+    let missing = dir.path().join("no-such-dir").join("atomic.tuiscotti.json");
+    assert!(
+        sample.save(&missing).is_err(),
+        "save into a missing directory fails"
+    );
+    assert!(!missing.exists(), "failed save publishes nothing");
+    assert_no_temp_residue(dir.path());
+}
