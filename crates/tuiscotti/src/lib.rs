@@ -17,8 +17,15 @@
 //! which also preserve every pre-G6 path used out of crate.
 
 pub mod error;
+// D01 migration path: pure-view capture into the single upstream snapshot
+// model. This module owns the new reduced surface; the surrounding
+// re-exports below stay until D07 removes the replaced engine.
+pub mod view;
 
 pub use error::{Error, Result};
+pub use view::{
+    ViewCursor, ViewError, ViewResult, ViewSettings, capture_view, snapshot_from_buffer,
+};
 
 // Daily facade: launch, capture, query, assert.
 pub use tuiscotti_core::locate::Locator;
