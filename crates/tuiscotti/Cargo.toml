@@ -1,49 +1,34 @@
 [package]
 name = "tuiscotti"
 version = "0.2.0"
-description = "Rust TUI visual-regression toolkit (facade)"
+description = "Rust TUI visual-regression toolkit: pure-view capture, versioned samples, frozen checks, approval, reports"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[features]
-default = ["pty"]
-pty = ["tuiscotti-runtime/pty"]
-# Forwards the runtime's test-only overrides (F12). Test builds only.
-test-overrides = ["tuiscotti-runtime/test-overrides"]
-
 [dependencies]
-# D01 migration path: Ratatui view capture converts into the single upstream
-# snapshot model. The `tui-test-rs` version tracks the release record; the
-# unpublished snapshot APIs resolve through the temporary patch procedure in
-# GOAL Section 23.1 (explicit `--config` patch arguments, never committed).
+# D07: pure-view execution. Live sessions, input, locators, waits, capture,
+# rendering, and comparison all come from the upstream `tui-test-rs` snapshot
+# model; tuiscotti adds the Ratatui view conversion plus the sample, check,
+# approval, and report workflow around it. No PTY, renderer, engine, or
+# approval-adapter dependency remains downstream.
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 # D02 sample format: canonical JSON, digests, PNG decoding for evidence.
 base64.workspace = true
-# D04 approval locking: OS file locks (`flock`/`LockFileEx`) on the stable
-# lock file. Already in the graph through `tuiscotti-runtime`; promoted to a
-# direct dependency so `check.rs` names it, with no new lockfile entries.
+# D04 approval locking: OS file locks on the stable lock file.
 fs2.workspace = true
 image.workspace = true
 ratatui.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-tuiscotti-core = { version = "0.2.0", path = "../tuiscotti-core" }
-tuiscotti-render = { version = "0.2.0", path = "../tuiscotti-render" }
-# default-features = false: the facade `pty` feature (default on) re-adds the
-# terminal runtime explicitly, so `--no-default-features` builds pure-view use
-# without PTY dependencies.
-tuiscotti-runtime = { version = "0.2.0", path = "../tuiscotti-runtime", default-features = false }
-tuiscotti-insta = { version = "0.2.0", path = "../tuiscotti-insta" }
 
 [dev-dependencies]
 base64.workspace = true
 # D04 cross-process lock tests hold the same stable lock file through `fs2`.
 fs2.workspace = true
 image.workspace = true
-insta.workspace = true
 ratatui.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

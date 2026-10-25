@@ -1,39 +1,25 @@
 [workspace]
 members = [
-    "crates/tuiscotti-core",
-    "crates/tuiscotti-render",
-    "crates/tuiscotti-runtime",
-    "crates/tuiscotti-insta",
     "crates/tuiscotti",
     "crates/tuiscotti-cli",
-    "crates/tuiscotti-fixtures",
-    "crates/tuiscotti-bench",
-    "crates/xtask",
 ]
 resolver = "3"
 
 [workspace.dependencies]
 # Centralize all actual dependencies here, including dev/build dependencies.
-# Use real compatible released versions; termpane must come from the official registry release.
-# Compatible SemVer ranges let downstream consumers unify dependencies without forced downgrades,
+# D07: only the two shipping crates remain. Live PTY work belongs to
+# `tui-test-rs` (patched to the upstream checkout, never committed);
+# tuiscotti keeps no local PTY dependency. Compatible SemVer ranges let
+# downstream consumers unify dependencies without forced downgrades,
 # while Cargo.lock keeps workspace CI deterministic.
-anyhow = "1.0"
 base64 = "0.23"
 clap = { version = "4.6", features = ["derive"] }
-crossterm = "0.29"
 fs2 = "0.4"
-swash = "0.2"
 image = { version = "0.25", default-features = false, features = ["png", "gif"] }
-image-compare = "0.5"
-insta = { version = "1.48", default-features = false, features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.11"
 ratatui = { version = "0.30", default-features = false, features = ["underline-color"] }
-unicode-segmentation = "1.13"
-unicode-width = "0.2"
-# PTY runtime backend: released termpane from crates.io (G1 swap landed, F01).
-termpane = { version = "0.1", features = ["pty"] }
 tempfile = "3.27"
 
 [workspace.package]
@@ -76,9 +62,7 @@ broken_intra_doc_links = "deny"
 private_intra_doc_links = "deny"
 
 [profile.test]
-# g7: a one-file view touch rebuilds 5 test-profile units (fixtures lib +
-# view_contracts + 3 PTY fixture binaries coupled via CARGO_BIN_EXE). Full
-# DWARF emission for all five is pure verdict-gate overhead, so test builds
-# keep line tables only (failure backtraces stay file:line-accurate).
+# D07: only the two shipping crates remain, so test builds keep line
+# tables only (failure backtraces stay file:line-accurate).
 # Dev/release profiles keep full debuginfo.
 debug = "line-tables-only"

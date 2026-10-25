@@ -16,11 +16,11 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-# default-features = false: the offline commands (check, accept, render,
-# report) never start an application or open a terminal device, so the PTY
-# runtime stays out of the binary.
-tuiscotti = { version = "0.2.0", path = "../tuiscotti", default-features = false }
-# State-only render replays the pinned renderer through the upstream API.
+# D07: the facade ships no PTY, engine, or renderer, so the offline commands
+# (check, accept, render, report) never start an application or open a
+# terminal device. State-only render replays the pinned renderer through
+# the upstream API.
+tuiscotti = { version = "0.2.0", path = "../tuiscotti" }
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 clap.workspace = true
@@ -29,7 +29,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-tuiscotti = { version = "0.2.0", path = "../tuiscotti", default-features = false }
+tuiscotti = { version = "0.2.0", path = "../tuiscotti" }
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 image.workspace = true
