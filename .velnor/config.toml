@@ -46,10 +46,7 @@ test_runner = "cargo_nextest"
 # custom_tasks = ["alint", "ci-check-all-features", "ci-deny", "ci-no-default-graph", "ci-package", "ci-rustdoc", "ci-xtask-deps", "ci-xtask-policy"]
 
 # Optional repository-relative POSIX globs excluded before detector input.
-[discovery]
-# Test-data fixture workspaces: exercised through their parent crate's tests,
-# never standalone CI units.
-exclude = ["crates/tuiscotti-fixtures/tests/fixtures/**"]
+# (No excludes: D07 removed the fixture workspace; nothing is excluded.)
 
 # Optional exact action-pin overrides. Omitted names use Velnor's bundled latest pins.
 # [actions.overrides]
