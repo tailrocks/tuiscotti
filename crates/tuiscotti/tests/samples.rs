@@ -1520,10 +1520,7 @@ fn r21_saved_sample_parses_against_stored_contract_identity() {
         .and_then(|platform| platform.as_str())
         .expect("pixels sample carries a platform key")
         .to_string();
-    assert!(
-        Sample::from_bytes(&bytes).is_ok(),
-        "control sample parses"
-    );
+    assert!(Sample::from_bytes(&bytes).is_ok(), "control sample parses");
     object["render_contract"]["platform_key"] =
         serde_json::Value::String("far-far-away".to_string());
     let old_id = object

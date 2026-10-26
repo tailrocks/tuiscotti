@@ -555,17 +555,16 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
                         x: u32::from(x),
                         y: u32::from(y),
                     });
-                } else {
-                    if width > area.width - col {
-                        return Err(ViewError::LeadingCellOverhang {
-                            x: u32::from(x),
-                            y: u32::from(y),
-                            width,
-                        });
-                    }
-                    cells.push(leading_cell(cell, symbol, width)?);
-                    covered = width.saturating_sub(1);
                 }
+                if width > area.width - col {
+                    return Err(ViewError::LeadingCellOverhang {
+                        x: u32::from(x),
+                        y: u32::from(y),
+                        width,
+                    });
+                }
+                cells.push(leading_cell(cell, symbol, width)?);
+                covered = width.saturating_sub(1);
             }
         }
     }

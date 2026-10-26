@@ -878,13 +878,18 @@ fn r2_covered_and_clipped_edges_still_convert() {
     buffer.set_stringn(0, 0, "東", 3, Style::default());
     let snapshot = snapshot_from_buffer(&buffer, &settings).expect("covered edge converts");
     assert_eq!(snapshot.cell_at(0, 0).expect("leading exists").text(), "東");
-    assert!(snapshot
-        .cell_at(1, 0)
-        .expect("continuation exists")
-        .is_continuation());
+    assert!(
+        snapshot
+            .cell_at(1, 0)
+            .expect("continuation exists")
+            .is_continuation()
+    );
     let mut clipped = Buffer::empty(Rect::new(0, 0, 1, 1));
     clipped.set_stringn(0, 0, "東", 1, Style::default());
     let snapshot = snapshot_from_buffer(&clipped, &settings).expect("clipped edge converts");
     let cell = snapshot.cell_at(0, 0).expect("clipped cell exists");
-    assert!(!cell.is_continuation(), "clipped edge is a narrow leading cell");
+    assert!(
+        !cell.is_continuation(),
+        "clipped edge is a narrow leading cell"
+    );
 }

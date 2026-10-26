@@ -1315,10 +1315,10 @@ impl FrozenStore {
         record.save(&check_dir)?;
         let report_path = check_dir.join("report.html");
         let input = record.report_input(state, &images);
-        if !report_path.exists() {
-            write_report(&input, &report_path).map_err(CheckError::from)?;
-        } else {
+        if report_path.exists() {
             validate_saved_report(&report_path, &render_report(&input))?;
+        } else {
+            write_report(&input, &report_path).map_err(CheckError::from)?;
         }
         Ok(CheckFailure {
             test_id: test_id.to_string(),

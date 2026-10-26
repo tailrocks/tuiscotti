@@ -1068,12 +1068,11 @@ impl Sample {
     /// Returns [`SampleError`] for every structural rejection.
     pub fn validate_structure(&self) -> Result<(), SampleError> {
         let current_platform;
-        let pixels_platform = match &self.render_contract {
-            Some(contract) => contract.platform_key.as_str(),
-            None => {
-                current_platform = platform_key();
-                current_platform.as_str()
-            }
+        let pixels_platform = if let Some(contract) = &self.render_contract {
+            contract.platform_key.as_str()
+        } else {
+            current_platform = platform_key();
+            current_platform.as_str()
         };
         validate_test_id(&self.test_id, self.gate, pixels_platform)?;
         match self.gate {

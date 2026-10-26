@@ -753,10 +753,7 @@ fn r4_oversize_baseline_fails_as_resource_limit() {
     exact.resize(64 * 1024 * 1024, b' ');
     write_baseline_file(&baselines, "views/big", &exact);
     assert!(
-        matches!(
-            store.check(&candidate_bytes),
-            Ok(CheckOutcome::Pass(_))
-        ),
+        matches!(store.check(&candidate_bytes), Ok(CheckOutcome::Pass(_))),
         "exact-limit baseline loads and passes"
     );
     let mut big = state_sample_bytes("views/big", &baseline_snapshot);
@@ -803,11 +800,10 @@ fn r22_truncated_report_fails_as_corrupt_evidence() {
     write_baseline_file(&baselines, "views/login", &baseline_bytes);
     let mut changed = filled_cells("a");
     changed[0] = plain_cell("b", 1);
-    let actual_bytes =
-        state_sample_bytes(
-            "views/login",
-            &snapshot_with_cells(changed, SnapshotMetadata::default())
-        );
+    let actual_bytes = state_sample_bytes(
+        "views/login",
+        &snapshot_with_cells(changed, SnapshotMetadata::default()),
+    );
     let failure = failure_of(store.check(&actual_bytes).expect("state check runs"));
     std::fs::write(failure.report_path(), b"<html>truncated").expect("report truncates");
     let error = store
@@ -848,7 +844,8 @@ fn r22_wrong_baseline_report_fails_without_overwrite() {
                 changed[0] = plain_cell("d", 1);
                 changed
             },
-            SnapshotMetadata::default()),
+            SnapshotMetadata::default(),
+        ),
     );
     write_baseline_file(&baselines, "views/login", &revision_c);
     let second = failure_of(store.check(&candidate_bytes).expect("second check runs"));
@@ -881,11 +878,10 @@ fn r22_nonregular_report_destination_fails() {
     write_baseline_file(&baselines, "views/login", &baseline_bytes);
     let mut changed = filled_cells("a");
     changed[0] = plain_cell("b", 1);
-    let actual_bytes =
-        state_sample_bytes(
-            "views/login",
-            &snapshot_with_cells(changed, SnapshotMetadata::default())
-        );
+    let actual_bytes = state_sample_bytes(
+        "views/login",
+        &snapshot_with_cells(changed, SnapshotMetadata::default()),
+    );
     let failure = failure_of(store.check(&actual_bytes).expect("state check runs"));
     std::fs::remove_file(failure.report_path()).expect("report removes");
     std::fs::create_dir(failure.report_path()).expect("directory blocks the report path");
