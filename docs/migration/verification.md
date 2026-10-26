@@ -89,3 +89,136 @@ Details: `docs/migration/prs/U01.md` … `U11.md`,
 
 `UPSTREAM_PENDING` (path patch in use, no release yet), never
 `VENDOR_COMPLETE`. Local gates: all pass (`LOCAL_COMPLETE` per §23.3).
+
+## Round-3 verification record (2026-10-27 UTC, downstream tip 06469b7)
+
+Sources are the twelve files inventoried below; this section records
+outcomes only, no code changes.
+
+### P1 reconciliation per upstream PR (heads / code / body / CI)
+
+All 11 upstream PRs OPEN/draft with Testing sections (except #277, see
+note); CI `action_required` on every one (license/cla pass only, Rust CI
+never ran).
+
+- #276 U01 `c14303e` — follow-ups verified no-ops at tip; body clean, Testing present.
+- #277 U06 `4fb316a` — FOREIGN branch, not ours; body uses `Tests` heading, not `Testing`; hygiene not ours to fix.
+- #278 U02 `cb40f25` — follow-ups fixed at tip, verified (see independent verification below); body clean, Testing present.
+- #279 U09 `97f09f0` — fixed at tip, verified (pipeline routing + 4/4 raw_bytes); body clean.
+- #280 U03 `a6adbcc` — already fixed at tip, no-op re-verified (clippy no-default clean); body clean, Testing present.
+- #281 U10 `5472eea` — fixed at tip, verified (21/21 + 4/4); body clean.
+- #282 U07 `212ba1d` — fixer in progress; working tree dirty +434/-295 across 6 files plus tests/common; body clean (282-body variant).
+- #283 U11 `7a1c7c9` — already fixed at tip; body clean, Testing present.
+- #284 U04 `d5b1469` — already fixed at tip (fixed-width u64 digest); body clean.
+- #285 U05 `ee633fa` — follow-ups verified present and tested at tip (blank-PNG and MissingGlyph pre-fix reproductions confirmed); no new commit needed.
+- #286 U08 `8b44501` — already fixed at tip; body clean, Testing present.
+
+Live bodies verified by normalized diff (trailing-whitespace-insensitive)
+against drafts; live head SHAs equal each draft `Head:` line.
+
+### Already-fixed confirmations (no new commit needed)
+
+- U03 (`a6adbcc`): already fixed at tip; no-op re-verified, clippy no-default clean.
+- U04 (`d5b1469`): already fixed at tip; fixed-width u64 digest variant confirmed.
+- U08 (`8b44501`): already fixed at tip; body clean, Testing present.
+- U11 (`7a1c7c9`): already fixed at tip; body clean, Testing present.
+
+### Independent verifications with suite results
+
+- U09 claim (write_bytes routes through shared request pipeline): VERIFIED.
+  Code: `engine.rs` `write_bytes` delegates via `execute_raw_bytes` to shared
+  `execute_request`; `RequestPlan::for_raw_bytes` carries the same pieces as
+  `for_operation`. Suite: `cargo test -p tui-test-rs --test raw_bytes` 4 passed,
+  0 failed (child_fixture, keep_nul/escape/invalid_utf8, large-payload order,
+  write-after-close typed error).
+- U10 claim (quiet-wait acquisition checks before blocking; timeouts use
+  shared finalization): VERIFIED. Code: `run_quiet_wait_cancellable` routes
+  through shared `execute_planned_request` with acquire-before-poll and
+  acquisition deadline; in-engine unit tests pin behavior under held
+  lifecycle write lock. Suites: `request_waits` 21 passed 0 failed (incl.
+  timeout-finalizes-artifact and cancelled-keeps-reason), `quiet_lifecycle`
+  4 passed 0 failed.
+- U02 claim (clipping semantics, single-lock atomic capture, ungated-on-stable
+  tests): VERIFIED. Code: `snapshot.rs` cursor `in_capture` clipping flag and
+  per-scope computation; `engine.rs` capture holds one session + one
+  terminal-state lock. Suite: `owned_snapshot` 11/11 pass at `cb40f25` in
+  0.82 s under stable rustc 1.99.1.
+- U06 claim (workspace png crate is the codec, no hand-rolled decoder):
+  VERIFIED. Code: workspace `png = "0.17.16"`; `encode_png` uses
+  `png::Encoder`, `decode_png` uses `png::Decoder`; zero hand-rolled-codec
+  matches in `pixel_compare.rs`. Suite: `pixel_compare` 5/5 pass at `4fb316a`.
+
+### Downstream triage at tip 06469b7 (branch goal/tui-test-extension)
+
+Counts: FIXED 7, OPEN 1, UNCERTAIN 0. Tip
+`06469b7a2cc74c9eea9c00feb8309bd17d3b305`.
+
+- FIXED: approve.rs transaction ordering; check.rs diff boundedness;
+  sample.rs Deserialize validation; bounded readers; json_out broken-pipe
+  handling; ops_report link relativity; Cargo.toml fork pin + fonts in crate
+  package.
+- OPEN (1): deny.toml fork exception — `deny.toml:19-23` still permits the
+  single git source `https://github.com/donbeave/tui-test`; deny-by-default
+  otherwise holds; scoped and marked provisional pending upstream merge +
+  registry release.
+
+### Downstream #15 CI state at 06469b7
+
+At the earlier recorded head `1501d5a`, CI was all green after a retry
+(Required verdict pass; four Rust jobs pass; Jactionlint, Plan, DCO pass).
+At the current tip `06469b7`, the body was cleaned of scaffolding codes and
+CI was rerunning — no green run observed at this tip in the sources above.
+
+### Upstream CI state and approval request
+
+All upstream PRs #276–#286 show CI conclusion `action_required`:
+first-time-contributor fork approval pending upstream, so the Rust CI
+workflow never ran on any branch; only `license/cla` passes. Commit-status
+state is pending with zero statuses. The ready-to-send maintainer approval
+request (per-PR run URLs for the heads listed above) is at
+`/tmp/approval-request.md`.
+
+### Artifact inventory (purpose of each source file)
+
+- `/tmp/round-3-status.md` — read-only consolidation of round-3 rework
+  status: per-PR head/code/body/CI table, late U02/U06/U05 results,
+  downstream #15 note, dependency-ordered pending list.
+- `/tmp/pr-hygiene.md` — PR hygiene check: downstream #15 title/CI reads,
+  upstream #276–#286 draft/Testing/code/CI table, and drift list (missing
+  title expectation, unrun Rust CI, #282 body variant, foreign #277,
+  no head drift, no stray codes).
+- `/tmp/u09-u10-verify.md` — read-only claim verification for U09
+  (pipeline routing) and U10 (quiet-wait acquisition/finalization) with
+  code refs and focused suite results.
+- `/tmp/u02-u06-verify.md` — read-only fixed-at-tip verification for U02
+  (clipping, atomic capture, stable tests) and U06 (workspace png codec)
+  with code refs and suite results.
+- `/tmp/downstream-triage.md` — downstream triage at tip 06469b7: per-area
+  FIXED/OPEN table with file:line evidence.
+- `/tmp/fourth-review-brief.md` — fourth-review scope, reviewer
+  assignments with overlaps, verdict rules, read-only rule, mandatory
+  heads-refresh step.
+- `/tmp/release-prep-proposal.md` — draft (not applied) v0.3.0 release
+  prep: version-bump checklist, provisional binary-release config delta,
+  pre-tag verification checklist, non-goals.
+- `/tmp/external-review-prompt.md` — read-only independent merge-readiness
+  review prompt: pinned heads with commit links, verdicts requested,
+  evidence rules.
+- `/tmp/approval-request.md` — maintainer message requesting approval of
+  the 11 pending fork-branch CI runs (per-PR run URLs); approval runs CI
+  only, merges nothing.
+- `/tmp/release-notes-v0.3.0.md` — draft v0.3.0 notes (no tag/release/bump
+  yet): delivery summary, fork/stack pins, verification evidence,
+  upstream PR table, limitations.
+- `/tmp/qual-r4-plan.md` — read-only qual-r4 integration plan: expected tip
+  SHAs, parent-first merge order, predicted conflict points, post-merge
+  gate commands. U07 tip provisional (fixer uncommitted changes).
+- `/tmp/release-route.md` — release-route research: current mechanism
+  (CI-only, no release configured), unconfigured items, minimal
+  provisional GitHub-release delta, version-bump list.
+
+### Pending chain
+
+U07 land (only dirty tree; fix in progress) → qual-r4 run over fresh tips
+→ re-pin fork + fonts step → fourth review round → human review gate →
+merge the 11 upstream PRs → release + adopt registry release downstream.
