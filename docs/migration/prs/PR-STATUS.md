@@ -87,3 +87,32 @@ keep monitoring for maintainer feedback; re-probe checks before R04.
   + 567/567 lib, session-verified locally.
 - `donbeave/tuiscotti`: `goal/tui-test-extension` pushed, PR #15 open.
   If `tailrocks/main` moves, merge forward and re-run gates.
+
+## Round-3 hygiene 2026-10-26/27 UTC
+
+Downstream #15: head `1501d5a`, CI all green — Required, 4 Rust jobs
+(tuiscotti, tuiscotti no-default, tuiscotti-cli, tuiscotti-cli no-default),
+Jactionlint, Plan, DCO (per `/tmp/pr-hygiene.md`).
+
+Upstream #276–#286: all OPEN/draft, bodies carry Testing sections.
+Upstream CI `action_required` on all 11 (maintainer approval pending);
+only `license/cla` passing.
+
+| PR | Head | Note |
+|---|---|---|
+| #276 | c14303e | body current |
+| #277 | 4fb316aa | body cleaned of scaffolding codes this round |
+| #278 | cb40f25 | body current |
+| #279 | 97f09f0 | body current |
+| #280 | a6adbcc | body current |
+| #281 | 5472eea | body current |
+| #282 | 212ba1d | body applied |
+| #283 | 7a1c7c9 | body current |
+| #284 | d5b1469 | body current |
+| #285 | ee633fa | body current |
+| #286 | 8b44501 | body current |
+
+P1 gates: U03/U05/U08 P1s verified already-clean at tip (no-op).
+U01 P1+P2 fix in progress.
+
+Pending: U07 round-3, qual-r4, re-pin, fourth review, human review gate.
