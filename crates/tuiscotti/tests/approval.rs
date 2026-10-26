@@ -640,6 +640,157 @@ fn d04_c10_missing_glyph_rejected() {
     );
 }
 
+/// R2 digest carry: an unknown-profile candidate against a present baseline
+/// rejects with `UNKNOWN_PROFILE` but still reports the digest the root
+/// actually held, so the failure JSON names the observed baseline instead
+/// of null. The rejection still writes nothing.
+#[test]
+fn d04_r2_unknown_profile_carries_observed_baseline() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let test_id = format!("{logical}/pixels-{}", platform_key());
+    let first_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let first_digest = sha256_hex(&first_bytes);
+    let first = candidate_file(dir.path(), "first.tui.json", &first_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &first, &first_digest, "missing") {
+        return;
+    }
+    accepted_of(store.accept(&first, &first_digest, "missing"));
+    let second_bytes = with_profile(&first_bytes, "no-such-profile");
+    let second_digest = sha256_hex(&second_bytes);
+    let second = candidate_file(dir.path(), "second.tui.json", &second_bytes);
+    match store.accept(&second, &second_digest, &first_digest) {
+        Err(error @ ApproveError::UnknownProfile { .. }) => {
+            assert_eq!(error.code(), "UNKNOWN_PROFILE");
+            assert_eq!(
+                error.observed_baseline(),
+                Some(first_digest.as_str()),
+                "unknown-profile rejection reports the present baseline digest"
+            );
+        }
+        other => panic!("unknown profile must fail re-render, got {other:?}"),
+    }
+    assert_eq!(
+        read_baseline_file(&baselines, &test_id),
+        first_bytes,
+        "rejections keep the previous baseline bytes"
+    );
+}
+
+/// R2 digest carry: a re-rendered pixel mismatch against a present baseline
+/// rejects with `INCONSISTENT_SAMPLE` but still reports the digest the
+/// root actually held. Contract verification stays pre-commit: the
+/// divergent candidate is refused and the baseline is untouched.
+#[test]
+fn d04_r2_rerender_mismatch_carries_observed_baseline() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let test_id = format!("{logical}/pixels-{}", platform_key());
+    let first_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let first_digest = sha256_hex(&first_bytes);
+    let first = candidate_file(dir.path(), "first.tui.json", &first_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &first, &first_digest, "missing") {
+        return;
+    }
+    accepted_of(store.accept(&first, &first_digest, "missing"));
+    let second_bytes = with_first_cell_text(&first_bytes, "b");
+    assert_ne!(
+        sha256_hex(&second_bytes),
+        first_digest,
+        "fixture must diverge from the baseline"
+    );
+    let second_digest = sha256_hex(&second_bytes);
+    let second = candidate_file(dir.path(), "second.tui.json", &second_bytes);
+    match store.accept(&second, &second_digest, &first_digest) {
+        Err(error @ ApproveError::InconsistentSample { .. }) => {
+            assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
+            assert_eq!(
+                error.observed_baseline(),
+                Some(first_digest.as_str()),
+                "rerender-mismatch rejection reports the present baseline digest"
+            );
+        }
+        other => panic!("divergent pixels must fail re-render, got {other:?}"),
+    }
+    assert_eq!(
+        read_baseline_file(&baselines, &test_id),
+        first_bytes,
+        "rejections keep the previous baseline bytes"
+    );
+}
+
+/// R2 digest carry: a missing glyph against a present baseline rejects with
+/// `MISSING_GLYPH` but still reports the digest the root actually held.
+#[test]
+fn d04_r2_missing_glyph_carries_observed_baseline() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let first_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let first_digest = sha256_hex(&first_bytes);
+    let first = candidate_file(dir.path(), "first.tui.json", &first_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &first, &first_digest, "missing") {
+        return;
+    }
+    accepted_of(store.accept(&first, &first_digest, "missing"));
+    let second_bytes = with_first_cell_text(&first_bytes, "🦀");
+    let second_digest = sha256_hex(&second_bytes);
+    let second = candidate_file(dir.path(), "second.tui.json", &second_bytes);
+    match store.accept(&second, &second_digest, &first_digest) {
+        Err(error @ ApproveError::MissingGlyph { .. }) => {
+            assert_eq!(error.code(), "MISSING_GLYPH");
+            assert_eq!(
+                error.observed_baseline(),
+                Some(first_digest.as_str()),
+                "missing-glyph rejection reports the present baseline digest"
+            );
+        }
+        other => panic!("unrenderable text must fail re-render, got {other:?}"),
+    }
+}
+
+/// R2 digest carry: a re-render failure with no baseline present reports
+/// the observed `missing` literal, not null, while still refusing the
+/// commit and writing nothing but the stable lock file.
+#[test]
+fn d04_r2_rerender_failure_without_baseline_carries_missing() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let baselines = dir.path().join("baselines");
+    std::fs::create_dir_all(&baselines).expect("baseline root creates");
+    let logical = "views/login";
+    let candidate_bytes = with_first_cell_text(&pixel_sample_bytes(logical, &base_snapshot()), "b");
+    let candidate_digest = sha256_hex(&candidate_bytes);
+    let candidate = candidate_file(dir.path(), "candidate.tui.json", &candidate_bytes);
+    let store = ApprovalStore::new(&baselines).expect("approval store opens");
+    if ci_refusal_probed(&store, &candidate, &candidate_digest, "missing") {
+        return;
+    }
+    match store.accept(&candidate, &candidate_digest, "missing") {
+        Err(error @ ApproveError::InconsistentSample { .. }) => {
+            assert_eq!(error.code(), "INCONSISTENT_SAMPLE");
+            assert_eq!(
+                error.observed_baseline(),
+                Some("missing"),
+                "re-render failure without a baseline reports the missing literal"
+            );
+        }
+        other => panic!("divergent pixels must fail re-render, got {other:?}"),
+    }
+    assert_eq!(
+        entry_names(&baselines),
+        [".tuiscotti-approval.lock".to_string()],
+        "rejections write nothing but the stable lock file"
+    );
+}
+
 /// C10: image bytes that disagree with their recorded digests fail approval
 /// with a sample error, not a silent write.
 #[test]
@@ -1200,8 +1351,10 @@ fn d04_error_codes_rerender() {
             cols: 1000,
             rows: 600,
         },
+        observed_baseline: None,
     };
     assert_eq!(render_failed.code(), "RENDER_FAILED");
+    assert!(render_failed.observed_baseline().is_none());
 }
 
 /// Section 16.3 table, arbitration and control: stale digests map 1:1, and

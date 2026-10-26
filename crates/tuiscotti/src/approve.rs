@@ -184,41 +184,62 @@ pub enum ApproveError {
     UnknownProfile {
         /// The rejected profile name.
         requested: String,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
     /// The upstream renderer refused the candidate snapshot during the
     /// step-11 re-render.
     RenderFailed {
         /// The upstream rejection, with its source chain.
         source: RenderError,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
     /// No specified font can render mandatory text in the candidate
     /// snapshot during the step-11 re-render.
     MissingGlyph {
         /// The upstream missing-glyph rejection.
         source: PinnedFontError,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
     /// The step-12 comparison found re-rendered pixels that differ from
     /// the stored candidate pixels.
     InconsistentSample {
         /// What disagreed (dimensions and compared byte counts).
         detail: String,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
     /// A baseline or evidence path is empty, unresolvable, or escapes its
     /// root through a symlink.
     InvalidStorePath {
         /// What the path broke.
         detail: String,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
     /// The inner frozen comparison, candidate validation, or record
     /// serialization failed.
     Check {
         /// The frozen-store failure, with its source chain.
         source: CheckError,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
     /// A filesystem failure outside sample validation.
     Io {
         /// The filesystem failure.
         source: std::io::Error,
+        /// The baseline digest observed under the lock, or `None` when the
+        /// failure precedes the baseline read.
+        observed_baseline: Option<String>,
     },
 }
 
@@ -240,26 +261,26 @@ impl Display for ApproveError {
                 "baseline changed: expected previous digest {expected}, present digest {actual}"
             ),
             Self::LockTimeout => write!(formatter, "approval lock deadline passed"),
-            Self::UnknownProfile { requested } => {
+            Self::UnknownProfile { requested, .. } => {
                 write!(formatter, "unknown render profile {requested:?}")
             }
-            Self::RenderFailed { source } => {
+            Self::RenderFailed { source, .. } => {
                 write!(formatter, "candidate re-render failed: {source}")
             }
-            Self::MissingGlyph { source } => {
+            Self::MissingGlyph { source, .. } => {
                 write!(
                     formatter,
                     "candidate re-render needs an unavailable glyph: {source}"
                 )
             }
-            Self::InconsistentSample { detail } => {
+            Self::InconsistentSample { detail, .. } => {
                 write!(formatter, "candidate re-render is inconsistent: {detail}")
             }
-            Self::InvalidStorePath { detail } => {
+            Self::InvalidStorePath { detail, .. } => {
                 write!(formatter, "invalid store path: {detail}")
             }
-            Self::Check { source } => write!(formatter, "{source}"),
-            Self::Io { source } => write!(formatter, "approval I/O failed: {source}"),
+            Self::Check { source, .. } => write!(formatter, "{source}"),
+            Self::Io { source, .. } => write!(formatter, "approval I/O failed: {source}"),
         }
     }
 }
@@ -267,10 +288,10 @@ impl Display for ApproveError {
 impl std::error::Error for ApproveError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Check { source } => Some(source),
-            Self::RenderFailed { source } => Some(source),
-            Self::MissingGlyph { source } => Some(source),
-            Self::Io { source } => Some(source),
+            Self::Check { source, .. } => Some(source),
+            Self::RenderFailed { source, .. } => Some(source),
+            Self::MissingGlyph { source, .. } => Some(source),
+            Self::Io { source, .. } => Some(source),
             _ => None,
         }
     }
@@ -278,7 +299,10 @@ impl std::error::Error for ApproveError {
 
 impl From<CheckError> for ApproveError {
     fn from(source: CheckError) -> Self {
-        Self::Check { source }
+        Self::Check {
+            source,
+            observed_baseline: None,
+        }
     }
 }
 
@@ -286,13 +310,17 @@ impl From<SampleError> for ApproveError {
     fn from(source: SampleError) -> Self {
         Self::Check {
             source: CheckError::from(source),
+            observed_baseline: None,
         }
     }
 }
 
 impl From<std::io::Error> for ApproveError {
     fn from(source: std::io::Error) -> Self {
-        Self::Io { source }
+        Self::Io {
+            source,
+            observed_baseline: None,
+        }
     }
 }
 
@@ -317,7 +345,7 @@ impl ApproveError {
             Self::MissingGlyph { .. } => "MISSING_GLYPH",
             Self::InconsistentSample { .. } => "INCONSISTENT_SAMPLE",
             Self::InvalidStorePath { .. } => "INVALID_STORE_PATH",
-            Self::Check { source } => match source {
+            Self::Check { source, .. } => match source {
                 CheckError::Sample(source) => sample_code(source),
                 CheckError::InvalidTestId { .. } | CheckError::InvalidStorePath { .. } => {
                     "INVALID_STORE_PATH"
@@ -334,14 +362,78 @@ impl ApproveError {
 
     /// The digest the baseline root actually held when this failure was
     /// reported: the present digest for a stale baseline (or `missing`
-    /// when no baseline file was present), and `None` when the failure
-    /// carries no observed baseline.
+    /// when no baseline file was present), the digest read under the lock
+    /// for every failure after the baseline read (`missing` when no
+    /// baseline file was present there either), and `None` when the
+    /// failure precedes the baseline read and carries no observed
+    /// baseline.
     #[must_use]
     pub fn observed_baseline(&self) -> Option<&str> {
         match self {
             Self::StaleBaseline { actual, .. } => Some(actual),
+            Self::UnknownProfile {
+                observed_baseline, ..
+            }
+            | Self::RenderFailed {
+                observed_baseline, ..
+            }
+            | Self::MissingGlyph {
+                observed_baseline, ..
+            }
+            | Self::InconsistentSample {
+                observed_baseline, ..
+            }
+            | Self::InvalidStorePath {
+                observed_baseline, ..
+            }
+            | Self::Check {
+                observed_baseline, ..
+            }
+            | Self::Io {
+                observed_baseline, ..
+            } => observed_baseline.as_deref(),
             _ => None,
         }
+    }
+
+    /// Attach the digest read under the lock to a failure produced after
+    /// the baseline read, so the rejection reports what the root actually
+    /// held instead of no observed baseline.
+    #[must_use]
+    fn with_observed_baseline(mut self, observed: &str) -> Self {
+        let (Self::UnknownProfile {
+            observed_baseline: slot,
+            ..
+        }
+        | Self::RenderFailed {
+            observed_baseline: slot,
+            ..
+        }
+        | Self::MissingGlyph {
+            observed_baseline: slot,
+            ..
+        }
+        | Self::InconsistentSample {
+            observed_baseline: slot,
+            ..
+        }
+        | Self::InvalidStorePath {
+            observed_baseline: slot,
+            ..
+        }
+        | Self::Check {
+            observed_baseline: slot,
+            ..
+        }
+        | Self::Io {
+            observed_baseline: slot,
+            ..
+        }) = &mut self
+        else {
+            return self;
+        };
+        *slot = Some(observed.to_string());
+        self
     }
 }
 
@@ -536,14 +628,20 @@ impl ApprovalStore {
         let baselines = resolve_baseline_root(&self.baselines)?;
         // Step 3: make the baseline root when missing.
         if !baselines.exists() {
-            fs::create_dir_all(&baselines).map_err(|source| ApproveError::Io { source })?;
+            fs::create_dir_all(&baselines).map_err(|source| ApproveError::Io {
+                source,
+                observed_baseline: None,
+            })?;
         }
         // Step 4: take the OS lock on the stable file, before any read.
         let lock =
             ApprovalFileLock::acquire(&baselines, Duration::from_secs(APPROVAL_LOCK_TIMEOUT_SECS))
                 .map_err(|error| match error {
                     ApprovalLockError::Timeout => ApproveError::LockTimeout,
-                    ApprovalLockError::Io(source) => ApproveError::Io { source },
+                    ApprovalLockError::Io(source) => ApproveError::Io {
+                        source,
+                        observed_baseline: None,
+                    },
                 })?;
         // Steps 5-12 run under the lock; step 19 releases it on return.
         let transaction = Self::accept_locked(
@@ -596,13 +694,20 @@ impl ApprovalStore {
         }
         // Steps 10-12: re-render image samples through the specified
         // profile, verify the recorded render identity, and compare decoded
-        // pixels; state-only samples skip.
-        rerender_check(&candidate)?;
+        // pixels; state-only samples skip. Every failure below runs after
+        // the baseline read, so each carries the digest the root actually
+        // held instead of reporting no observed baseline.
+        rerender_check(&candidate)
+            .map_err(|error| error.with_observed_baseline(&previous_digest))?;
         let changes = match baseline_bytes {
             None => ChangeSet::missing(),
             Some(bytes) => {
-                let baseline = Sample::from_bytes(&bytes)?;
-                let comparison = FrozenStore::compare_present(&candidate, &baseline)?;
+                let baseline = Sample::from_bytes(&bytes)
+                    .map_err(ApproveError::from)
+                    .map_err(|error| error.with_observed_baseline(&previous_digest))?;
+                let comparison = FrozenStore::compare_present(&candidate, &baseline)
+                    .map_err(ApproveError::from)
+                    .map_err(|error| error.with_observed_baseline(&previous_digest))?;
                 ChangeSet::from_present(comparison)
             }
         };
@@ -618,6 +723,7 @@ impl ApprovalStore {
             &previous_digest,
             changes,
         )
+        .map_err(|error| error.with_observed_baseline(&previous_digest))
     }
 }
 
@@ -638,6 +744,7 @@ fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
                         "test ID {:?} carries a non-normal path component ({other:?})",
                         candidate.test_id()
                     ),
+                    observed_baseline: None,
                 });
             }
         }
@@ -646,6 +753,7 @@ fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
     if relative.parent().is_none() {
         return Err(ApproveError::InvalidStorePath {
             detail: "baseline path has no parent directory".to_string(),
+            observed_baseline: None,
         });
     }
     if relative
@@ -655,6 +763,7 @@ fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
     {
         return Err(ApproveError::InvalidStorePath {
             detail: "baseline path has no file name".to_string(),
+            observed_baseline: None,
         });
     }
     Ok(relative)
@@ -666,7 +775,10 @@ fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
 /// hostile baseline cannot exhaust memory before validation runs.
 fn read_baseline_bytes(baselines: &Path, relative: &Path) -> Result<Option<Vec<u8>>, ApproveError> {
     read_bounded_optional(&baselines.join(relative)).map_err(|error| match error {
-        SampleError::Io { source } => ApproveError::Io { source },
+        SampleError::Io { source } => ApproveError::Io {
+            source,
+            observed_baseline: None,
+        },
         other => ApproveError::from(other),
     })
 }
@@ -691,26 +803,38 @@ fn write_baseline(
         .parent()
         .ok_or_else(|| ApproveError::InvalidStorePath {
             detail: "baseline path has no parent directory".to_string(),
+            observed_baseline: None,
         })?;
     let file_name = relative
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| ApproveError::InvalidStorePath {
             detail: "baseline path has no file name".to_string(),
+            observed_baseline: None,
         })?;
     // Step 14: make the baseline's parent directories under the lock.
     let parent_dir = baselines.join(parent);
-    fs::create_dir_all(&parent_dir).map_err(|source| ApproveError::Io { source })?;
+    fs::create_dir_all(&parent_dir).map_err(|source| ApproveError::Io {
+        source,
+        observed_baseline: None,
+    })?;
     // Steps 15-17: write, flush, and close the staged temporary file. A
     // failure here drops the uncommitted file without touching the baseline.
     let (mut staged, temp) =
-        TempFile::create(&parent_dir, file_name).map_err(|source| ApproveError::Io { source })?;
+        TempFile::create(&parent_dir, file_name).map_err(|source| ApproveError::Io {
+            source,
+            observed_baseline: None,
+        })?;
     staged
         .write_all(candidate_bytes)
-        .map_err(|source| ApproveError::Io { source })?;
-    staged
-        .flush()
-        .map_err(|source| ApproveError::Io { source })?;
+        .map_err(|source| ApproveError::Io {
+            source,
+            observed_baseline: None,
+        })?;
+    staged.flush().map_err(|source| ApproveError::Io {
+        source,
+        observed_baseline: None,
+    })?;
     drop(staged);
     // Prepare the outcome before the commit: everything below is pure.
     let outcome = AcceptOutcome {
@@ -726,7 +850,10 @@ fn write_baseline(
     // Step 18: atomically rename the staged file over the baseline. This is
     // the final fallible filesystem operation of the transaction.
     temp.commit(&outcome.baseline_path)
-        .map_err(|source| ApproveError::Io { source })?;
+        .map_err(|source| ApproveError::Io {
+            source,
+            observed_baseline: None,
+        })?;
     Ok(outcome)
 }
 
@@ -752,21 +879,34 @@ fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
             source: CheckError::Sample(SampleError::GateMismatch {
                 detail: "state-and-pixels gate requires a render contract".to_string(),
             }),
+            observed_baseline: None,
         })?;
     let profile = resolve_profile(contract.profile()).map_err(|error| match error {
-        ProfileError::UnknownProfile { requested } => ApproveError::UnknownProfile { requested },
+        ProfileError::UnknownProfile { requested } => ApproveError::UnknownProfile {
+            requested,
+            observed_baseline: None,
+        },
         other => ApproveError::RenderFailed {
             source: RenderError::RasterFailed {
                 message: format!("render profile does not build: {other}"),
             },
+            observed_baseline: None,
         },
     })?;
     let rendered = match render_snapshot_png(candidate.snapshot(), &profile.render_options()) {
         Ok(rendered) => rendered,
         Err(RenderError::PinnedFont(source @ PinnedFontError::MissingGlyph { .. })) => {
-            return Err(ApproveError::MissingGlyph { source });
+            return Err(ApproveError::MissingGlyph {
+                source,
+                observed_baseline: None,
+            });
         }
-        Err(other) => return Err(ApproveError::RenderFailed { source: other }),
+        Err(other) => {
+            return Err(ApproveError::RenderFailed {
+                source: other,
+                observed_baseline: None,
+            });
+        }
     };
     let expected = RenderContract::from_rendered(profile, &rendered)?;
     if let Some(field) = contract_identity_change(contract, &expected) {
@@ -774,6 +914,7 @@ fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
             detail: format!(
                 "recorded render contract field {field} differs from the re-rendered identity"
             ),
+            observed_baseline: None,
         });
     }
     let fresh = decode_rendered_png(rendered.png())?;
@@ -784,6 +925,7 @@ fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
                 "re-rendered {}x{} pixels differ from the candidate {}x{} pixels",
                 fresh.width, fresh.height, stored.width, stored.height,
             ),
+            observed_baseline: None,
         });
     }
     Ok(())
@@ -868,6 +1010,7 @@ fn decode_rendered_png(png: &[u8]) -> Result<DecodedPng, ApproveError> {
         source: RenderError::RasterFailed {
             message: format!("re-rendered PNG does not decode: {detail}"),
         },
+        observed_baseline: None,
     })
 }
 
@@ -880,6 +1023,7 @@ fn decode_stored_png(image: &SampleImage) -> Result<DecodedPng, ApproveError> {
         .decode(image.png_base64().as_bytes())
         .map_err(|source| ApproveError::Check {
             source: CheckError::Sample(SampleError::Base64Invalid { source }),
+            observed_baseline: None,
         })?;
     if sha256_hex(&raw) != image.png_sha256() {
         return Err(ApproveError::Check {
@@ -888,10 +1032,12 @@ fn decode_stored_png(image: &SampleImage) -> Result<DecodedPng, ApproveError> {
                 expected: image.png_sha256().to_string(),
                 actual: sha256_hex(&raw),
             }),
+            observed_baseline: None,
         });
     }
     decode_png(&raw).map_err(|detail| ApproveError::Check {
         source: CheckError::Sample(SampleError::PngInvalid { detail }),
+        observed_baseline: None,
     })
 }
 
@@ -999,6 +1145,7 @@ fn read_candidate_bytes(path: &Path) -> Result<Vec<u8>, ApproveError> {
                 source.kind(),
                 format!("cannot read candidate {}: {source}", path.display()),
             ),
+            observed_baseline: None,
         },
         other => ApproveError::from(other),
     })
@@ -1011,6 +1158,7 @@ fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
     if path.as_os_str().is_empty() {
         return Err(ApproveError::InvalidStorePath {
             detail: "baseline root path is empty".to_string(),
+            observed_baseline: None,
         });
     }
     if let Ok(canonical) = path.canonicalize() {
@@ -1027,6 +1175,7 @@ fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
                     "baseline root {} has no resolvable ancestor",
                     path.display()
                 ),
+                observed_baseline: None,
             });
         };
         if name == ".." {
@@ -1035,6 +1184,7 @@ fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
                     "baseline root {} carries an unresolvable `..`",
                     path.display()
                 ),
+                observed_baseline: None,
             });
         }
         remainder.push(name.to_os_string());
@@ -1058,7 +1208,12 @@ fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), ApproveError> {
         let meta = match fs::symlink_metadata(&current) {
             Ok(meta) => meta,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(source) => return Err(ApproveError::Io { source }),
+            Err(source) => {
+                return Err(ApproveError::Io {
+                    source,
+                    observed_baseline: None,
+                });
+            }
         };
         if meta.file_type().is_symlink() {
             return Err(ApproveError::InvalidStorePath {
@@ -1066,6 +1221,7 @@ fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), ApproveError> {
                     "store-relative path {} crosses a symlink",
                     relative.display()
                 ),
+                observed_baseline: None,
             });
         }
     }
