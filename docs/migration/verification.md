@@ -24,8 +24,8 @@ or `--config`); the `tui-test-rs` patch from untracked task-local
 
 ## Round-2 / round-3 re-verification (2026-10-26, ~18:45 UTC)
 
-Pinned upstream: `donbeave/tui-test` `goal/qual-stack-r4` @
-`299a9ac15339935d630a6ee99a5ccc7b974bc5c7` (short `299a9ac`).
+Pinned upstream: `donbeave/tui-test` `goal/qual-stack-r5` @
+`81da26fa9dc29664a897dc802be816a4432c0618` (short `81da26f`).
 Fork tip, the `upstream-qual` checkout HEAD, and the `Cargo.toml` /
 `Cargo.lock` pin all agree. Stack suites, verified locally by the
 tasking session: 129/129 integration + 567/567 lib. Reproducing run

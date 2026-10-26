@@ -66,8 +66,8 @@ keep monitoring for maintainer feedback; re-probe checks before R04.
 - [tailrocks/tuiscotti#15](https://github.com/tailrocks/tuiscotti/pull/15):
   `donbeave:goal/tui-test-extension` → `tailrocks:main`. Opened with the
   full migration (D01–D07 accepted, V01 167/167 green). Depends on the
-  provisional pinned fork (`donbeave/tui-test` `goal/qual-stack-r4`
-  @ `299a9ac`) until the upstream PRs merge and a registry release
+  provisional pinned fork (`donbeave/tui-test` `goal/qual-stack-r5`
+  @ `81da26f`) until the upstream PRs merge and a registry release
   exists. Re-pinned from `goal/qual-stack-r2` @ `6eb3b14` (D-PIN-1)
   to `goal/qual-stack-r3` (round-2 integration). Downstream re-verified
   at HEAD `1501d5a` (205/205 both lanes, fmt/clippy clean; see
