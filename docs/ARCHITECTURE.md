@@ -25,10 +25,12 @@ output. The V01 reviewer re-runs the check with real metadata if
 policy permits. Direct and transitive `tui-test` dependencies are
 listed separately.
 
-`Cargo.lock`: 256 packages. Workspace-local packages: exactly three —
-`tuiscotti`, `tuiscotti-cli`, and the patched `tui-test-rs` (task-local
-untracked `[patch.crates-io]` to the upstream checkout; never
-committed). No `termpane` package exists anywhere in the graph.
+`Cargo.lock`: 278 packages. Workspace-local packages: exactly two —
+`tuiscotti` and `tuiscotti-cli` — plus the patched `tui-test-rs`
+(committed `[patch.crates-io]` to the maintained donbeave/tui-test
+fork, pinned to the full reviewed SHA; removed when the upstream
+registry release carrying the required APIs is adopted). No
+`termpane` package exists anywhere in the graph.
 
 Direct dependencies of `tuiscotti` (normal): `base64`, `fs2`
 (approval locking), `image` (PNG decode), `ratatui` (view capture),

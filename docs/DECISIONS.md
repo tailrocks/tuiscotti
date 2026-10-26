@@ -51,6 +51,13 @@ system fonts.
 
 ## 6. Pure-cargo PTY engine: `termpane` + `termpane-vt`
 
+> SUPERSEDED by the tui-test migration (GOAL, D-R02-1): the terminal
+> engine now lives upstream in `tui-test-rs`, consumed through a
+> provisional full-SHA `[patch.crates-io]` pin to the maintained
+> fork until the upstream registry release carrying the required APIs
+> is adopted and the patch is removed. The termpane plan below is
+> retained as history and no longer describes the tree.
+
 The PTY engine is released `termpane` `0.1` (PTY transport, process
 management, and damage-grid shadow terminal surface) over
 `termpane-vt` `0.1` (ECMA-48 / VT parser) from crates.io — no

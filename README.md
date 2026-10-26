@@ -33,13 +33,11 @@ use ratatui::widgets::Paragraph;
 use tuiscotti::check::FrozenStore;
 use tuiscotti::render_profile::{PROFILE_NAME, platform_key, resolve_profile};
 use tuiscotti::sample::{Observation, Sample};
-use tuiscotti::view::ViewSettings;
+use tuiscotti::view::{ViewSettings, capture_view};
 
-let settings = ViewSettings::new(80, 24)?;
-let snapshot = tuiscotti::view::capture_view(
-    |frame| frame.render_widget(Paragraph::new("hello"), frame.area()),
-    &settings,
-)?;
+let snapshot = capture_view(80, 24, &ViewSettings::builtin(), |frame| {
+    frame.render_widget(Paragraph::new("hello"), frame.area());
+})?;
 let profile = resolve_profile(PROFILE_NAME)?;
 let sample = Sample::with_pixels(
     &format!("views/hello-{}", platform_key()),
@@ -47,8 +45,12 @@ let sample = Sample::with_pixels(
     Observation::empty(),
     profile,
 )?;
-let store = FrozenStore::new("baselines", "artifacts")?;
-assert!(store.check(&sample.to_bytes()?)?.is_pass());
+let root = tempfile::tempdir()?;
+let store = FrozenStore::new(
+    &root.path().join("baselines"),
+    &root.path().join("artifacts"),
+)?;
+assert!(!store.check(&sample.to_bytes()?)?.is_pass());
 ```
 
 Runnable end to end: `cargo run -p tuiscotti --example 01-pure-view`
