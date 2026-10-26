@@ -116,3 +116,22 @@ P1 gates: U03/U05/U08 P1s verified already-clean at tip (no-op).
 U01 P1+P2 fix in progress.
 
 Pending: U07 round-3, qual-r4, re-pin, fourth review, human review gate.
+
+## 2026-10-26/27 UTC — #15 CI run 40382420660 fully green at 06469b7
+
+Downstream #15 @ `06469b7`: CI run 40382420660 fully green —
+Required, Required verdict, all 4 Rust lanes (tuiscotti,
+tuiscotti no-default, tuiscotti-cli, tuiscotti-cli no-default),
+Jactionlint, Plan, DCO — all pass.
+
+Local verification matches: 205/205 both lanes, fmt, both clippies.
+
+Unpushed local commits present: `8736486` (verification record),
+`268fc9f` (CLAUDE.md pointer). They ride with the re-pin push;
+CI will rerun.
+
+U07 round-3 commit `28ef051` landed locally in wt-u07; push
+verification in progress.
+
+Pending chain unchanged: U07 push → #282 body refresh → qual-r4 →
+re-pin+push → fourth review → human gate → merge.
