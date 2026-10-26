@@ -51,7 +51,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   See [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md).
 - **Fail closed.** Missing or corrupt approvals fail the gate; unknown
   input to a guard fails rather than passes. New statuses go through
-  `snapshot::Status` and both stores.
+  the typed outcomes (`check::CheckOutcome`, `approve::AcceptOutcome`)
+  and both stores.
 - **Determinism.** Same frame + same profile + same vendored font
   bytes = byte-identical PNGs. No system fonts, no wall-clock in
   artifacts (provenance timestamps excepted), no unordered maps in
@@ -67,7 +68,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Reviews and merges
 
-One working branch (`redesign/rust-first-testing-platform`); small
+One working branch (`goal/tui-test-extension`); small
 PRs, merged promptly after all gates pass. Before merge, read every
 review/comment/thread; verify findings against code, tests, and docs;
 fix + verify + commit + push + reply with the fixing commit URL, or

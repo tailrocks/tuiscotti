@@ -17,8 +17,8 @@ No registry release containing the new APIs. R02 stays pending.
 - [tailrocks/tuiscotti#15](https://github.com/tailrocks/tuiscotti/pull/15):
   `donbeave:goal/tui-test-extension` → `tailrocks:main`. Opened with the
   full migration (D01–D07 accepted, V01 167/167 green). Depends on the
-  provisional pinned fork (`donbeave/tui-test` `goal/qual-stack`
-  @ `049fb8c`) per D-R02-1 until the upstream PRs merge and a registry
+  provisional pinned fork (`donbeave/tui-test` `goal/qual-stack-r2`
+  @ `6eb3b14`) per D-R02-1 until the upstream PRs merge and a registry
   release exists.
 
 ## Fork maintenance

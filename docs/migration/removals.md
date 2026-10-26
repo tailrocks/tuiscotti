@@ -1,13 +1,15 @@
 # Removals (D07, §3.3)
 
 Method: `git ls-tree` file counts and `wc -l` over `crates/**/*.rs`
-at `5afe5d7` (pre-removal) vs `HEAD`; dependency lists from the
-workspace `Cargo.toml` files. Line counts are approximate (comments and
-blanks included, no density target used).
+at `5afe5d7` (pre-removal) vs the F01 HEAD (`11a9203`); dependency
+lists from the workspace `Cargo.toml` files. Line counts are
+approximate (comments and blanks included, no density target used).
+The After column is the F01 vintage, not current HEAD — the tree has
+grown since (approval-port merge, qual-stack-r2 re-pin).
 
 ## Files
 
-| Scope | Before (`5afe5d7`) | After (`HEAD`) |
+| Scope | Before (`5afe5d7`) | After (F01 `11a9203`) |
 |---|---|---|
 | `crates/**/src/*.rs` | 249 | 16 |
 | `crates/**/tests,examples/*.rs` | 63 | 17 |

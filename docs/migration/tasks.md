@@ -27,6 +27,6 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | V01 | Full checks and last code review | code reviewer | done (re-review accepted `18d57ad`: guides match two-crate tree, qual-stack record corrected, 167/167 nextest green) | both repos | D07 head |
 | R01 | Focused upstream PRs | primary agent | active (U01 #276, U06 #277, U02 #278, U09 #279, U03 #280, U10 #281, U07 #282, U11 #283, U04 #284, U05 #285, U08 #286) | one branch per U task | accepted heads |
 | R02 | Released dependency adoption | primary agent | todo | `goal/tui-test-extension` | V01 + release |
-| F01 | Last evidence and completion report | primary agent | todo | `goal/tui-test-extension` | all local tasks |
+| F01 | Last evidence and completion report | primary agent | done (final records, reviews, verification in `11a9203`; 167/167 re-run recorded in `2c46db1`) | `goal/tui-test-extension` | all local tasks |
 
 R01 starts for each accepted upstream task before the full migration ends. Dependent PRs stay in a recorded stack. U01 is not a prerequisite for the downstream approval engine.

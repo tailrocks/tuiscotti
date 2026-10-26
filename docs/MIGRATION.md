@@ -12,57 +12,59 @@ compat aliases; `tui-snap.toml` became `tuiscotti.toml`;
 became `tuiscotti-*`; machine-protocol brand fields
 (`Capabilities.tuiscotti`, `OpResult::Version.tuiscotti`) renamed
 likewise. The "Before" column and the history sections below keep
-the old names as history (marked; not current surfaces).
+the old names as history (marked; not current surfaces). The machine
+protocol and its brand fields were removed at D07 with the
+section-3.3 crates; no `tuiscotti.toml` config surface exists on this
+branch (see [migration/removals.md](migration/removals.md)).
 
-## Current layout (head `75ff479`)
+## Layout after D07 (head `da3d9ae`)
 
 The workspace moved from a single crate (`src/`, `tests/`,
-`examples/`) to `crates/`:
+`examples/`) to `crates/`, and D07 removed every crate but two:
 
 | Before | After |
 |---|---|
-| `src/*` (crate `tuisnap`) | `crates/tuiscotti-{core,render,runtime,insta}/src/*` (facade `tuiscotti`) |
+| `src/*` (crate `tuisnap`) | `crates/tuiscotti/src/*` (library `tuiscotti`: `view`, `sample`, `check`, `approve`, `report`, `render`, `render_profile`, `error`) |
 | `src/main.rs` (binary `tuisnap`) | `crates/tuiscotti-cli/src/main.rs` (binary renamed to `tuiscotti` in G8) |
-| `tests/visual/approved` | `crates/tuiscotti-fixtures/tests/visual/approved` |
-| `tests/fixtures/*` | `crates/tuiscotti-fixtures/tests/fixtures/*` |
-| `tests/snapshots/*` | `crates/tuiscotti-fixtures/tests/snapshots/*` |
-| `examples/01–08` | `crates/tuiscotti/examples/01–08` |
-| `tuisnap::…` paths | `tuiscotti::…` paths (binary and config renamed in G8; see above) |
+| `tests/visual/approved` | Removed at D07; baselines are per-test `<name>.tui.json` files managed by `FrozenStore` / `tuiscotti accept` |
+| `tests/fixtures/*` | Removed at D07 with `tuiscotti-fixtures` |
+| `tests/snapshots/*` | Removed at D07 with `tuiscotti-fixtures` |
+| `examples/01–08` | `crates/tuiscotti/examples/01–05` (plus `common/`) |
+| `tuisnap::…` paths | `tuiscotti::…` paths (binary renamed in G8; see above) |
 
-Rust imports change (`tuisnap::` → `tuiscotti::`); the CLI grammar
-is unchanged. The `tuisnap` binary name and `tui-snap.toml` named
+Rust imports change (`tuisnap::` → `tuiscotti::`); the move itself
+did not change the CLI grammar (the grammar later narrowed at D05/D07;
+see [CLI.md](CLI.md)). The `tuisnap` binary name and `tui-snap.toml` named
 here were renamed in G8 (see above).
 
 ## Schema versions
 
-- `Frame` is versioned; current `FRAME_VERSION = 3` (`UnderlineStyle`
-  + underline color canonical; blink frozen-visible with slow/rapid
-  combined; hidden is conceal; overline dropped). Version-2 JSON
-  does not import — re-capture.
-- `Frame::digest` mixes the schema version and the cursor; old
-  digests are incomparable by design.
-- Grouped scenarios have no `.frame.json` in the approved tree: the
-  `.ansi` dump is the cell-exact gate; under `ArtifactSet::All`,
-  renderer changes are caught by the `.html` byte gate plus the PNG
-  pixel gate, while under `ArtifactSet::AnsiCursor` only `<name>.ansi`
-  (with canonical VT cursor trailer via `render::ansi_dump_with_cursor`)
-  is committed and expected/actual `.png` + `.html` + diff PNG are
-  rendered on demand via `formats::ansi::frame_from_ansi` when a check
-  mismatches.
+- Samples are versioned (`SAMPLE_SCHEMA = "tuiscotti.sample.v1"`);
+  checks (`CHECK_SCHEMA = "tuiscotti.check.v1"`) and CLI output
+  (`tuiscotti.cli.v1`) carry their own schema identifiers. A sample
+  seals each part with SHA-256 digests (`png_sha256` / `rgba_sha256`
+  over the image, plus the render-contract palette digest); old
+  snapshot schemas do not import — re-capture. See
+  [SNAPSHOTS.md](SNAPSHOTS.md).
+- Frozen checks compare a saved sample against a baseline tree and
+  report `pass`, `missing`, or `different` (`FrozenStore::check` /
+  `check_file`); evidence lands in a separate artifacts directory.
+  There is no `.ansi` dump, `.html` byte gate, or ANSI replay surface
+  on this branch (removed at D07).
 
 ## Removed surfaces (do not look for them)
 
 | Removed | Replacement |
 |---|---|
-| `BLESS=1` / `UPDATE_SNAPSHOT=1` ambient approval | Explicit `Store::accept` / `GroupedStore::accept(_matching)` / `tuiscotti accept` / `cargo insta review` |
-| CLI `check`, `run`, `digest`; `accept --all`; `report --store` | Current grammar in [CLI.md](CLI.md) (`tuiscotti accept --store <dir> <name_or_glob>`, `tuiscotti review --filter`, `tuiscotti render --input <file.ansi>`); scriptable surface is `tuiscotti machine` + `proto::execute` |
-| `tuisnap::ratatui_shot::{widget_frame, draw_frame}` | `tuiscotti::ratatui::{widget_frame, draw_frame, capture}` (signatures take `Provenance`) |
-| `tuisnap::Baseline` | `tuiscotti::snapshot::Store` / `grouped::GroupedStore` |
-| `PtySession` / `run_once(argv, opts, sends)` | `tui::{Tui, Session}`; waits fail on timeout instead of returning `false` |
+| `BLESS=1` / `UPDATE_SNAPSHOT=1` ambient approval | Explicit `ApprovalStore::accept` / `tuiscotti accept` with both digests (refuses under `CI`) |
+| CLI `check`, `run`, `digest`; `accept --all`; `report --store` | Current grammar in [CLI.md](CLI.md): `tuiscotti check --sample <file> --baselines <dir> --artifacts <dir>`, `tuiscotti accept --candidate <file> --candidate-sha256 <sha> --expect-baseline <sha\|missing> --baselines <dir>`, `tuiscotti render --sample <file> --out <file.png\|html>`, `tuiscotti report --artifacts <dir> --out <file.html>`; no `review`, `machine`, or glob commands |
+| `tuisnap::ratatui_shot::{widget_frame, draw_frame}` | `tuiscotti::view::{capture_view, snapshot_from_buffer}` (pure-view capture through a Ratatui `TestBackend`; no child or PTY) |
+| `tuisnap::Baseline` | `tuiscotti::check::FrozenStore` |
+| `PtySession` / `run_once(argv, opts, sends)` | Upstream `tui_test::{Session, Engine}` used directly from application test code (no downstream session wrapper); waits fail on timeout instead of returning `false` |
 | `tools/*.py` helpers (`subset_fonts.py`, `test_migration.py`, `migrate_fixture_v3.py`) | Gone with `tools/`; font subsets are committed under `assets/fonts/` (see `assets/fonts/FONTS.md`) |
-| Vendored `vt100` fork, `vendor/termlens`, `termpane` git dependency, `portable-pty` + `alacritty_terminal` bridge | PTY engine is released `termpane` `0.1` (PTY + shadow terminal surface) + `termpane-vt` `0.1` (ECMA-48 / VT parser) from crates.io — no git/path deps, no patches (`vt100` is dev-only differential oracle in `tuiscotti-fixtures`) |
-| Hand-rolled SGR replay parser, `ansi::replay_raw`, `tuisnap::pty`, `tuisnap::termlens` re-export | Deleted; normalized `.ansi` decoding is `formats::ansi::frame_from_ansi`, and raw-ANSI stream replay is `observe::Replay` / `tui_shell::Recording` over the current engine |
-| `Locator::count_at_least(n)` (unbound) | `Locator::expect_count_at_least(n, screen, rev)` on unbound `Locator`, or `session.get_by(...).count_at_least(n)` (`BoundLocator::count_at_least(n)`) for session-bound visibility assertions |
+| Vendored `vt100` fork, `vendor/termlens`, `termpane` git dependency, `portable-pty` + `alacritty_terminal` bridge | PTY engine is upstream `tui-test-rs` `0.1.1` (provisional pinned fork per D-R02-1, never a direct downstream PTY dep); `portable-pty` + `alacritty_terminal` remain only transitively through `tui-test-rs`; `vt100` and `termpane` are gone entirely |
+| Hand-rolled SGR replay parser, `ansi::replay_raw`, `tuisnap::pty`, `tuisnap::termlens` re-export | Deleted with no replacement; samples carry canonical state plus decoded RGBA, and all live behavior is upstream-owned (see [API.md](API.md)) |
+| `Locator::count_at_least(n)` (unbound) | Removed in P4 from the pre-D07 tree; locators are upstream-owned since D06 — no `Locator` type exists downstream (application tests drive `tui_test` directly) |
 
 ## Engine history (why the old docs mention other emulators)
 
@@ -72,8 +74,10 @@ here were renamed in G8 (see above).
    `alacritty_terminal` 0.26 bridge while `termpane` was prepared for
    crates.io publication.
 3. `portable-pty` + `alacritty_terminal` → released `termpane` `0.1` +
-   `termpane-vt` `0.1` from crates.io (current). `vt100` remains a
-   dev-only differential oracle in `tuiscotti-fixtures`.
+   `termpane-vt` `0.1` from crates.io.
+4. `termpane` backend → upstream `tui-test-rs` `0.1.1` (D07; provisional
+   pinned fork per D-R02-1). `vt100` is gone entirely; `portable-pty` +
+   `alacritty_terminal` are transitive through `tui-test-rs` only.
    See [DECISIONS.md](DECISIONS.md).
 
 MSRV history: 1.97 during the early prototype window; current pin is
@@ -81,12 +85,20 @@ MSRV history: 1.97 during the early prototype window; current pin is
 
 ## Behavior changes in P1–P8 (7,550-scenario visual suite refinements)
 
-1. **Dependency floor (`ratatui 0.30`, `crossterm 0.29`)**:
-   `tuiscotti-core` now targets `ratatui = "0.30"` (and the workspace
-   uses `crossterm = "0.29"`), up from `=0.29.0` and `=0.28.1`.
-   `crossterm` is removed from `tuiscotti-core` normal dependencies.
-   Consumers still on `ratatui 0.29` must upgrade to `ratatui 0.30` or
-   stay on the previous commit.
+> VINTAGE (pre-D07 engine era): the items below record refinements to
+> surfaces that D07 removed (`parse_chord`/key codecs, `Session` waits,
+> `Locator`, `WaitError`, `proto` verdicts, `Provenance`, grouped
+> approval with manifest seals, ANSI dumps). They stay as the change
+> record, not current API. What survives on this branch: explicit
+> digest-arbitrated approval with stale-digest rejection and CI refusal
+> (`ApprovalStore::accept`; see [SNAPSHOTS.md](SNAPSHOTS.md)), and the
+> `ratatui 0.30` floor from item 1.
+
+1. **Dependency floor (`ratatui 0.30`)**:
+   `tuiscotti` targets `ratatui = "0.30"` (workspace-wide), up from
+   `=0.29.0`. `crossterm` is not a workspace dependency at all on this
+   branch. Consumers still on `ratatui 0.29` must upgrade to
+   `ratatui 0.30` or stay on the previous commit.
 2. **Bare `'f'` / `'F'` / `'-'` / `'+'` key parsing and `-`-joined chords (`P1`)**:
    `parse_chord("f")` and `Key::from_str("f")` now return `Key::Char('f')`,
    `"F"` returns `Key::Char('F')`, `"-"` returns `Key::Char('-')`, and
@@ -186,9 +198,9 @@ MSRV history: 1.97 during the early prototype window; current pin is
 # v0.1
 UPDATE_BASELINE=1 cargo test   # ambient bless — gone
 
-# now
-cargo nextest run --locked --offline --all-features   # writes actuals, fails missing/changed
-tuiscotti accept --store <dir> <name_or_glob>        # explicit per-name or pattern, after review
-cargo nextest run --locked --offline --all-features   # green
+# now (the workspace defines zero cargo features)
+cargo nextest run --locked --offline   # writes actuals, fails missing/changed
+tuiscotti accept --candidate <file> --candidate-sha256 <sha> --expect-baseline <sha|missing> --baselines <dir>
+cargo nextest run --locked --offline   # green
 ```
 
