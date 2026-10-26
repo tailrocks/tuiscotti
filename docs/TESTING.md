@@ -3,7 +3,7 @@
 Two shipping crates, ordinary Rust tests, `nextest` runner. No custom
 test runner, no fixture workspace, no `xtask`. Full suite at HEAD:
 201 run / 201 passed in both the default and `CI=true` lanes
-(qual-stack-r2 pin `6eb3b14` + approval-port merge, commit `883c9b1`;
+(qual-stack-r3 pin `9e97999`, commit `49453af`;
 macOS/aarch64 workstation, toolchain per `rust-toolchain.toml`). The
 per-suite counts below are the V01 vintage (167/167 at `18d57ad`);
 see "Result vintages" before quoting them at HEAD.
@@ -82,8 +82,10 @@ waits only.
 The per-suite counts above are the V01 record. Later vintages:
 B7 asset relocation (`samples` 20 → 21, HEAD 168); qual-stack-r2
 re-pin + approval-port merge + exit-code repair (HEAD `883c9b1`,
-201/201 in default and `CI=true` lanes). Re-run the suite at HEAD
-before quoting counts in reviews or packets.
+201/201 in default and `CI=true` lanes); qual-stack-r3 re-pin +
+round-2 fixes (HEAD `49453af`, 205/205 in default and `CI=true`
+lanes). Re-run the suite at HEAD before quoting counts in reviews
+or packets.
 
 ## CI wiring
 
