@@ -46,9 +46,10 @@ Transitive `tui-test` dependencies (direct deps of the patched
 `base64`, `bitflags`, `compact_str`, `dirs`, `flate2`, `fontdb`,
 `gif`, `libc`, `png`, `portable-pty` (the permitted PTY path),
 `regex`, `rustybuzz`, `serde`, `serde_json`, `sha2`, `tiny-skia`,
-`toml`, `ttf-parser`, `unicode-width`, `windows-sys`. The full
-closure is the remainder of the 256 locked packages; none of it is a
-downstream-local engine, renderer, or adapter.
+`toml`, `ttf-parser`, `unicode-properties`, `unicode-width`,
+`windows-sys`. The full closure is the remainder of the packages in
+`Cargo.lock`; none of it is a downstream-local engine, renderer, or
+adapter.
 
 Removed from the graph at D07: `anyhow`, `crossterm`, `swash`,
 `image-compare`, `insta`, `unicode-segmentation`, `unicode-width`,

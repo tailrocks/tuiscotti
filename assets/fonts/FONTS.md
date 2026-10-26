@@ -44,9 +44,10 @@ in order:
 3. The symbol font (`DejaVu Sans Mono` Nerd Font Mono).
 4. The pinned CJK subset.
 
-`cell.mods` selects the primary face: bold to Bold, italic to Italic,
-both to BoldItalic. Private Use Area icons resolve to the symbol font
-first among the faces that can serve them.
+`cell.mods` selects the style slot: bold to Bold, italic to Italic,
+both to BoldItalic. Within the slot the rasterizer tries the faces in
+listed order and uses the first face containing the grapheme; an icon
+uses the symbol font only when the earlier faces cannot supply it.
 
 ## Missing glyphs are errors, not tofu
 
