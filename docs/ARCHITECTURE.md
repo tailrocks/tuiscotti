@@ -83,7 +83,7 @@ LIVE (upstream only, application test code):
   `candidate_id` is the SHA-256 of the sample bytes.
 - `check::FrozenStore` — read-only baselines; `CheckOutcome` is
   `pass` / `missing` / `different` with typed `MismatchReason`.
-- `approve::ApprovalStore` — the 19-step transaction; `ApproveError`
+- `approve::ApprovalStore` — the 20-step transaction; `ApproveError`
   carries CI refusal, digest, profile, render, and I/O failures.
 - `render_profile::Profile` — the single pinned profile
   `tuiscotti-pinned-v1` (upstream raster policy + licensed

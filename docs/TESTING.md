@@ -2,7 +2,7 @@
 
 Two shipping crates, ordinary Rust tests, `nextest` runner. No custom
 test runner, no fixture workspace, no `xtask`. Full suite at HEAD:
-201 run / 201 passed in both the default and `CI=true` lanes
+205 run / 205 passed in both the default and `CI=true` lanes
 (qual-stack-r3 pin `9e97999`, commit `49453af`;
 macOS/aarch64 workstation, toolchain per `rust-toolchain.toml`). The
 per-suite counts below are the V01 vintage (167/167 at `18d57ad`);
@@ -14,7 +14,7 @@ see "Result vintages" before quoting them at HEAD.
 |---|---|
 | `crates/tuiscotti/tests/` | `pure_view` (30), `approval` (30), `samples` (20), `compare` (14), `session_migration` (12), `no_duplicate_engine` (5), `examples_lane` (1) |
 | `crates/tuiscotti/src/` | unit tests (19) + doctests in `view.rs` (2) |
-| `crates/tuiscotti-cli/tests/` | `cli_check_accept` (12), `cli_render_report` (12), `cli_surface` (8) |
+| `crates/tuiscotti-cli/tests/` | `cli_check_accept` (12), `cli_render_report` (12), `cli_surface` (8), `cli_rework` (5 at HEAD — post-V01 rework-contract suite) |
 | `crates/tuiscotti-cli/src/` | binary unit tests (4) |
 | `crates/tuiscotti/examples/` | `01-pure-view` … `05-state-only` (the learning lane) |
 
@@ -49,7 +49,7 @@ Direct-view and live-session examples use the same downstream sample API.
 
 Every command below works from a clean checkout: the `tui-test-rs`
 dependency is the committed `[patch.crates-io]` git pin in `Cargo.toml`
-(`rev = "049fb8ca70ecee56cf35d584101e0ed5d4b0f659"`, locked in
+(`rev = "9e97999763244b817781b4f49064a9b76d0a2632"`, locked in
 `Cargo.lock`), so no untracked `.cargo/config.toml`, `--config` flag,
 or registry access is needed (`cargo fetch --locked` warms the cache
 for `--offline` builds):
