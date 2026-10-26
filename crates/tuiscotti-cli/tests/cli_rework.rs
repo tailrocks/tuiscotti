@@ -22,7 +22,7 @@ use fixtures::{
     base_snapshot, candidate_id, pixel_sample_bytes, state_sample_bytes, temp_store,
     write_baseline_file, write_file,
 };
-use spawn::{assert_no_color, bin, code, parse_json, run_cli, run_cli_env, spawn_locked};
+use spawn::{assert_no_color, bin, code, parse_json, run_cli_ci, run_cli_env, spawn_locked};
 
 /// One nested wire mutation plus its expected Section 16.3 code.
 type NestedCase<'a> = (&'a str, Box<dyn Fn(&mut serde_json::Value) + 'a>, &'a str);
@@ -43,12 +43,14 @@ fn mutated_sample(
 }
 
 /// Run `check --json` on one sample; return status and parsed JSON.
+/// Frozen comparison needs no approval, so this runs under `CI` and
+/// proves the substantive outcomes in both lanes.
 fn check_json(
     sample: &Path,
     baselines: &Path,
     artifacts: &Path,
 ) -> (Option<i32>, serde_json::Value) {
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -145,18 +147,22 @@ fn accept_json(
     expect_baseline: &str,
     baselines: &Path,
 ) -> (Option<i32>, serde_json::Value) {
-    let out = run_cli(&[
-        "--json",
-        "accept",
-        "--candidate",
-        &candidate.to_string_lossy(),
-        "--candidate-sha256",
-        candidate_sha256,
-        "--expect-baseline",
-        expect_baseline,
-        "--baselines",
-        &baselines.to_string_lossy(),
-    ]);
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &candidate.to_string_lossy(),
+            "--candidate-sha256",
+            candidate_sha256,
+            "--expect-baseline",
+            expect_baseline,
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
     assert_no_color(&out, "accept json");
     let status = code(&out);
     let value = parse_json(&out);
@@ -198,27 +204,9 @@ fn accept_failures_report_the_observed_baseline() {
     assert_eq!(value["error_code"], "STALE_CANDIDATE");
     assert!(value["baseline_sha256"].is_null());
 
-    // A CI refusal carries no observed baseline either.
-    let out = run_cli_env(
-        &[
-            "--json",
-            "accept",
-            "--candidate",
-            &first_file.to_string_lossy(),
-            "--candidate-sha256",
-            &first_digest,
-            "--expect-baseline",
-            "missing",
-            "--baselines",
-            &baselines.to_string_lossy(),
-        ],
-        &[("CI", "1")],
-        false,
-    );
-    assert_eq!(code(&out), Some(3));
-    let value = parse_json(&out);
-    assert_eq!(value["error_code"], "CI_APPROVAL_FORBIDDEN");
-    assert!(value["baseline_sha256"].is_null());
+    // The CI refusal itself lives in exactly one dedicated test
+    // (`c12_ci_refuses_accept_but_not_check`), which also asserts the
+    // null observed baseline; this matrix stays on transaction errors.
 }
 
 /// R20c: digest and output-extension validation are clap parsers: every
@@ -263,9 +251,11 @@ fn usage_errors_exit_two_without_json() {
             out.to_string_lossy().into_owned(),
         ]);
     }
+    // Usage validation is a clap parser: it rejects before the
+    // production CI gate, so every row must hold with `CI` set.
     for argv in &cases {
         let owned: Vec<&str> = argv.iter().map(String::as_str).collect();
-        let out = run_cli(&owned);
+        let out = run_cli_ci(&owned);
         assert_eq!(code(&out), Some(2), "{argv:?} exits 2");
         assert!(out.stdout.is_empty(), "{argv:?} emits no stdout JSON");
         assert!(!out.stderr.is_empty(), "{argv:?} explains on stderr");
@@ -284,7 +274,7 @@ fn run_with_closed_stdout(argv: &[&str]) -> std::process::Output {
     let mut child = std::process::Command::new(bin());
     child
         .args(argv)
-        .env_remove("CI")
+        .env("CI", "true")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let mut child = spawn_locked(&mut child).expect("CLI child spawns");
@@ -349,7 +339,7 @@ fn index_links_resolve_from_the_index_parent() {
         artifacts.join("nested").join("deep.html"),
     ];
     for out in &outs {
-        let result = run_cli(&[
+        let result = run_cli_ci(&[
             "--json",
             "report",
             "--artifacts",

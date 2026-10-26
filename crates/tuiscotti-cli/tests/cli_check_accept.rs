@@ -3,8 +3,11 @@
 //!
 //! Every approval runs through the compiled executable in tempdirs.
 //! `CI` values live only on spawned child environments, never in the
-//! runner process; success paths strip `CI` so the suite passes when
-//! the runner itself sets it.
+//! runner process. Approval (`accept`) success paths strip `CI` because
+//! production refuses approval under `CI` by design; every `check`
+//! assertion runs with `CI` explicitly set, so both lanes prove the
+//! substantive outcomes under `CI`, and exactly one test
+//! (`c12_ci_refuses_accept_but_not_check`) proves the refusal itself.
 
 #[path = "support/spawn.rs"]
 mod spawn;
@@ -19,7 +22,7 @@ use fixtures::{
     all_files, base_snapshot, candidate_id, pixel_sample_bytes, plain_cell, snapshot_with_cells,
     state_sample_bytes, temp_store, write_baseline_file, write_file,
 };
-use spawn::{assert_no_color, code, parse_json, run_cli, run_cli_env};
+use spawn::{assert_no_color, code, parse_json, run_cli_ci, run_cli_env};
 
 /// C09 CLI: a missing baseline exits 1 with status `missing` and writes
 /// no baseline; the explicit accept then succeeds and check passes.
@@ -30,7 +33,9 @@ fn c09_missing_baseline_then_accept_then_pass() {
     let bytes = state_sample_bytes("cli/missing", &snapshot);
     let sample = write_file(dir.path(), "candidate.tui.json", &bytes);
 
-    let out = run_cli(&[
+    // The missing check runs under `CI`: frozen comparison needs no
+    // approval, so the outcome must hold in both lanes.
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -61,25 +66,29 @@ fn c09_missing_baseline_then_accept_then_pass() {
     assert!(report.is_file(), "missing evidence keeps its report");
 
     let digest = candidate_id(&bytes);
-    let out = run_cli(&[
-        "--json",
-        "accept",
-        "--candidate",
-        &sample.to_string_lossy(),
-        "--candidate-sha256",
-        &digest,
-        "--expect-baseline",
-        "missing",
-        "--baselines",
-        &baselines.to_string_lossy(),
-    ]);
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &sample.to_string_lossy(),
+            "--candidate-sha256",
+            &digest,
+            "--expect-baseline",
+            "missing",
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
     assert_eq!(code(&out), Some(0));
     let value = parse_json(&out);
     assert_eq!(value["status"], "pass");
     assert_eq!(value["test_id"], "cli/missing");
     assert_eq!(value["baseline_sha256"], digest);
 
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -101,25 +110,29 @@ fn c10_accept_approves_matching_digests() {
     let sample = write_file(dir.path(), "candidate.tui.json", &bytes);
     let digest = candidate_id(&bytes);
 
-    let out = run_cli(&[
-        "--json",
-        "accept",
-        "--candidate",
-        &sample.to_string_lossy(),
-        "--candidate-sha256",
-        &digest,
-        "--expect-baseline",
-        "missing",
-        "--baselines",
-        &baselines.to_string_lossy(),
-    ]);
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &sample.to_string_lossy(),
+            "--candidate-sha256",
+            &digest,
+            "--expect-baseline",
+            "missing",
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
     assert_eq!(code(&out), Some(0));
     let value = parse_json(&out);
     assert_eq!(value["test_id"], test_id);
     assert_eq!(value["candidate_sha256"], digest);
     assert_eq!(value["baseline_sha256"], digest);
 
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -151,18 +164,22 @@ fn c10_stale_candidate_digest_writes_nothing() {
     let bytes = state_sample_bytes("cli/stale-candidate", &base_snapshot());
     let sample = write_file(dir.path(), "candidate.tui.json", &bytes);
 
-    let out = run_cli(&[
-        "--json",
-        "accept",
-        "--candidate",
-        &sample.to_string_lossy(),
-        "--candidate-sha256",
-        &"f".repeat(64),
-        "--expect-baseline",
-        "missing",
-        "--baselines",
-        &baselines.to_string_lossy(),
-    ]);
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &sample.to_string_lossy(),
+            "--candidate-sha256",
+            &"f".repeat(64),
+            "--expect-baseline",
+            "missing",
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
     assert_eq!(code(&out), Some(3));
     let value = parse_json(&out);
     assert_eq!(value["status"], "error");
@@ -193,7 +210,9 @@ fn c10_malformed_digests_are_argument_errors() {
         ("", "missing"),
         (digest.as_str(), ""),
     ] {
-        let out = run_cli(&[
+        // Digest-shape validation is a clap parser: it rejects before the
+        // production CI gate, so the exit-2 outcome must hold under `CI`.
+        let out = run_cli_ci(&[
             "--json",
             "accept",
             "--candidate",
@@ -230,29 +249,57 @@ fn c10_malformed_digests_are_argument_errors() {
 /// `INCONSISTENT_SAMPLE` at exit 3 and writes no baseline.
 #[test]
 fn c10_tampered_image_rejects_on_frame_image_agreement() {
-    let (dir, baselines, _artifacts) = temp_store();
-    let (_, bytes) = pixel_sample_bytes("cli/tamper", &base_snapshot());
+    let (dir, baselines, artifacts) = temp_store();
+    let (test_id, bytes) = pixel_sample_bytes("cli/tamper", &base_snapshot());
     let mut value: serde_json::Value =
         serde_json::from_slice(&bytes).expect("candidate parses as JSON");
     value["snapshot"]["cells"][0]["text"] = serde_json::json!("b");
     let tampered = serde_json::to_vec(&value).expect("tampered candidate serializes");
     let sample = write_file(dir.path(), "tampered.tui.json", &tampered);
 
-    let out = run_cli(&[
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &sample.to_string_lossy(),
+            "--candidate-sha256",
+            &candidate_id(&tampered),
+            "--expect-baseline",
+            "missing",
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
+    assert_eq!(code(&out), Some(3));
+    let value = parse_json(&out);
+    assert_eq!(value["error_code"], "INCONSISTENT_SAMPLE");
+    assert_eq!(
+        value["baseline_sha256"], "missing",
+        "a re-render failure with no baseline observes the missing literal"
+    );
+    assert_no_baseline_writes(&baselines);
+
+    // The same tampered bytes against a frozen original baseline fail
+    // the `check` comparison under `CI`: the transaction outcome
+    // (different state) holds where approval itself is forbidden.
+    write_baseline_file(&baselines, &test_id, &bytes);
+    let out = run_cli_ci(&[
         "--json",
-        "accept",
-        "--candidate",
+        "check",
+        "--sample",
         &sample.to_string_lossy(),
-        "--candidate-sha256",
-        &candidate_id(&tampered),
-        "--expect-baseline",
-        "missing",
         "--baselines",
         &baselines.to_string_lossy(),
+        "--artifacts",
+        &artifacts.to_string_lossy(),
     ]);
-    assert_eq!(code(&out), Some(3));
-    assert_eq!(parse_json(&out)["error_code"], "INCONSISTENT_SAMPLE");
-    assert_no_baseline_writes(&baselines);
+    assert_eq!(code(&out), Some(1));
+    let value = parse_json(&out);
+    assert_eq!(value["status"], "different");
+    assert_eq!(value["reason"], "state");
 }
 
 /// C11 CLI: two revisions stay available; a stale expected digest
@@ -273,21 +320,28 @@ fn c11_two_revisions_with_stale_rejection() {
     let second_digest = candidate_id(&second);
 
     let accept = |file: &Path, digest: &str, expect: &str| {
-        run_cli(&[
-            "--json",
-            "accept",
-            "--candidate",
-            &file.to_string_lossy(),
-            "--candidate-sha256",
-            digest,
-            "--expect-baseline",
-            expect,
-            "--baselines",
-            &baselines.to_string_lossy(),
-        ])
+        run_cli_env(
+            &[
+                "--json",
+                "accept",
+                "--candidate",
+                &file.to_string_lossy(),
+                "--candidate-sha256",
+                digest,
+                "--expect-baseline",
+                expect,
+                "--baselines",
+                &baselines.to_string_lossy(),
+            ],
+            &[],
+            true,
+        )
     };
+    // Frozen comparison needs no approval: every `check` here runs
+    // under `CI`, while the `accept` steps stay on the non-CI path
+    // production requires.
     let check = |file: &Path| {
-        run_cli(&[
+        run_cli_ci(&[
             "--json",
             "check",
             "--sample",
@@ -392,7 +446,7 @@ fn c11_pixel_only_change_fails_with_pixels_reason() {
     let second = serde_json::to_vec(&value).expect("changed candidate serializes");
     let second_file = write_file(dir.path(), "changed.tui.json", &second);
 
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -434,7 +488,7 @@ fn c12_readonly_baseline_root_checks_but_never_approves() {
         return;
     }
 
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -447,18 +501,22 @@ fn c12_readonly_baseline_root_checks_but_never_approves() {
     assert_eq!(code(&out), Some(0), "frozen roots still check");
     assert_eq!(parse_json(&out)["status"], "pass");
 
-    let out = run_cli(&[
-        "--json",
-        "accept",
-        "--candidate",
-        &candidate.to_string_lossy(),
-        "--candidate-sha256",
-        &digest,
-        "--expect-baseline",
-        &digest,
-        "--baselines",
-        &baselines.to_string_lossy(),
-    ]);
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &candidate.to_string_lossy(),
+            "--candidate-sha256",
+            &digest,
+            "--expect-baseline",
+            &digest,
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
     assert_eq!(code(&out), Some(3));
     assert_eq!(parse_json(&out)["error_code"], "IO");
     assert!(
@@ -493,7 +551,7 @@ fn c12_readonly_artifact_root_fails_evidence_with_io() {
         return;
     }
 
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -511,8 +569,10 @@ fn c12_readonly_artifact_root_fails_evidence_with_io() {
 }
 
 /// C12 CLI: any set `CI` value refuses approval in the child process
-/// with `CI_APPROVAL_FORBIDDEN` and writes nothing; checking still
-/// works under `CI`.
+/// with `CI_APPROVAL_FORBIDDEN` and writes nothing. This is the single
+/// dedicated test that proves the public refusal; every other approval
+/// test exercises the transaction outcomes through frozen fixtures plus
+/// `check`, which needs no approval and runs under `CI`.
 #[test]
 fn c12_ci_refuses_accept_but_not_check() {
     let (dir, baselines, artifacts) = temp_store();
@@ -542,6 +602,10 @@ fn c12_ci_refuses_accept_but_not_check() {
         let value = parse_json(&out);
         assert_eq!(value["error_code"], "CI_APPROVAL_FORBIDDEN");
         assert!(
+            value["baseline_sha256"].is_null(),
+            "a CI refusal carries no observed baseline"
+        );
+        assert!(
             !baselines.join(".tuiscotti-approval.lock").exists(),
             "CI refusal leaves no lock file"
         );
@@ -557,22 +621,66 @@ fn c12_ci_refuses_accept_but_not_check() {
         "CI refusals change no baseline"
     );
 
-    let out = run_cli_env(
-        &[
-            "--json",
-            "check",
-            "--sample",
-            &candidate.to_string_lossy(),
-            "--baselines",
-            &baselines.to_string_lossy(),
-            "--artifacts",
-            &artifacts.to_string_lossy(),
-        ],
-        &[("CI", "1")],
-        false,
-    );
-    assert_eq!(code(&out), Some(0), "check works under CI");
+    // Where approval is forbidden, frozen fixtures plus `check` carry
+    // the substantive transaction outcomes under `CI`.
+    assert_check_matrix_under_ci(dir.path(), &baselines, &artifacts, &candidate);
+}
+
+/// Frozen fixtures plus `check` under `CI`: pass, a state difference,
+/// a missing baseline, and two operational errors. This is the
+/// substantive transaction coverage for the lane where production
+/// forbids approval itself.
+fn assert_check_matrix_under_ci(dir: &Path, baselines: &Path, artifacts: &Path, candidate: &Path) {
+    let check_ci = |sample: &Path| {
+        run_cli_env(
+            &[
+                "--json",
+                "check",
+                "--sample",
+                &sample.to_string_lossy(),
+                "--baselines",
+                &baselines.to_string_lossy(),
+                "--artifacts",
+                &artifacts.to_string_lossy(),
+            ],
+            &[("CI", "true")],
+            false,
+        )
+    };
+    let out = check_ci(candidate);
+    assert_eq!(code(&out), Some(0), "check passes under CI");
     assert_eq!(parse_json(&out)["status"], "pass");
+
+    let mut changed = Vec::new();
+    for _ in 0..7 {
+        changed.push(plain_cell("a", 1));
+    }
+    changed.push(plain_cell("b", 1));
+    let other = state_sample_bytes("cli/ci", &snapshot_with_cells(changed));
+    let other_file = write_file(dir, "changed.tui.json", &other);
+    let out = check_ci(&other_file);
+    assert_eq!(code(&out), Some(1), "check differs under CI");
+    let value = parse_json(&out);
+    assert_eq!(value["status"], "different");
+    assert_eq!(value["reason"], "state");
+
+    let absent_id = state_sample_bytes("cli/ci-absent", &base_snapshot());
+    let absent_file = write_file(dir, "absent-id.tui.json", &absent_id);
+    let out = check_ci(&absent_file);
+    assert_eq!(code(&out), Some(1), "check misses under CI");
+    let value = parse_json(&out);
+    assert_eq!(value["status"], "missing");
+    assert_eq!(value["reason"], "missing");
+
+    let garbage = write_file(dir, "garbage.tui.json", b"{not json");
+    let out = check_ci(&garbage);
+    assert_eq!(code(&out), Some(3), "invalid samples error under CI");
+    assert_eq!(parse_json(&out)["error_code"], "INVALID_SAMPLE");
+
+    let missing = dir.join("no-such-sample.tui.json");
+    let out = check_ci(&missing);
+    assert_eq!(code(&out), Some(3), "missing files error under CI");
+    assert_eq!(parse_json(&out)["error_code"], "IO");
 }
 
 /// Paths with spaces work for every store and file argument.
@@ -587,7 +695,7 @@ fn paths_with_spaces_work_end_to_end() {
     let sample = write_file(&spaced, "my candidate.tui.json", &bytes);
     let digest = candidate_id(&bytes);
 
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -609,18 +717,22 @@ fn paths_with_spaces_work_end_to_end() {
         "encoded paths keep spaces"
     );
 
-    let out = run_cli(&[
-        "--json",
-        "accept",
-        "--candidate",
-        &sample.to_string_lossy(),
-        "--candidate-sha256",
-        &digest,
-        "--expect-baseline",
-        "missing",
-        "--baselines",
-        &baselines.to_string_lossy(),
-    ]);
+    let out = run_cli_env(
+        &[
+            "--json",
+            "accept",
+            "--candidate",
+            &sample.to_string_lossy(),
+            "--candidate-sha256",
+            &digest,
+            "--expect-baseline",
+            "missing",
+            "--baselines",
+            &baselines.to_string_lossy(),
+        ],
+        &[],
+        true,
+    );
     assert_eq!(code(&out), Some(0));
 }
 
@@ -641,7 +753,7 @@ fn invalid_sample_data_exits_three_with_codes() {
         (garbage, "INVALID_SAMPLE"),
         (future_file, "UNSUPPORTED_SCHEMA"),
     ] {
-        let out = run_cli(&[
+        let out = run_cli_ci(&[
             "--json",
             "check",
             "--sample",

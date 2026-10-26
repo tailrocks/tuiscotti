@@ -3,7 +3,9 @@
 //! rejection, the static evidence index, and `EncodedPath` round-trips.
 //!
 //! Every test runs the compiled executable in tempdirs with no
-//! interactive terminal.
+//! interactive terminal, and every child runs with `CI` set: none of
+//! these flows need approval, so both lanes prove the outcomes under
+//! `CI`.
 
 #[path = "support/spawn.rs"]
 mod spawn;
@@ -15,7 +17,7 @@ use fixtures::{
     all_files, base_snapshot, candidate_id, pixel_sample_bytes, plain_cell, snapshot_with_cells,
     state_sample_bytes, temp_store, write_baseline_file, write_file,
 };
-use spawn::{assert_no_color, bin, code, parse_json, run_cli, spawn_locked};
+use spawn::{assert_no_color, bin, code, parse_json, run_cli_ci, spawn_locked};
 
 /// Render extracts a stored PNG byte-identically after validating it.
 #[test]
@@ -27,7 +29,7 @@ fn render_extracts_stored_png() {
     let sample = write_file(dir.path(), "candidate.tui.json", &bytes);
     let out = dir.path().join("shot.png");
 
-    let result = run_cli(&[
+    let result = run_cli_ci(&[
         "--json",
         "render",
         "--sample",
@@ -72,7 +74,7 @@ fn render_state_only_reports_builtin_profile() {
     let sample = write_file(dir.path(), "state.tui.json", &bytes);
     let out = dir.path().join("state.png");
 
-    let result = run_cli(&[
+    let result = run_cli_ci(&[
         "--json",
         "render",
         "--sample",
@@ -113,7 +115,7 @@ fn render_html_embeds_image_and_metadata() {
         ),
     ] {
         let out = dir.path().join(format!("{}.html", id.replace('/', "__")));
-        let result = run_cli(&[
+        let result = run_cli_ci(&[
             "--json",
             "render",
             "--sample",
@@ -147,7 +149,7 @@ fn render_rejects_other_extensions() {
 
     for name in ["shot.txt", "shot.jpg", "shot", "shot.PNG"] {
         let out = dir.path().join(name);
-        let result = run_cli(&[
+        let result = run_cli_ci(&[
             "--json",
             "render",
             "--sample",
@@ -168,7 +170,7 @@ fn render_rejects_other_extensions() {
 fn render_garbage_sample_exits_three_with_invalid_sample() {
     let (dir, _baselines, _artifacts) = temp_store();
     let garbage = write_file(dir.path(), "garbage.tui.json", b"{not json");
-    let result = run_cli(&[
+    let result = run_cli_ci(&[
         "--json",
         "render",
         "--sample",
@@ -192,7 +194,7 @@ fn render_oversized_sample_exits_three_with_resource_limit() {
         .expect("sample limit fits in usize");
     let big = vec![b'x'; len];
     let sample = write_file(dir.path(), "big.tui.json", &big);
-    let result = run_cli(&[
+    let result = run_cli_ci(&[
         "--json",
         "render",
         "--sample",
@@ -224,7 +226,7 @@ fn render_rejects_undecodable_stored_png() {
     let bad = serde_json::to_vec(&value).expect("bad candidate serializes");
     let sample = write_file(dir.path(), "bad.tui.json", &bad);
 
-    let result = run_cli(&[
+    let result = run_cli_ci(&[
         "--json",
         "render",
         "--sample",
@@ -241,7 +243,7 @@ fn render_rejects_undecodable_stored_png() {
 #[test]
 fn render_missing_sample_exits_three_with_io() {
     let (dir, _baselines, _artifacts) = temp_store();
-    let result = run_cli(&[
+    let result = run_cli_ci(&[
         "--json",
         "render",
         "--sample",
@@ -280,7 +282,7 @@ fn encoded_path_round_trips_non_utf8_unix_paths() {
         .arg(&baselines)
         .arg("--artifacts")
         .arg(baselines.join("artifacts").as_os_str())
-        .env_remove("CI")
+        .env("CI", "true")
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
     let child = spawn_locked(&mut cmd).expect("CLI child spawns");
@@ -317,7 +319,7 @@ fn report_indexes_two_revisions_without_touching_baselines() {
     let second_file = write_file(dir.path(), "v2.tui.json", &second);
 
     let check = |file: &std::path::Path| {
-        run_cli(&[
+        run_cli_ci(&[
             "--json",
             "check",
             "--sample",
@@ -343,7 +345,7 @@ fn report_indexes_two_revisions_without_touching_baselines() {
     let before = all_files(&artifacts);
 
     let index = dir.path().join("index.html");
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "report",
         "--artifacts",
@@ -371,7 +373,7 @@ fn report_empty_artifacts_succeeds() {
     let (dir, _baselines, artifacts) = temp_store();
     std::fs::create_dir_all(&artifacts).expect("artifact root creates");
     let index = dir.path().join("index.html");
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "report",
         "--artifacts",
@@ -389,7 +391,7 @@ fn report_empty_artifacts_succeeds() {
 #[test]
 fn report_missing_artifacts_exits_three_with_io() {
     let (dir, _baselines, _artifacts) = temp_store();
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "report",
         "--artifacts",

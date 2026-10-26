@@ -28,14 +28,22 @@ pub(crate) fn spawn_locked(cmd: &mut Command) -> std::io::Result<Child> {
     cmd.spawn()
 }
 
-/// Run the CLI with `CI` removed so the suite passes when the runner
-/// environment sets `CI` (nextest does); tests for the CI refusal set
-/// the variable explicitly on the child instead.
-pub(crate) fn run_cli(args: &[&str]) -> Output {
-    run_cli_env(args, &[], true)
+/// Run the CLI with `CI` explicitly set on the child, regardless of the
+/// runner environment: the substantive non-approval flows must assert
+/// their real outcomes (pass, missing, different, operational error)
+/// under `CI`, not just the refusal. Approval itself stays refused here
+/// by production design; only the dedicated CI-refusal test asserts
+/// that, while frozen pre-written baselines plus `check` carry the
+/// transaction outcomes.
+pub(crate) fn run_cli_ci(args: &[&str]) -> Output {
+    run_cli_env(args, &[("CI", "true")], false)
 }
 
-/// Run the CLI with explicit child environment control.
+/// Run the CLI with explicit child environment control. Approval
+/// (`accept`) paths pass `remove_ci` so the transaction runs on the
+/// non-CI lane production requires; every other flow sets `CI`
+/// explicitly (see [`run_cli_ci`]) so both lanes prove behavior under
+/// `CI` instead of stripping it.
 #[expect(clippy::expect_used, reason = "test children must spawn")]
 pub(crate) fn run_cli_env(args: &[&str], vars: &[(&str, &str)], remove_ci: bool) -> Output {
     let mut cmd = Command::new(bin());

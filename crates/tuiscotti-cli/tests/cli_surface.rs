@@ -2,20 +2,22 @@
 //! aliases, stdout/stderr separation, broken pipes, and `NO_COLOR`.
 //!
 //! Every test runs the compiled executable with no interactive
-//! terminal. Argument-parsing failures exit 2 with clap's stderr text
-//! and no JSON result on stdout.
+//! terminal and with `CI` set: none of these flows need approval, so
+//! both lanes prove the surface behavior under `CI`. Argument-parsing
+//! failures exit 2 with clap's stderr text and no JSON result on
+//! stdout.
 
 #[path = "support/spawn.rs"]
 mod spawn;
 
 use std::process::Stdio;
 
-use spawn::{assert_no_color, bin, code, parse_json, run_cli, spawn_locked};
+use spawn::{assert_no_color, bin, code, parse_json, run_cli_ci, spawn_locked};
 
 /// `--help` lists exactly the four Section 16 commands.
 #[test]
 fn help_lists_four_commands() {
-    let out = run_cli(&["--help"]);
+    let out = run_cli_ci(&["--help"]);
     assert_eq!(code(&out), Some(0));
     let stdout = String::from_utf8_lossy(&out.stdout);
     for command in ["check", "accept", "render", "report"] {
@@ -42,7 +44,7 @@ fn each_command_help_names_its_flags() {
         ("render", &["--sample", "--out"][..]),
         ("report", &["--artifacts", "--out"][..]),
     ] {
-        let out = run_cli(&[command, "--help"]);
+        let out = run_cli_ci(&[command, "--help"]);
         assert_eq!(code(&out), Some(0), "{command} help exits 0");
         let stdout = String::from_utf8_lossy(&out.stdout);
         for flag in flags {
@@ -58,7 +60,7 @@ fn each_command_help_names_its_flags() {
 /// Unknown commands exit 2 with no JSON on stdout.
 #[test]
 fn unknown_command_is_usage_error_without_json() {
-    let out = run_cli(&["frobnicate"]);
+    let out = run_cli_ci(&["frobnicate"]);
     assert_eq!(code(&out), Some(2));
     assert!(out.stdout.is_empty(), "usage errors emit no stdout");
     assert!(!out.stderr.is_empty(), "usage errors explain on stderr");
@@ -73,7 +75,7 @@ fn removed_commands_stay_removed() {
         "attach", "capture", "diff", "doctor", "import", "init", "input", "inspect", "machine",
         "observe", "record", "review", "schema", "session", "start", "stop", "trace",
     ] {
-        let out = run_cli(&[name]);
+        let out = run_cli_ci(&[name]);
         assert_eq!(code(&out), Some(2), "{name} exits 2");
         assert!(out.stdout.is_empty(), "{name} emits no stdout");
     }
@@ -89,7 +91,7 @@ fn missing_arguments_are_usage_errors_without_json() {
         vec!["render", "--sample", "x"],
         vec!["report"],
     ] {
-        let out = run_cli(&argv);
+        let out = run_cli_ci(&argv);
         assert_eq!(code(&out), Some(2), "{argv:?} exits 2");
         assert!(out.stdout.is_empty(), "{argv:?} emits no stdout JSON");
         assert!(!out.stderr.is_empty(), "{argv:?} explains on stderr");
@@ -105,7 +107,7 @@ fn accept_takes_no_batch_or_override_flags() {
         vec!["accept", "--glob", "x"],
         vec!["accept", "--ci-ok"],
     ] {
-        let out = run_cli(&argv);
+        let out = run_cli_ci(&argv);
         assert_eq!(code(&out), Some(2), "{argv:?} exits 2");
         assert!(out.stdout.is_empty(), "{argv:?} emits no stdout");
     }
@@ -117,7 +119,7 @@ fn accept_takes_no_batch_or_override_flags() {
 fn json_error_splits_stdout_and_stderr() {
     let dir = tempfile::tempdir().expect("tempdir creates");
     let sample = dir.path().join("missing.tui.json");
-    let out = run_cli(&[
+    let out = run_cli_ci(&[
         "--json",
         "check",
         "--sample",
@@ -179,7 +181,7 @@ fn broken_pipe_preserves_the_operation_result() {
         let mut child = std::process::Command::new(bin());
         child
             .args(&owned)
-            .env_remove("CI")
+            .env("CI", "true")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         let mut child = spawn_locked(&mut child).expect("CLI child spawns");
