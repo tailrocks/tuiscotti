@@ -36,7 +36,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = Sample::with_pixels(&test_id, &snapshot, Observation::empty(), profile)?;
     let bytes = sample.to_bytes()?;
 
-    // Hermetic stores: tempdirs isolate the baseline and artifact roots.
     let root = tempfile::tempdir()?;
     let baselines = root.path().join("baselines");
     let artifacts = root.path().join("artifacts");
@@ -47,7 +46,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "first check over an empty baseline root must fail"
     );
 
-    // Explicit candidate approval, then the same bytes check green.
     let failure = match outcome {
         tuiscotti::check::CheckOutcome::Failure(failure) => failure,
         tuiscotti::check::CheckOutcome::Pass(_) => {

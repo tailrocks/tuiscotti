@@ -57,8 +57,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let baselines = root.path().join("baselines");
     let artifacts = root.path().join("artifacts");
 
-    // Approve the baseline first, while the root is still writable. Under
-    // `CI` approval is refused, so the setup plants a frozen fixture.
     let approved = draw(frozen_view)?;
     let setup_store = FrozenStore::new(&baselines, &artifacts)?;
     let failure = match setup_store.check(&approved)? {
@@ -78,12 +76,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     make_read_only(&baselines)?;
     let listing_before = baseline_listing(&baselines)?;
 
-    // Equal bytes check green against the read-only root.
     let store = FrozenStore::new(&baselines, &artifacts)?;
     let rerun = store.check(&approved)?;
     assert!(rerun.is_pass(), "equal sample must pass over a frozen root");
 
-    // Changed bytes fail with evidence under the artifact root only.
     let changed = draw(changed_view)?;
     let failure = match store.check(&changed)? {
         CheckOutcome::Failure(failure) => failure,

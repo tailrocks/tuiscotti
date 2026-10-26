@@ -58,8 +58,6 @@ pub(crate) fn encode_path(path: &Path) -> EncodedPath {
     }
     #[cfg(not(any(unix, windows)))]
     {
-        // No native-byte API on this platform; the UTF-8 branch above is
-        // the only lossless spelling, so report it as unrepresentable.
         EncodedPath {
             encoding: "utf8".to_string(),
             value: path.as_os_str().to_string_lossy().into_owned(),

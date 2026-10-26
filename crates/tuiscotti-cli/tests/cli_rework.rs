@@ -117,8 +117,6 @@ fn nested_snapshot_failures_keep_typed_codes() {
             "RESOURCE_LIMIT",
         ),
     ];
-    // The pixel gate shares the same wire preflight: a future nested
-    // schema in a state-and-pixels sample is UNSUPPORTED_SCHEMA too.
     let (_, pixel_bytes) = pixel_sample_bytes("rework/pixel-nested", &base_snapshot());
     let mut pixel: serde_json::Value =
         serde_json::from_slice(&pixel_bytes).expect("fixture parses");
@@ -179,16 +177,12 @@ fn accept_failures_report_the_observed_baseline() {
     let first_digest = candidate_id(&first);
     let wrong = "d".repeat(64);
 
-    // A stale expected digest against an absent baseline observes
-    // `missing`, never the requested digest.
     let (status, value) = accept_json(&first_file, &first_digest, &wrong, &baselines);
     assert_eq!(status, Some(3));
     assert_eq!(value["status"], "error");
     assert_eq!(value["error_code"], "STALE_BASELINE");
     assert_eq!(value["baseline_sha256"], "missing");
 
-    // Approving the first revision, then refusing a stale second
-    // approval against it, observes the present digest.
     assert_eq!(
         accept_json(&first_file, &first_digest, "missing", &baselines).0,
         Some(0)
@@ -198,15 +192,10 @@ fn accept_failures_report_the_observed_baseline() {
     assert_eq!(value["error_code"], "STALE_BASELINE");
     assert_eq!(value["baseline_sha256"], first_digest);
 
-    // A stale candidate never observed a baseline: null, not a guess.
     let (status, value) = accept_json(&first_file, &wrong, "missing", &baselines);
     assert_eq!(status, Some(3));
     assert_eq!(value["error_code"], "STALE_CANDIDATE");
     assert!(value["baseline_sha256"].is_null());
-
-    // The CI refusal itself lives in exactly one dedicated test
-    // (`c12_ci_refuses_accept_but_not_check`), which also asserts the
-    // null observed baseline; this matrix stays on transaction errors.
 }
 
 /// R20c: digest and output-extension validation are clap parsers: every
@@ -251,8 +240,6 @@ fn usage_errors_exit_two_without_json() {
             out.to_string_lossy().into_owned(),
         ]);
     }
-    // Usage validation is a clap parser: it rejects before the
-    // production CI gate, so every row must hold with `CI` set.
     for argv in &cases {
         let owned: Vec<&str> = argv.iter().map(String::as_str).collect();
         let out = run_cli_ci(&owned);

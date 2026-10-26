@@ -23,7 +23,7 @@ because tuiscotti does not wrap or re-export them.
 
 | Item | Status | Notes |
 |---|---|---|
-| `sample::Sample` (`tuiscotti.sample.v1`) | implemented | Versioned JSON binding test ID, gate, upstream snapshot, render contract, PNG image, and observation. `with_pixels` for `state-and-pixels`, `state_only` for the `state` gate. |
+| `sample::Sample` (`tuiscotti.sample.v1`) | implemented | Versioned JSON binding test ID, gate, upstream snapshot, render contract, PNG image, and observation. `with_pixels` for `state-and-pixels`, `state` for the `state` gate. |
 | `sample::{Gate, RenderContract, SampleImage, Observation}` | implemented | `state` compares canonical state only; `state-and-pixels` also compares render contract and decoded RGBA. |
 | `sample::{SampleError, candidate_id}` | implemented | Limits before allocation: 64 MiB file, 1 000 000 cells, 4 KiB cells, 256 MiB RGBA, 240-byte test IDs. |
 

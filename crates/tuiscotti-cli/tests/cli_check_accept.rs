@@ -34,8 +34,6 @@ fn c09_missing_baseline_then_accept_then_pass() {
     let bytes = state_sample_bytes("cli/missing", &snapshot);
     let sample = write_file(dir.path(), "candidate.tui.json", &bytes);
 
-    // The missing check runs under `CI`: frozen comparison needs no
-    // approval, so the outcome must hold in both lanes.
     let out = run_cli_ci(&[
         "--json",
         "check",
@@ -211,8 +209,6 @@ fn c10_malformed_digests_are_argument_errors() {
         ("", "missing"),
         (digest.as_str(), ""),
     ] {
-        // Digest-shape validation is a clap parser: it rejects before the
-        // production CI gate, so the exit-2 outcome must hold under `CI`.
         let out = run_cli_ci(&[
             "--json",
             "accept",
@@ -283,9 +279,6 @@ fn c10_tampered_image_rejects_on_frame_image_agreement() {
     );
     assert_no_baseline_writes(&baselines);
 
-    // The same tampered bytes against a frozen original baseline fail
-    // the `check` comparison under `CI`: the transaction outcome
-    // (different state) holds where approval itself is forbidden.
     write_baseline_file(&baselines, &test_id, &bytes);
     let out = run_cli_ci(&[
         "--json",
@@ -338,9 +331,6 @@ fn c11_two_revisions_with_stale_rejection() {
             true,
         )
     };
-    // Frozen comparison needs no approval: every `check` here runs
-    // under `CI`, while the `accept` steps stay on the non-CI path
-    // production requires.
     let check = |file: &Path| {
         run_cli_ci(&[
             "--json",
@@ -475,13 +465,9 @@ fn c12_readonly_baseline_root_checks_but_never_approves() {
 
     std::fs::set_permissions(&baselines, std::fs::Permissions::from_mode(0o555))
         .expect("baseline root locks");
-    // Writability probe: a privileged runner ignores permission bits,
-    // so skip instead of asserting a refusal that cannot happen.
     let probe = baselines.join(".writability-probe");
     let writable = std::fs::write(&probe, b"probe").is_ok();
-    if std::fs::remove_file(&probe).is_err() {
-        // Best-effort cleanup only; the tempdir owns the file either way.
-    }
+    drop(std::fs::remove_file(&probe));
     if writable {
         std::fs::set_permissions(&baselines, std::fs::Permissions::from_mode(0o755))
             .expect("baseline root restores");
@@ -542,9 +528,7 @@ fn c12_readonly_artifact_root_fails_evidence_with_io() {
         .expect("artifact root locks");
     let probe = artifacts.join(".writability-probe");
     let writable = std::fs::write(&probe, b"probe").is_ok();
-    if std::fs::remove_file(&probe).is_err() {
-        // Best-effort cleanup only; the tempdir owns the file either way.
-    }
+    drop(std::fs::remove_file(&probe));
     if writable {
         std::fs::set_permissions(&artifacts, std::fs::Permissions::from_mode(0o755))
             .expect("artifact root restores");
@@ -622,8 +606,6 @@ fn c12_ci_refuses_accept_but_not_check() {
         "CI refusals change no baseline"
     );
 
-    // Where approval is forbidden, frozen fixtures plus `check` carry
-    // the substantive transaction outcomes under `CI`.
     assert_check_matrix_under_ci(dir.path(), &baselines, &artifacts, &candidate);
 }
 
@@ -839,7 +821,6 @@ fn relative_store_roots_work_from_clean_working_directory() {
     ];
 
     for round in 1..=2 {
-        // `check` from a clean directory: missing, exit 1, evidence kept.
         let out = run_cli_cwd(dir.path(), &check, false);
         assert_eq!(code(&out), Some(1), "round {round}: missing check exits 1");
         let value = parse_json(&out);
@@ -851,7 +832,6 @@ fn relative_store_roots_work_from_clean_working_directory() {
         assert_eq!(value["baseline_sha256"], "missing");
         assert!(value["error_code"].is_null());
         assert_no_color(&out, "relative missing check");
-        // `check` creates no baseline root and writes no baseline.
         let baseline_root = dir.path().join("baselines");
         assert!(
             !baseline_root.exists() || all_files(&baseline_root).is_empty(),
@@ -862,7 +842,6 @@ fn relative_store_roots_work_from_clean_working_directory() {
             "round {round}: missing evidence keeps its report"
         );
 
-        // `accept` from the same directory: exit 0, baseline written.
         let out = run_cli_cwd(dir.path(), &accept, true);
         assert_eq!(code(&out), Some(0), "round {round}: accept exits 0");
         let value = parse_json(&out);
@@ -878,12 +857,10 @@ fn relative_store_roots_work_from_clean_working_directory() {
             "round {round}: accept writes the baseline"
         );
 
-        // The next `check` passes.
         let out = run_cli_cwd(dir.path(), &check, false);
         assert_eq!(code(&out), Some(0), "round {round}: second check exits 0");
         assert_eq!(parse_json(&out)["status"], "pass");
 
-        // Drop the generated roots so the next round starts missing again.
         std::fs::remove_dir_all(dir.path().join("baselines")).expect("baselines remove");
         std::fs::remove_dir_all(dir.path().join("artifacts")).expect("artifacts remove");
     }

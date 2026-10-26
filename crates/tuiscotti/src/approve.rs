@@ -594,10 +594,6 @@ impl ApprovalStore {
         candidate_sha256: &str,
         expected_baseline_sha256: &str,
     ) -> Result<AcceptOutcome, ApproveError> {
-        // Step 1: refuse under CI before making the root or lock file.
-        // This gate stays on the public path only: the transaction
-        // mechanics below never read the environment, so unit tests
-        // exercise them in both modes without a bypass.
         require_no_ci()?;
         self.accept_core(candidate_path, candidate_sha256, expected_baseline_sha256)
     }
@@ -622,18 +618,15 @@ impl ApprovalStore {
         candidate_sha256: &str,
         expected_baseline_sha256: &str,
     ) -> Result<AcceptOutcome, ApproveError> {
-        // Step 2: validate the digest arguments and store paths.
         require_digest("candidate", candidate_sha256, false)?;
         require_digest("expected baseline", expected_baseline_sha256, true)?;
         let baselines = resolve_baseline_root(&self.baselines)?;
-        // Step 3: make the baseline root when missing.
         if !baselines.exists() {
             fs::create_dir_all(&baselines).map_err(|source| ApproveError::Io {
                 source,
                 observed_baseline: None,
             })?;
         }
-        // Step 4: take the OS lock on the stable file, before any read.
         let lock =
             ApprovalFileLock::acquire(&baselines, Duration::from_secs(APPROVAL_LOCK_TIMEOUT_SECS))
                 .map_err(|error| match error {
@@ -643,7 +636,6 @@ impl ApprovalStore {
                         observed_baseline: None,
                     },
                 })?;
-        // Steps 5-12 run under the lock; step 19 releases it on return.
         let transaction = Self::accept_locked(
             &baselines,
             candidate_path,
@@ -663,9 +655,7 @@ impl ApprovalStore {
         candidate_sha256: &str,
         expected_baseline: &str,
     ) -> Result<AcceptOutcome, ApproveError> {
-        // Step 5: read the candidate bytes one time with the size limit.
         let candidate_bytes = read_candidate_bytes(candidate_path)?;
-        // Step 6: compare their digest with the mandatory candidate digest.
         let actual_candidate = sha256_hex(&candidate_bytes);
         if actual_candidate != candidate_sha256 {
             return Err(ApproveError::StaleCandidate {
@@ -673,13 +663,8 @@ impl ApprovalStore {
                 actual: actual_candidate,
             });
         }
-        // Step 7: validate the candidate schema and snapshot.
         let candidate = Sample::from_bytes(&candidate_bytes)?;
-        // The candidate test ID validates unconditionally, before any
-        // baseline path is derived or read: a present baseline never skips
-        // it. Rejected IDs are never normalized into a path.
         validate_test_id(candidate.test_id())?;
-        // Steps 8-9: read the baseline under the same lock and arbitrate.
         let relative = baseline_relative(&candidate)?;
         ensure_no_symlink(baselines, &relative)?;
         let baseline_bytes = read_baseline_bytes(baselines, &relative)?;
@@ -692,11 +677,6 @@ impl ApprovalStore {
                 actual: previous_digest,
             });
         }
-        // Steps 10-12: re-render image samples through the specified
-        // profile, verify the recorded render identity, and compare decoded
-        // pixels; state-only samples skip. Every failure below runs after
-        // the baseline read, so each carries the digest the root actually
-        // held instead of reporting no observed baseline.
         rerender_check(&candidate)
             .map_err(|error| error.with_observed_baseline(&previous_digest))?;
         let changes = match baseline_bytes {
@@ -711,9 +691,6 @@ impl ApprovalStore {
                 ChangeSet::from_present(comparison)
             }
         };
-        // Steps 13-18: validate paths, make parents, stage the baseline,
-        // prepare the outcome, and commit with one atomic rename.
-        // Step 20: return the approved test ID and sample digest.
         write_baseline(
             baselines,
             &relative,
@@ -812,14 +789,11 @@ fn write_baseline(
             detail: "baseline path has no file name".to_string(),
             observed_baseline: None,
         })?;
-    // Step 14: make the baseline's parent directories under the lock.
     let parent_dir = baselines.join(parent);
     fs::create_dir_all(&parent_dir).map_err(|source| ApproveError::Io {
         source,
         observed_baseline: None,
     })?;
-    // Steps 15-17: write, flush, and close the staged temporary file. A
-    // failure here drops the uncommitted file without touching the baseline.
     let (mut staged, temp) =
         TempFile::create(&parent_dir, file_name).map_err(|source| ApproveError::Io {
             source,
@@ -836,7 +810,6 @@ fn write_baseline(
         observed_baseline: None,
     })?;
     drop(staged);
-    // Prepare the outcome before the commit: everything below is pure.
     let outcome = AcceptOutcome {
         test_id: candidate.test_id().to_string(),
         gate: candidate.gate(),
@@ -847,8 +820,6 @@ fn write_baseline(
         reason: changes.reason,
         changed_fields: changes.fields,
     };
-    // Step 18: atomically rename the staged file over the baseline. This is
-    // the final fallible filesystem operation of the transaction.
     temp.commit(&outcome.baseline_path)
         .map_err(|source| ApproveError::Io {
             source,
@@ -959,9 +930,6 @@ fn contract_identity_change(
     if recorded.fonts() != expected.fonts() {
         return Some("fonts");
     }
-    // Float fields compare by bits: both sides derive from the same pinned
-    // profile constants (or an exact JSON round-trip of them), so any bit
-    // difference is a genuine identity change, not arithmetic noise.
     if recorded.cell_width().to_bits() != expected.cell_width().to_bits() {
         return Some("cell_width");
     }
@@ -1162,9 +1130,6 @@ fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
             observed_baseline: None,
         });
     }
-    // Anchor before the ancestor walk: `parent()` of a bare relative tail
-    // is empty and never canonicalizes, so a missing relative root
-    // previously failed outright instead of resolving under the cwd.
     let anchored: PathBuf;
     let path: &Path = if path.is_relative() {
         match std::env::current_dir() {
@@ -1713,8 +1678,6 @@ mod tests {
         let store = ApprovalStore::new(&baselines).expect("approval store opens");
         match store.accept_core(&candidate, &digest, "missing") {
             Err(error @ super::ApproveError::Io { .. }) => {
-                // The exit mapping lives at the CLI boundary
-                // (`accept_exit_code`); the library keeps the typed code.
                 assert_eq!(error.code(), "IO");
             }
             other => panic!("a blocked lock path must fail I/O, got {other:?}"),

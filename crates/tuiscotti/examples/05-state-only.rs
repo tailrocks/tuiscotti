@@ -57,7 +57,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "approved state sample must pass"
     );
 
-    // A re-noted observation is a different candidate with equal state.
     let renoted_snapshot = capture_view(80, 24, &ViewSettings::builtin(), layout_view)?;
     let renoted = Sample::state(
         "examples/state-only",

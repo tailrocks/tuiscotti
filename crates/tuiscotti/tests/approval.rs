@@ -520,8 +520,6 @@ fn d04_c10_digest_and_frame_image_agreement() {
     let stored_image = stored.image().expect("baseline carries an image");
     assert_eq!(stored_image.png_sha256(), image.png_sha256());
     assert_eq!(stored_image.rgba_sha256(), image.rgba_sha256());
-    // The change summary rides in the outcome: a first approval reports the
-    // missing baseline, and nothing but the baseline is persisted.
     assert_eq!(accepted.previous_baseline_sha256(), "missing");
     assert_eq!(accepted.reason(), Some(MismatchReason::Missing));
     assert_eq!(accepted.changed_fields(), &["baseline".to_string()]);
@@ -1114,7 +1112,6 @@ fn d04_present_baseline_skips_id_gate_comparison() {
     let baselines = dir.path().join("baselines");
     std::fs::create_dir_all(&baselines).expect("baseline root creates");
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
-    // Different embedded test ID, equal snapshot and gate.
     let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
     let candidate_digest = sha256_hex(&candidate_bytes);
     let planted_id = with_test_id(&candidate_bytes, "views/other");
@@ -1143,7 +1140,6 @@ fn d04_present_baseline_skips_id_gate_comparison() {
         "a present baseline with an equal snapshot approves with an empty change summary"
     );
     assert!(accepted.changed_fields().is_empty());
-    // Different gate shape: a pixel baseline under a state candidate path.
     let pixel_bytes = pixel_sample_bytes("views/login", &base_snapshot());
     let pixel_digest = sha256_hex(&pixel_bytes);
     write_baseline_file(&baselines, "views/login", &pixel_bytes);
@@ -1228,7 +1224,6 @@ fn d04_error_codes_arguments_and_samples() {
     let candidate_bytes = state_sample_bytes("views/login", &base_snapshot());
     let candidate_digest = sha256_hex(&candidate_bytes);
     let store = ApprovalStore::new(&baselines).expect("approval store opens");
-    // Unknown sample schema rejects as UNSUPPORTED_SCHEMA.
     let schema_bytes = with_schema(&candidate_bytes, "tuiscotti.sample.v99");
     let schema_digest = sha256_hex(&schema_bytes);
     let schema_file = candidate_file(dir.path(), "schema.tui.json", &schema_bytes);
@@ -1241,9 +1236,6 @@ fn d04_error_codes_arguments_and_samples() {
         }
         other => panic!("unknown schema must fail, got {other:?}"),
     }
-    // An over-limit image dimension claim rejects as RESOURCE_LIMIT, as
-    // does an overlong nested snapshot cell string (typed wire preflight).
-    // The dimension claim is the live image resource-limit shape.
     let pixel_bytes = pixel_sample_bytes("views/login", &base_snapshot());
     let big_bytes = with_image_dims(&pixel_bytes, 40_000, 40);
     let big_digest = sha256_hex(&big_bytes);
@@ -1254,7 +1246,6 @@ fn d04_error_codes_arguments_and_samples() {
         }
         other => panic!("over-limit dimensions must fail, got {other:?}"),
     }
-    // Tampered image bytes reject as INVALID_IMAGE.
     let mut rewritten: serde_json::Value =
         serde_json::from_slice(&pixel_bytes).expect("candidate parses as JSON");
     let png = rewritten["image"]["png_base64"]
@@ -1273,7 +1264,6 @@ fn d04_error_codes_arguments_and_samples() {
         }
         other => panic!("tampered image must fail, got {other:?}"),
     }
-    // A missing candidate file rejects as IO.
     match store.accept(
         &dir.path().join("absent.tui.json"),
         &candidate_digest,
@@ -1284,14 +1274,12 @@ fn d04_error_codes_arguments_and_samples() {
         }
         other => panic!("a missing candidate must fail I/O, got {other:?}"),
     }
-    // An empty store root rejects as INVALID_STORE_PATH.
     match ApprovalStore::new(Path::new("")) {
         Err(error) => {
             assert_eq!(error.code(), "INVALID_STORE_PATH");
         }
         Ok(_) => panic!("an empty root must fail"),
     }
-    // The corrupt and malformed shapes above never approved anything.
     assert_eq!(
         entry_names(&baselines),
         [".tuiscotti-approval.lock".to_string()],
@@ -2066,8 +2054,6 @@ fn d04_rework_b1_prohibited_ids_rejected_missing_and_present() {
         reject_prohibited_id_missing(bad, &base);
         reject_prohibited_id_present(bad, &base, "views/login");
     }
-    // Pixel-gate shapes: a logical ID without the platform suffix, a
-    // traversal that carries the suffix, and a foreign suffix.
     let pixel_base = pixel_sample_bytes("views/login", &base_snapshot());
     let suffix = format!("pixels-{}", platform_key());
     let pixel_ids = [
@@ -2110,7 +2096,6 @@ fn d04_rework_b2_replacement_is_final_fallible_write() {
         ],
         "a success persists exactly the baseline plus the stable lock file"
     );
-    // A stale pre-commit refusal changes nothing.
     let revised = with_first_cell_text(&candidate_bytes, "b");
     let revised_digest = sha256_hex(&revised);
     let revised_file = candidate_file(dir.path(), "revised.tui.json", &revised);
@@ -2310,8 +2295,6 @@ fn d04_rework_b4_contract_fields_rejected_with_identical_pixels() {
             "field {field} writes nothing but the stable lock file"
         );
     }
-    // An unknown profile and an unsupported contract version fail pre-commit
-    // with their own prescribed codes and also write no baseline.
     for (field, rewrite, code) in [
         (
             "profile",
@@ -2366,9 +2349,6 @@ fn d04_rework_b4_foreign_platform_accepts_reproducible_pixels() {
     if ci_refusal_probed(&store, &local, &local_digest, "missing") {
         return;
     }
-    // The same pixels recorded on a foreign platform still approve: the
-    // foreign test ID agrees with its stored contract identity, and the
-    // platform key is addressing metadata, not rendered identity.
     let foreign_id = "views/login/pixels-foreign-os-fake";
     let foreign_bytes = with_foreign_platform(&local_bytes, "foreign-os-fake");
     assert_ne!(foreign_bytes, local_bytes);
@@ -2379,15 +2359,9 @@ fn d04_rework_b4_foreign_platform_accepts_reproducible_pixels() {
     assert_eq!(first.baseline_sha256(), foreign_digest);
     assert_eq!(first.reason(), Some(MismatchReason::Missing));
     assert_eq!(read_baseline_file(&baselines, foreign_id), foreign_bytes);
-    // The recorded foreign platform now matches its own baseline: the
-    // summary is empty and the pixels still reproduce.
     let same = accepted_of(store.accept(&foreign, &foreign_digest, &foreign_digest));
     assert_eq!(same.reason(), None);
     assert!(same.changed_fields().is_empty());
-    // The change summary compares contracts even when pixels reproduce: a
-    // baseline skewed only in its recorded renderer version (identical
-    // snapshot and image bytes) approves with a `Contract` change, not a
-    // silent pass.
     let skewed = with_rewritten_contract(&local_bytes, |contract| {
         contract["renderer_version"] = serde_json::json!("0.0.0-fake");
     });
@@ -2403,8 +2377,6 @@ fn d04_rework_b4_foreign_platform_accepts_reproducible_pixels() {
         "the change summary compares contracts even when pixels reproduce"
     );
     assert_eq!(accepted.changed_fields(), &["render_contract".to_string()]);
-    // The genuine candidate now matches its own baseline: the summary is
-    // empty and the pixels still reproduce.
     let second = accepted_of(store.accept(&local, &local_digest, &local_digest));
     assert_eq!(second.reason(), None);
     assert!(second.changed_fields().is_empty());

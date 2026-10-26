@@ -40,7 +40,7 @@ let snapshot = capture_view(80, 24, &ViewSettings::builtin(), |frame| {
 })?;
 let profile = resolve_profile(PROFILE_NAME)?;
 let sample = Sample::with_pixels(
-    &format!("views/hello-{}", platform_key()),
+    &format!("views/hello/pixels-{}", platform_key()),
     &snapshot,
     Observation::empty(),
     profile,

@@ -271,8 +271,6 @@ fn encoded_path_round_trips_non_utf8_unix_paths() {
     let raw = b"/tmp/tuiscotti-cli-\xff.tui.json".to_vec();
     let sample = OsString::from_vec(raw);
 
-    // Clap parses native paths: the non-UTF8 sample reaches the command
-    // without any lossy conversion.
     let mut cmd = std::process::Command::new(bin());
     cmd.arg("--json")
         .arg("check")
@@ -330,7 +328,6 @@ fn report_indexes_two_revisions_without_touching_baselines() {
             &artifacts.to_string_lossy(),
         ])
     };
-    // The v2 check against an empty baseline records the `missing` run.
     assert_eq!(parse_json(&check(&second_file))["status"], "missing");
     write_baseline_file(&baselines, "cli/indexed", &first);
     assert_eq!(code(&check(&first_file)), Some(0));

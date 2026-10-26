@@ -168,8 +168,6 @@ pub fn render_sample(sample_bytes: &[u8], out: &Path) -> Result<RenderOutcome, R
     let candidate_sha256 = Sample::candidate_id(sample_bytes);
     let sample = Sample::from_bytes(sample_bytes)?;
     let test_id = sample.test_id().to_string();
-    // A stored image validates before extraction; a state-only sample
-    // renders through the built-in profile and reports it.
     let (png_bytes, profile_text, reason) = if let Some(image) = sample.image() {
         match decode_stored_png(image.png_base64(), image.width(), image.height()) {
             Ok(png) => (png, "stored image".to_string(), None),

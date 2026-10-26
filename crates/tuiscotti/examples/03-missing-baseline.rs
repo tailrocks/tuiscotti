@@ -44,7 +44,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let artifacts = root.path().join("artifacts");
     let store = FrozenStore::new(&baselines, &artifacts)?;
 
-    // The missing-baseline failure: no baseline is written.
     let failure = match store.check(&bytes)? {
         CheckOutcome::Failure(failure) => failure,
         CheckOutcome::Pass(_) => return Err("check over empty baselines must fail".into()),
@@ -59,8 +58,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         !failure.candidate_path().starts_with(&baselines),
         "candidate evidence must never land under the baseline root"
     );
-    // A missing baseline root lists as empty: the missing failure must not
-    // create the root, let alone a baseline file.
     let baselines_before: Vec<_> = match std::fs::read_dir(&baselines) {
         Ok(entries) => entries
             .map(|entry| entry.map(|entry| entry.file_name()))
@@ -73,9 +70,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "missing baseline must not create a baseline file"
     );
 
-    // Explicit candidate approval, then the same bytes check green. Under
-    // `CI` approval is refused, so the candidate lands as a frozen
-    // fixture and the same bytes still check green.
     if ci_fixture::ci_is_set() {
         ci_fixture::plant_frozen_baseline(&baselines, &test_id, &bytes)?;
     } else {

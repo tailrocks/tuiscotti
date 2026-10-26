@@ -893,3 +893,22 @@ fn r22_nonregular_report_destination_fails() {
         "directory report is corrupt evidence, got {error:?}"
     );
 }
+
+/// A state-only baseline filed at a pixel candidate's path records a
+/// `different` failure with full evidence: the expected PNG is skipped
+/// because the baseline carries no image, instead of erroring.
+#[test]
+fn d03_state_baseline_at_pixel_path_records_test_id_failure() {
+    let (_temp, baselines, artifacts) = temp_store();
+    let store = FrozenStore::new(&baselines, &artifacts).expect("frozen store opens");
+    let logical = "views/login";
+    let pixel_id = format!("{logical}/pixels-{}", platform_key());
+    let candidate_bytes = pixel_sample_bytes(logical, &base_snapshot());
+    let baseline_bytes = state_sample_bytes("views/other", &base_snapshot());
+    write_baseline_file(&baselines, &pixel_id, &baseline_bytes);
+    let failure = failure_of(store.check(&candidate_bytes).expect("pixel check runs"));
+    assert_eq!(failure.reason(), MismatchReason::TestId);
+    assert!(failure.evidence_dir().join("actual.png").exists());
+    assert!(!failure.evidence_dir().join("expected.png").exists());
+    assert!(failure.report_path().exists());
+}

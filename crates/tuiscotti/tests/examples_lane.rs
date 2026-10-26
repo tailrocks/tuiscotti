@@ -14,7 +14,6 @@ use std::process::Command;
 /// (example binary, acceptable stdout markers — first is the normal one).
 const CASES: &[(&str, &[&str])] = &[
     ("01-pure-view", &["EXAMPLE-01-OK"]),
-    // Without a Unix PTY the live session reports SKIP, still exit 0.
     ("02-live-session", &["EXAMPLE-02-OK", "EXAMPLE-02-SKIP"]),
     ("03-missing-baseline", &["EXAMPLE-03-OK"]),
     ("04-frozen-baseline", &["EXAMPLE-04-OK"]),
@@ -23,7 +22,6 @@ const CASES: &[(&str, &[&str])] = &[
 
 fn examples_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let exe = std::env::current_exe()?;
-    // .../target/<profile>/deps/examples_lane-<hash> → .../target/<profile>
     let profile = exe
         .parent()
         .and_then(|dir| dir.parent())

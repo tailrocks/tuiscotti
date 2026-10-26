@@ -7,8 +7,9 @@
 //! explicit note when no expected image exists.
 //!
 //! The output carries no code from samples and no web server or script:
-//! text and attribute values are escaped, links are relative file names or
-//! embedded data, and no absolute developer path is ever written.
+//! text and attribute values are escaped, every href segment is
+//! percent-encoded, cross-drive targets become `file://` URLs, and no
+//! absolute developer path is ever written.
 //!
 //! [`write_report_index`] builds the static evidence index over an
 //! artifact root; its links resolve from the index parent, so the index
@@ -287,7 +288,7 @@ fn collect_records(artifacts: &Path) -> Result<Vec<IndexedRecord>, std::io::Erro
 /// Read one check record; returns `None` for files that are not check
 /// evidence (foreign files never break the index).
 fn read_record(path: &Path, artifacts: &Path) -> Option<IndexedRecord> {
-    let bytes = std::fs::read(path).ok()?;
+    let bytes = crate::sample::read_bounded(path).ok()?;
     let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     if value.get("schema")?.as_str()? != crate::check::CHECK_SCHEMA {
         return None;
@@ -345,13 +346,16 @@ fn push_index_line(buffer: &mut String, line: &str) {
 /// Href from the index parent to an evidence file, with forward
 /// slashes on every platform. Both sides resolve lexically against the
 /// process directory, so no filesystem access decides the spelling.
+/// Every segment is percent-encoded, so `#`, `?`, `%`, spaces, and
+/// non-UTF8 names survive the browser intact. Targets without a relative
+/// spelling (a different drive root) become `file://` URLs.
 fn relative_href(index_parent: &Path, target: &Path) -> String {
     let base = normalize_lexical(&absolutize(index_parent));
     let target = normalize_lexical(&absolutize(target));
     if let Some(relative) = relative_lexical(&base, &target) {
         return relative;
     }
-    target.to_string_lossy().replace('\\', "/")
+    file_url(&target)
 }
 
 /// Join a relative path onto the process directory; absolute paths
@@ -416,7 +420,7 @@ fn relative_lexical(base: &Path, target: &Path) -> Option<String> {
     }
     for component in &target[common..] {
         match component {
-            Component::Normal(name) => parts.push(name.to_string_lossy().into_owned()),
+            Component::Normal(name) => parts.push(encode_href_segment(name.as_encoded_bytes())),
             Component::ParentDir => parts.push("..".to_string()),
             Component::CurDir | Component::RootDir | Component::Prefix(_) => {}
         }
@@ -425,6 +429,69 @@ fn relative_lexical(base: &Path, target: &Path) -> Option<String> {
         return Some("report.html".to_string());
     }
     Some(parts.join("/"))
+}
+
+/// Percent-encode one href segment from its raw bytes: unreserved marks
+/// and sub-delimiters travel literally, everything else (including `%`,
+/// `#`, `?`, spaces, and non-UTF8 bytes) travels as uppercase `%XX`.
+fn encode_href_segment(raw: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut out = String::with_capacity(raw.len());
+    for &byte in raw {
+        match byte {
+            b'A'..=b'Z'
+            | b'a'..=b'z'
+            | b'0'..=b'9'
+            | b'-'
+            | b'_'
+            | b'.'
+            | b'~'
+            | b'!'
+            | b'$'
+            | b'&'
+            | b'\''
+            | b'('
+            | b')'
+            | b'*'
+            | b'+'
+            | b','
+            | b';'
+            | b'='
+            | b':'
+            | b'@' => out.push(byte as char),
+            _ => {
+                out.push('%');
+                out.push(HEX[(byte >> 4) as usize] as char);
+                out.push(HEX[(byte & 15) as usize] as char);
+            }
+        }
+    }
+    out
+}
+
+/// `file://` URL for a target with no relative spelling: every segment
+/// travels percent-encoded, so the fallback stays a valid browser URL
+/// instead of a bare path that reads as a scheme.
+fn file_url(target: &Path) -> String {
+    use std::path::{Component, Prefix};
+    let mut authority = String::new();
+    let mut segments: Vec<String> = Vec::new();
+    for component in target.components() {
+        match component {
+            Component::Prefix(prefix) => match prefix.kind() {
+                Prefix::Disk(drive) => segments.push(format!("{}:", drive as char)),
+                Prefix::UNC(server, share) => {
+                    authority.push_str(&server.to_string_lossy());
+                    segments.push(encode_href_segment(share.as_encoded_bytes()));
+                }
+                _ => segments.push(encode_href_segment(prefix.as_os_str().as_encoded_bytes())),
+            },
+            Component::RootDir | Component::CurDir => {}
+            Component::ParentDir => segments.push("..".to_string()),
+            Component::Normal(name) => segments.push(encode_href_segment(name.as_encoded_bytes())),
+        }
+    }
+    format!("file://{authority}/{}", segments.join("/"))
 }
 
 /// Render the static HTML report for one comparison as a string.
@@ -473,26 +540,76 @@ struct TempFile {
     path: Option<PathBuf>,
 }
 
+/// Staging attempts before an occupied directory reports `AlreadyExists`.
+const MAX_TEMP_CREATE_ATTEMPTS: u32 = 100;
+
 impl TempFile {
     /// Create a uniquely named temporary file in a directory.
+    ///
+    /// Exclusive creation with owner-only mode: the call never follows a
+    /// symlink (a planted link at the fresh name fails creation), and the
+    /// file is never truncated or reused. Occupied names retry with a fresh
+    /// counter value; every other I/O failure returns immediately.
     fn create(dir: &Path, name: &str) -> Result<(fs::File, Self), std::io::Error> {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let temp_name = format!(".tmp-{}-{id}-{name}", std::process::id());
-        let path = dir.join(temp_name);
-        let file = fs::File::create(&path)?;
+        Self::create_retry(dir, name, || COUNTER.fetch_add(1, Ordering::SeqCst))
+    }
+
+    /// Stage through caller-supplied fresh names; the closure hook exists so
+    /// tests can force the collision path deterministically.
+    fn create_retry(
+        dir: &Path,
+        name: &str,
+        mut fresh_id: impl FnMut() -> u64,
+    ) -> Result<(fs::File, Self), std::io::Error> {
+        for _ in 0..MAX_TEMP_CREATE_ATTEMPTS {
+            match Self::create_once(dir, name, fresh_id()) {
+                Ok(staged) => return Ok(staged),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!("cannot stage a fresh temporary file for {name}"),
+        ))
+    }
+
+    /// Open one staging name exclusively: `create_new` fails when anything
+    /// (file, directory, or symlink) already occupies the path, so creation
+    /// never follows a link. All later bytes travel through the held
+    /// handle, and the final rename moves the staged path itself.
+    fn create_once(dir: &Path, name: &str, id: u64) -> Result<(fs::File, Self), std::io::Error> {
+        let path = dir.join(format!(".tmp-{}-{id}-{name}", std::process::id()));
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        let file = options.open(&path)?;
         Ok((file, Self { path: Some(path) }))
     }
 
     /// Flush, close, and atomically rename the temporary file.
+    ///
+    /// The staged path is retained until the rename succeeds: a failed
+    /// rename removes the staged file and reports I/O, so no `.tmp-*`
+    /// residue survives the error branch.
     fn commit(mut self, target: &Path) -> Result<(), std::io::Error> {
         let Some(path) = self.path.take() else {
             return Err(std::io::Error::other(
                 "temporary evidence file is already committed",
             ));
         };
-        fs::rename(&path, target)?;
-        Ok(())
+        match fs::rename(&path, target) {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                drop(fs::remove_file(&path));
+                Err(error)
+            }
+        }
     }
 }
 
@@ -663,7 +780,10 @@ fn push_footer(html: &mut String) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ReportInput, escape_html, relative_href, render_report, write_report};
+    use super::{
+        ReportInput, TempFile, encode_href_segment, escape_html, file_url, read_record,
+        relative_href, render_report, write_report,
+    };
 
     #[test]
     fn escaping_keeps_markup_inert() {
@@ -774,5 +894,119 @@ mod tests {
                 "href from {parent} to {target}"
             );
         }
+    }
+
+    #[test]
+    fn index_hrefs_percent_encode_special_segments() {
+        use std::path::Path;
+        assert_eq!(
+            relative_href(
+                Path::new("/repo/out"),
+                Path::new("/repo/artifacts/suite/a b#c%3Fd/report.html"),
+            ),
+            "../artifacts/suite/a%20b%23c%253Fd/report.html",
+        );
+        assert_eq!(
+            file_url(Path::new("/repo/a b/report.html")),
+            "file:///repo/a%20b/report.html",
+        );
+        assert_eq!(encode_href_segment(b"a\xffb"), "a%FFb");
+    }
+
+    #[test]
+    fn oversized_records_are_ignored_while_valid_records_index() {
+        use crate::check::CHECK_SCHEMA;
+        use crate::sample::MAX_SAMPLE_FILE_BYTES;
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let suite = dir.path().join("suite");
+        std::fs::create_dir(&suite).expect("suite creates");
+        let huge = suite.join("result.json");
+        let mut padded = serde_json::json!({
+            "schema": CHECK_SCHEMA,
+            "test_id": "views/login",
+            "reason": "state",
+            "candidate_sha256": "cc",
+            "baseline_sha256": "bb",
+        });
+        let over_limit =
+            usize::try_from(MAX_SAMPLE_FILE_BYTES).expect("file limit fits the address space") + 1;
+        padded["padding"] = serde_json::Value::String("x".repeat(over_limit));
+        std::fs::write(
+            &huge,
+            serde_json::to_vec(&padded).expect("padded record serializes"),
+        )
+        .expect("padded record writes");
+        assert!(read_record(&huge, dir.path()).is_none());
+        let record = serde_json::json!({
+            "schema": CHECK_SCHEMA,
+            "test_id": "views/login",
+            "reason": "state",
+            "candidate_sha256": "cc",
+            "baseline_sha256": "bb",
+        });
+        let valid = suite.join("valid.json");
+        std::fs::write(
+            &valid,
+            serde_json::to_vec(&record).expect("record serializes"),
+        )
+        .expect("record writes");
+        let indexed = read_record(&valid, dir.path()).expect("valid record indexes");
+        assert_eq!(indexed.test_id, "views/login");
+    }
+
+    #[test]
+    fn staged_temp_files_skip_planted_names_without_touching_targets() {
+        use std::io::Write as _;
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let outside = dir.path().join("outside.txt");
+        std::fs::write(&outside, b"untouched").expect("outside writes");
+        let planted = dir
+            .path()
+            .join(format!(".tmp-{}-7-report.html", std::process::id()));
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, &planted).expect("link plants");
+        #[cfg(not(unix))]
+        std::fs::write(&planted, b"occupied").expect("name occupies");
+        let mut ids = [7u64, 7, 8].into_iter();
+        let (mut file, staged) = TempFile::create_retry(dir.path(), "report.html", || {
+            ids.next().expect("identifier remains")
+        })
+        .expect("retry stages past the planted name");
+        file.write_all(b"evidence").expect("staged write lands");
+        drop(file);
+        let target = dir.path().join("report.html");
+        staged.commit(&target).expect("commit renames");
+        assert_eq!(std::fs::read(&target).expect("target reads"), b"evidence");
+        assert_eq!(
+            std::fs::read(&outside).expect("outside reads"),
+            b"untouched"
+        );
+    }
+
+    #[test]
+    fn failed_rename_removes_the_staged_file() {
+        let dir = tempfile::tempdir().expect("tempdir creates");
+        let (file, staged) = TempFile::create(dir.path(), "report.html").expect("stage creates");
+        drop(file);
+        let missing = dir.path().join("no-such-dir").join("report.html");
+        let error = staged
+            .commit(&missing)
+            .expect_err("rename into a missing directory fails");
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+        let residue: Vec<String> = std::fs::read_dir(dir.path())
+            .expect("directory lists")
+            .map(|entry| {
+                entry
+                    .expect("entry reads")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .filter(|name| name.starts_with(".tmp-"))
+            .collect();
+        assert!(
+            residue.is_empty(),
+            "staged residue left behind: {residue:?}"
+        );
     }
 }

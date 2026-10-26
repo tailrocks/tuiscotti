@@ -307,17 +307,12 @@ fn d06_c02_live_session_sample_through_downstream_path() {
     };
     let approvals = ApprovalStore::new(&baselines).expect("approvals open");
     if std::env::var_os("CI").is_some() {
-        // CI path: approval is refused by design, so the test probes that
-        // refusal and finishes through a frozen fixture plus check-only
-        // flow. The runner environment is never changed.
         match approvals.accept(
             failure.candidate_path(),
             failure.candidate_sha256(),
             MISSING_BASELINE,
         ) {
             Err(error @ ApproveError::CiApprovalForbidden) => {
-                // The exit-3 mapping lives at the CLI boundary; the
-                // library keeps the typed code.
                 assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
             }
             other => panic!("live approval under CI must refuse, got {other:?}"),
@@ -375,7 +370,6 @@ fn d06_c13_checked_mouse_click_reports_exact_bytes() {
             options: left_button(),
         })
         .expect("press under click mode");
-    // SGR-encoded press at 1-based (5, 3): ESC [ < 0 ; 5 ; 3 M.
     wait_for_text(&engine, "rx:1b5b3c303b353b334d");
 
     let error = engine
@@ -404,7 +398,6 @@ fn d06_c13_paste_and_focus_report_exact_bytes() {
     wait_for_text(&engine, "READY");
 
     engine.paste("hi").expect("paste with bracketed mode");
-    // ESC [ 2 0 0 ~ h i ESC [ 2 0 1 ~, hex-encoded by the fixture.
     wait_for_text(&engine, "rx:1b5b3230307e68691b5b3230317e");
 
     engine.focus(true).expect("focus with focus mode");
@@ -565,8 +558,6 @@ fn d06_c15_raw_bytes_keep_nul_and_invalid_utf8() {
     let dir = test_dir();
     let engine = test_engine(dir.path(), "raw-bytes");
     let out = dir.path().join("received.bin");
-    // No signal, flow-control, or line-discipline bytes: cooked-mode stdin
-    // delivers the line after its newline, and every byte below survives.
     let payload: Vec<u8> = b"\x00\x1b[Z\xff\xfe\xc3(A\n".to_vec();
     let launch = fixture_launch(
         "byte-echo",

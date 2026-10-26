@@ -796,14 +796,8 @@ impl Sample {
         observation: Observation,
         profile: &Profile,
     ) -> Result<Self, SampleError> {
-        // Local capture generates the current-platform ID: the suffix must
-        // match this host, and the stored contract below records it.
         validate_test_id(test_id, Gate::StateAndPixels, platform_key().as_str())?;
         let rendered = tui_test::render_snapshot_png(snapshot, &profile.render_options())?;
-        // The pinned-profile gate is kept by routing through the shared
-        // constructor (which also pins the raster policy), not by a second
-        // local check: creation and approval verification agree by
-        // construction.
         let contract = RenderContract::from_rendered(profile, &rendered)?;
         let png = rendered.png().to_vec();
         let (width, height, pixels) = decode_png_bounded(&png)?;
@@ -911,8 +905,6 @@ impl Sample {
     /// Returns [`SampleError`] for every rejected input; see its variants.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, SampleError> {
         check_file_size(bytes)?;
-        // The schema identifier is checked explicitly so an unsupported
-        // schema reports its own typed rejection however serde phrases it.
         let probe: serde_json::Value = serde_json::from_slice(bytes).map_err(|error| {
             let message = error.to_string();
             if message.starts_with("unknown field") {
@@ -1541,8 +1533,6 @@ fn decode_png_bounded(png: &[u8]) -> Result<(u32, u32, Vec<u8>), SampleError> {
     }
     let (width, height) = decoder.dimensions();
     check_image_dims(width, height)?;
-    // The product passed the RGBA budget in `check_image_dims` above, so it
-    // fits every target address space; `try_from` only satisfies the types.
     let total = usize::try_from(
         u64::from(width)
             .checked_mul(u64::from(height))

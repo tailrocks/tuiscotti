@@ -318,8 +318,6 @@ fn assert_glyph_ink(
 fn d02_profile_registry_resolves_pinned_v1() {
     let profile = resolve_profile(PROFILE_NAME).expect("pinned profile resolves");
     assert_eq!(profile.name(), PROFILE_NAME);
-    // Four style slots: the regular slot carries three faces, every other
-    // slot carries the styled face plus the regular fallback first.
     let roles: Vec<&str> = profile
         .faces()
         .iter()
@@ -345,25 +343,21 @@ fn d02_profile_registry_resolves_pinned_v1() {
             "cjk-bold-italic",
         ]
     );
-    // Registry keys: SHA-256 of the face bytes plus the face index.
     for face in profile.faces() {
         assert_eq!(face.bytes_sha256().len(), 64, "{}", face.role());
         assert_eq!(face.index(), 0, "single-face assets: {}", face.role());
         assert!(face.byte_len() > 1000, "{}", face.role());
     }
-    // Style slots differ; only the regular slot lacks a styled face.
     assert!(
         !profile.faces()[0].bold() && !profile.faces()[0].italic(),
         "regular slot is unstyled"
     );
     assert!(profile.faces()[3].bold() && !profile.faces()[3].italic());
-    // The platform key joins the Rust target names.
     assert_eq!(
         platform_key(),
         format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
     );
     assert!(platform_key().contains('-'));
-    // Unknown profiles fail without touching fonts or the network.
     assert!(matches!(
         resolve_profile("tuiscotti-portable"),
         Err(RegistryError::UnknownProfile { .. })
@@ -523,7 +517,6 @@ fn d02_metrics_cursor_over_combined_and_wide() {
         let image = sample.image().expect("image is present");
         assert_eq!((image.width(), image.height()), (cols * 10, 20), "{name}");
     }
-    // A hidden cursor records the hidden phase instead.
     let snapshot = snapshot_with(
         2,
         1,
@@ -627,7 +620,6 @@ fn d02_c04_sample_keeps_graphemes() {
     assert!(sample.render_contract().is_none());
     assert!(sample.image().is_none());
     let bytes = sample.to_bytes().expect("sample serializes");
-    // Stable field order starts every file the same way.
     assert!(
         bytes.starts_with(b"{\"schema\":\"tuiscotti.sample.v1\",\"test_id\":\"views/login\""),
         "field order is stable"
@@ -646,7 +638,6 @@ fn d02_c04_sample_keeps_graphemes() {
     assert_eq!(cells[23].width(), 1, "edge wide cell keeps one column");
     assert_eq!(cells[24].text(), E_ACUTE);
     assert_eq!(parsed.snapshot().cursor(), snapshot.cursor());
-    // The candidate ID binds the file bytes: 64 hex characters.
     let candidate = Sample::candidate_id(&bytes);
     assert_eq!(candidate.len(), 64);
     assert!(candidate.chars().all(|c| c.is_ascii_hexdigit()));
@@ -695,7 +686,6 @@ fn d02_c04_view_chain_keeps_graphemes() {
         row.starts_with(&format!("{E_ACUTE}{A_DIAERESIS}{CJK}──")),
         "row keeps graphemes in order: {row:?}"
     );
-    // Buffer conversion with an explicit cursor keeps a combined cell too.
     let mut buffer = ratatui::buffer::Buffer::empty(ratatui::layout::Rect::new(0, 0, 2, 1));
     buffer.set_string(0, 0, E_ACUTE, ratatui::style::Style::default());
     let converted = tuiscotti::view::snapshot_from_buffer(
@@ -710,7 +700,6 @@ fn d02_c04_view_chain_keeps_graphemes() {
     )
     .expect("buffer converts");
     assert_eq!(converted.cells()[0].text(), E_ACUTE);
-    // A combining mark takes one column: the next cell stays a plain space.
     assert_eq!(converted.cells()[1].text(), " ");
 }
 
@@ -813,14 +802,12 @@ fn d02_c05_styles_reach_pixels() {
         .expect("digest")
     };
     let styled_digest = pixels(&styled, "c05/styled");
-    // Plain text, no underline, and no reverse all paint differently.
     let mut plain_cells = styled.cells().to_vec();
     for cell in &mut plain_cells {
         *cell = plain_cell(cell.text(), cell.width());
     }
     let plain = snapshot_with(6, 1, plain_cells, hidden_cursor());
     assert_ne!(pixels(&plain, "c05/plain"), styled_digest, "styles paint");
-    // A restyled palette entry moves the contract digest and the pixels.
     let repainted = styled.cells().to_vec();
     let mut palette = test_palette();
     palette[1] = Rgb::new(30, 20, 10);
@@ -924,18 +911,14 @@ fn d02_c07_observation_metadata_ignored_in_compared_state() {
         .expect("first sample builds");
     let second = Sample::state("views/meta", snapshot.clone(), Observation::noted("second"))
         .expect("second sample builds");
-    // Equal visual state: the observation note never joins the digest.
     assert_eq!(
         first.state_digest().expect("digest"),
         second.state_digest().expect("digest")
     );
-    // Different file bytes: the note still moves the candidate ID.
     assert_ne!(
         Sample::candidate_id(&first.to_bytes().expect("bytes")),
         Sample::candidate_id(&second.to_bytes().expect("bytes"))
     );
-    // Upstream snapshot metadata is observation too: a live-stamped
-    // snapshot compares equal to the offline default.
     let stamped = TerminalSnapshot::try_new(SnapshotParts {
         cols: snapshot.cols(),
         rows: snapshot.rows(),
@@ -964,7 +947,6 @@ fn d02_c07_observation_metadata_ignored_in_compared_state() {
         stamped_sample.state_digest().expect("digest"),
         "capture metadata never joins the compared state"
     );
-    // One changed cell moves the compared state.
     let changed = snapshot_with(
         2,
         1,
@@ -1018,8 +1000,6 @@ fn d02_c08_rgba_digests_survive_png_remetadata() {
     let image = sample.image().expect("image is present").clone();
     let (raw, width, height, pixels) = decode_image(&image);
     assert_eq!((width, height), (image.width(), image.height()));
-    // Same pixels, different encoding: the PNG digest moves, the RGBA
-    // digest and the compared state stay.
     let alt_raw = reencode_alt(&pixels, width, height);
     assert_ne!(alt_raw, raw, "different settings encode different bytes");
     let bytes = sample.to_bytes().expect("sample serializes");
@@ -1040,7 +1020,6 @@ fn d02_c08_rgba_digests_survive_png_remetadata() {
         sample.state_digest().expect("digest"),
         "PNG metadata never joins the compared state"
     );
-    // One changed channel fails to load: the RGBA digest binds pixels.
     let mut flipped = pixels.clone();
     flipped[0] ^= 1;
     let flipped_raw = reencode_alt(&flipped, width, height);
@@ -1088,8 +1067,6 @@ fn assert_contract_agrees(sample: &Sample) {
         assert_eq!(font.fallback_position(), position);
         assert_eq!(font.digest().len(), 64);
     }
-    // Geometry is bit-exact: the renderer stores float bits, so compare
-    // bits rather than floats.
     assert_eq!(contract.cell_width().to_bits(), 10.0f32.to_bits());
     assert_eq!(contract.cell_height().to_bits(), 20.0f32.to_bits());
     assert_eq!(contract.font_size().to_bits(), 16.0f32.to_bits());
@@ -1100,7 +1077,6 @@ fn assert_contract_agrees(sample: &Sample) {
 #[test]
 fn d02_c10_construction_digests_agree() {
     let profile = resolve_profile(PROFILE_NAME).expect("pinned profile resolves");
-    // State sample: candidate ID binds the file bytes; re-parse agrees.
     let state = Sample::state("views/agree", c06_snapshot(), Observation::noted("v1"))
         .expect("state sample builds");
     let state_bytes = state.to_bytes().expect("state serializes");
@@ -1114,7 +1090,6 @@ fn d02_c10_construction_digests_agree() {
         state.state_digest().expect("digest"),
         state_reparsed.state_digest().expect("digest")
     );
-    // Pixels sample: frame and image data agree with each other.
     let pixels = Sample::with_pixels(
         &pixels_test_id("views/agree"),
         &c06_snapshot(),
@@ -1136,7 +1111,6 @@ fn d02_c10_construction_digests_agree() {
                 .expect("base64 decodes")
         )
     );
-    // File round trip through a tempdir keeps every agreement.
     let dir = tempfile::tempdir().expect("tempdir builds");
     let path = dir.path().join("agree.tuiscotti.json");
     pixels.save(&path).expect("sample saves");
@@ -1161,7 +1135,6 @@ fn d02_rejects_unsupported_schema_and_unknown_fields() {
         .expect("state sample builds");
     let bytes = sample.to_bytes().expect("sample serializes");
     let mut value: serde_json::Value = serde_json::from_slice(&bytes).expect("sample is JSON");
-    // A future schema version is not accepted.
     value["schema"] = "tuiscotti.sample.v2".into();
     assert!(
         matches!(
@@ -1170,7 +1143,6 @@ fn d02_rejects_unsupported_schema_and_unknown_fields() {
         ),
         "unsupported schema fails"
     );
-    // Unknown fields fail at the envelope and inside nested objects.
     let mut extra = serde_json::from_slice::<serde_json::Value>(&bytes).expect("JSON");
     extra["tomorrow"] = 1.into();
     assert!(
@@ -1189,7 +1161,6 @@ fn d02_rejects_unsupported_schema_and_unknown_fields() {
         ),
         "unknown nested field fails"
     );
-    // An unknown gate value is a format failure, not a silent default.
     let mut gate = serde_json::from_slice::<serde_json::Value>(&bytes).expect("JSON");
     gate["gate"] = "pixels-only".into();
     assert!(
@@ -1246,7 +1217,6 @@ fn d02_rejects_oversize_dims_before_allocation() {
     )
     .expect("pixels sample builds");
     let bytes = sample.to_bytes().expect("sample serializes");
-    // One dimension past the per-dimension limit fails before decoding.
     let mut wide = serde_json::from_slice::<serde_json::Value>(&bytes).expect("JSON");
     wide["image"]["width"] = 40_000.into();
     assert!(
@@ -1256,8 +1226,6 @@ fn d02_rejects_oversize_dims_before_allocation() {
         ),
         "oversize dimension fails before allocation"
     );
-    // In-limit dimensions with an over-limit product fail just as early:
-    // 30000 by 30000 RGBA needs 3.6 GiB, far past the 256 MiB budget.
     let mut huge = serde_json::from_slice::<serde_json::Value>(&bytes).expect("JSON");
     huge["image"]["width"] = 30_000.into();
     huge["image"]["height"] = 30_000.into();
@@ -1268,7 +1236,6 @@ fn d02_rejects_oversize_dims_before_allocation() {
         ),
         "over-limit RGBA fails before allocation"
     );
-    // Zero dimensions fail without decoding.
     let mut zero = serde_json::from_slice::<serde_json::Value>(&bytes).expect("JSON");
     zero["image"]["width"] = 0.into();
     assert!(
@@ -1311,7 +1278,6 @@ fn d02_rejects_bad_test_ids() {
         .is_err(),
         "overlong segment fails"
     );
-    // The pixels gate needs this platform's suffix, not another platform.
     assert!(
         Sample::with_pixels(
             "views/login/pixels-far-far-away",
@@ -1425,7 +1391,6 @@ fn d03_sample_saves_atomically_without_temp_residue() {
     sample.save(&path).expect("sample resaves");
     assert_eq!(std::fs::read(&path).expect("sample rereads"), expected);
     assert_no_temp_residue(dir.path());
-    // A failing save publishes nothing: no truncated file, no residue.
     let missing = dir.path().join("no-such-dir").join("atomic.tuiscotti.json");
     assert!(
         sample.save(&missing).is_err(),

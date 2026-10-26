@@ -434,9 +434,6 @@ impl FrozenStore {
         let actual = Sample::from_bytes(sample_bytes)?;
         validate_test_id(actual.test_id())?;
         let baseline_path = self.baseline_path(actual.test_id())?;
-        // One shared bounded read: bytes past the limit fail as a resource
-        // limit before parsing, while a missing file stays a `Missing`
-        // failure and any other I/O failure stays I/O.
         let baseline_bytes =
             read_bounded_optional(&baseline_path).map_err(|error| match error {
                 SampleError::Io { source } => CheckError::Io { source },
@@ -707,11 +704,6 @@ impl FrozenStore {
     fn missing_baseline_path(&self, joined: &Path) -> Result<PathBuf, CheckError> {
         let mut cursor = joined;
         loop {
-            // Nothing from the baseline root down exists: no symlink can
-            // redirect the path, and the root itself was safely resolved, so
-            // the lexical path is the missing baseline path. Without this
-            // stop, a missing root under a symlinked parent (every macOS
-            // tempdir) would fail here instead of reporting `Missing`.
             if cursor == self.baselines {
                 return Ok(joined.to_path_buf());
             }
@@ -1095,9 +1087,6 @@ fn resolve_root(path: &Path, role: &str) -> Result<PathBuf, CheckError> {
             detail: format!("{role} root path is empty"),
         });
     }
-    // Anchor before the ancestor walk: `parent()` of a bare relative tail
-    // is empty and never canonicalizes, so a missing relative root
-    // previously failed outright instead of resolving under the cwd.
     let anchored: PathBuf;
     let path: &Path = if path.is_relative() {
         match std::env::current_dir() {
@@ -1416,6 +1405,9 @@ impl FrozenStore {
 
     /// Save `expected.png`, `actual.png`, and `diff.png` for pixel gates.
     /// State gates carry no images; a missing baseline has no expected one.
+    /// A baseline without an image (a state-only sample at a pixel
+    /// candidate's baseline path) likewise yields no `expected.png`: the
+    /// failure still records with full evidence instead of erroring.
     fn save_images(
         check_dir: &Path,
         gate: Gate,
@@ -1435,9 +1427,12 @@ impl FrozenStore {
             has_diff: false,
         };
         if let Some(bytes) = baseline_bytes {
-            let expected_png = sample_png_bytes(bytes)?;
-            save_png(check_dir, "expected.png", &expected_png)?;
-            images.has_expected = baseline_digest != MISSING_BASELINE;
+            let baseline = Sample::from_bytes(bytes).map_err(CheckError::from)?;
+            if baseline.image().is_some() {
+                let expected_png = sample_png_bytes(bytes)?;
+                save_png(check_dir, "expected.png", &expected_png)?;
+                images.has_expected = baseline_digest != MISSING_BASELINE;
+            }
         }
         if let Some(diff) = diff {
             let encoded = encode_diff_png(diff)?;
@@ -1757,13 +1752,6 @@ fn is_hex_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
-// ---------------------------------------------------------------------------
-// D04 approval-lock region (GOAL Section 15). Only approval-lock items live
-// in this region: the lock file name, the acquisition deadline, the OS-lock
-// guard, and its unit tests. No comparison, evidence, or store-path logic
-// changes here.
-// ---------------------------------------------------------------------------
-
 /// File name of the per-root approval lock inside the baseline root.
 ///
 /// The lock file is STABLE: it is created once when missing and kept after
@@ -1862,11 +1850,7 @@ impl ApprovalFileLock {
 
 impl Drop for ApprovalFileLock {
     fn drop(&mut self) {
-        // Best-effort unlock; closing the handle releases the OS lock
-        // regardless, and the file persists for the next holder.
-        if self.file.unlock().is_err() {
-            // The close below still releases the lock; nothing to report.
-        }
+        drop(self.file.unlock());
     }
 }
 

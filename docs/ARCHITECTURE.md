@@ -62,7 +62,7 @@ package.
 PURE VIEW (in-process, no subprocess):
   production Ratatui draw closure + ViewSettings
     ─▶ view::capture_view (TestBackend) ─▶ TerminalSnapshot (upstream)
-    ─▶ Sample::with_pixels / Sample::state_only (tuiscotti.sample.v1)
+    ─▶ Sample::with_pixels / Sample::state (tuiscotti.sample.v1)
     ─▶ FrozenStore::check ─▶ pass / missing / different + artifact evidence
 
 APPROVAL (explicit, digest-arbitrated):

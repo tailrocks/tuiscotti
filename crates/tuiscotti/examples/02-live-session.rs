@@ -59,7 +59,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let session = Session::new(format!("example-live-{}", std::process::id()));
     session.run(run_options())?;
-    // Bounded locator wait: the readiness text must appear, no sleeps.
     session
         .get_by_text("live-ready")
         .expect_with(LocatorExpectOptions {

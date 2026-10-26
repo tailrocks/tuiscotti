@@ -72,8 +72,6 @@ pub(crate) fn write_stdout(text: &str) -> StdoutFlush {
 }
 
 fn main() {
-    // Native parsing: child argv stays `OsString` end-to-end, and clap
-    // usage errors exit 2 with no JSON result.
     let cli = match cli::Cli::try_parse() {
         Ok(cli) => cli,
         Err(error) => error.exit(),

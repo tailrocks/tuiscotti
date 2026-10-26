@@ -900,7 +900,6 @@ fn r2_covered_and_clipped_edges_still_convert() {
 /// must never run and no `TestBackend` may allocate for it.
 #[test]
 fn capture_rejects_oversize_dimension_before_draw() {
-    // One past the snapshot dimension limit; still a valid `u16`.
     let too_wide: u16 = 32_769;
     assert_eq!(u32::from(too_wide), MAX_SNAPSHOT_DIM + 1);
     let mut drawn = false;

@@ -158,9 +158,7 @@ fn broken_pipe_preserves_the_operation_result() {
     };
     let cases: Vec<(Vec<String>, i32)> = vec![
         (vec!["--help".to_string()], 0),
-        // Garbage bytes fail sample validation: an error outcome.
         (check(&dir.path().join("empty.json").to_string_lossy()), 3),
-        // A missing sample file is an I/O error outcome.
         (
             check(&dir.path().join("absent.tui.json").to_string_lossy()),
             3,
@@ -185,8 +183,6 @@ fn broken_pipe_preserves_the_operation_result() {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         let mut child = spawn_locked(&mut child).expect("CLI child spawns");
-        // Drop the read end before the child writes: the next stdout
-        // write fails with EPIPE (Rust ignores SIGPIPE).
         drop(child.stdout.take());
         let out = child.wait_with_output().expect("CLI child waits");
         assert_eq!(

@@ -94,8 +94,6 @@ pub const CELL_HEIGHT_U32: u32 = 20;
 /// Face index inside every asset: each file holds one face.
 const FACE_INDEX: u32 = 0;
 
-// Embedded asset bytes. Paths resolve from this file into the crate's
-// `fonts/` directory, so every byte travels inside the library package.
 const JB_REGULAR_BYTES: &[u8] = include_bytes!("../fonts/JetBrainsMonoNerdFontMono-Regular.ttf");
 const JB_BOLD_BYTES: &[u8] = include_bytes!("../fonts/JetBrainsMonoNerdFontMono-Bold.ttf");
 const JB_ITALIC_BYTES: &[u8] = include_bytes!("../fonts/JetBrainsMonoNerdFontMono-Italic.ttf");
@@ -343,7 +341,6 @@ fn face_specs() -> Vec<FaceSpec> {
         italic,
     };
     vec![
-        // Regular slot: the styled face is the regular face itself.
         FaceSpec {
             role: "primary-regular",
             bytes: JB_REGULAR_BYTES,
@@ -354,7 +351,6 @@ fn face_specs() -> Vec<FaceSpec> {
         },
         symbol("symbol-regular", false, false),
         cjk("cjk-regular", false, false),
-        // Bold slot.
         FaceSpec {
             role: "primary-bold",
             bytes: JB_BOLD_BYTES,
@@ -366,7 +362,6 @@ fn face_specs() -> Vec<FaceSpec> {
         regular("primary-regular-fallback-bold", true, false),
         symbol("symbol-bold", true, false),
         cjk("cjk-bold", true, false),
-        // Italic slot.
         FaceSpec {
             role: "primary-italic",
             bytes: JB_ITALIC_BYTES,
@@ -378,7 +373,6 @@ fn face_specs() -> Vec<FaceSpec> {
         regular("primary-regular-fallback-italic", false, true),
         symbol("symbol-italic", false, true),
         cjk("cjk-italic", false, true),
-        // Bold-italic slot.
         FaceSpec {
             role: "primary-bold-italic",
             bytes: JB_BOLD_ITALIC_BYTES,
@@ -456,8 +450,6 @@ fn build_pinned_v1() -> Result<Profile, ProfileError> {
         face: "pinned set",
         source,
     })?;
-    // Synthetic styles stay off: every slot has explicit faces, so the
-    // renderer fails loudly instead of restyling bytes behind the profile.
     debug_assert!(!fonts.allow_synthetic_style());
     Ok(Profile {
         name: PROFILE_NAME,
