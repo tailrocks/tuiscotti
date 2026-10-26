@@ -1085,15 +1085,31 @@ fn diff_cell(actual: &SnapshotCell, baseline: &SnapshotCell) -> Vec<String> {
     fields
 }
 
-/// Resolve a store root: canonicalize it, or its nearest existing ancestor
-/// with the missing remainder appended lexically. A `..` remainder is
-/// rejected rather than resolved.
+/// Resolve a store root: anchor a relative root at the working directory,
+/// then canonicalize it, or its nearest existing ancestor with the missing
+/// remainder appended lexically. A `..` remainder is rejected rather than
+/// resolved.
 fn resolve_root(path: &Path, role: &str) -> Result<PathBuf, CheckError> {
     if path.as_os_str().is_empty() {
         return Err(CheckError::InvalidStorePath {
             detail: format!("{role} root path is empty"),
         });
     }
+    // Anchor before the ancestor walk: `parent()` of a bare relative tail
+    // is empty and never canonicalizes, so a missing relative root
+    // previously failed outright instead of resolving under the cwd.
+    let anchored: PathBuf;
+    let path: &Path = if path.is_relative() {
+        match std::env::current_dir() {
+            Ok(cwd) => {
+                anchored = cwd.join(path);
+                &anchored
+            }
+            Err(_) => path,
+        }
+    } else {
+        path
+    };
     if let Ok(canonical) = path.canonicalize() {
         return Ok(canonical);
     }

@@ -19,8 +19,9 @@ use ratatui::widgets::Paragraph;
 use tui_test::profile::Rgb;
 use tui_test::terminal::cell::Attrs;
 use tui_test::{
-    SnapshotCell, SnapshotColor, SnapshotCursorShape, SnapshotError, SnapshotMetadata,
-    SnapshotParts, SnapshotScope, SnapshotSource, SnapshotUnderline, TerminalSnapshot,
+    MAX_SNAPSHOT_CELLS, MAX_SNAPSHOT_DIM, SnapshotCell, SnapshotColor, SnapshotCursorShape,
+    SnapshotError, SnapshotMetadata, SnapshotParts, SnapshotScope, SnapshotSource,
+    SnapshotUnderline, TerminalSnapshot,
 };
 use tuiscotti::view::{ViewCursor, ViewError, ViewSettings, capture_view, snapshot_from_buffer};
 
@@ -891,5 +892,82 @@ fn r2_covered_and_clipped_edges_still_convert() {
     assert!(
         !cell.is_continuation(),
         "clipped edge is a narrow leading cell"
+    );
+}
+
+/// Oversize dimensions reject before the backend allocates: a 32769-wide
+/// grid would pass `u16` but fail the snapshot limit, so the draw closure
+/// must never run and no `TestBackend` may allocate for it.
+#[test]
+fn capture_rejects_oversize_dimension_before_draw() {
+    // One past the snapshot dimension limit; still a valid `u16`.
+    let too_wide: u16 = 32_769;
+    assert_eq!(u32::from(too_wide), MAX_SNAPSHOT_DIM + 1);
+    let mut drawn = false;
+    let result = capture_view(too_wide, 1, &ViewSettings::builtin(), |frame| {
+        drawn = true;
+        frame.render_widget(Paragraph::new("hello"), frame.area());
+    });
+    assert!(
+        !drawn,
+        "oversize capture rejects before the draw closure runs"
+    );
+    assert!(
+        matches!(
+            result,
+            Err(ViewError::Snapshot(SnapshotError::DimensionTooLarge {
+                cols: 32769,
+                rows: 1,
+                limit: MAX_SNAPSHOT_DIM,
+            }))
+        ),
+        "oversize dimension reports the snapshot limit, got {result:?}"
+    );
+}
+
+/// An excessive cell count rejects before the backend allocates: 1001x1000
+/// is inside each dimension limit but above the cell cap, so the draw
+/// closure must never run.
+#[test]
+fn capture_rejects_excess_cells_before_draw() {
+    let mut drawn = false;
+    let result = capture_view(1001, 1000, &ViewSettings::builtin(), |frame| {
+        drawn = true;
+        frame.render_widget(Paragraph::new("hello"), frame.area());
+    });
+    assert!(
+        !drawn,
+        "over-count capture rejects before the draw closure runs"
+    );
+    assert!(
+        matches!(
+            result,
+            Err(ViewError::Snapshot(SnapshotError::TooManyCells {
+                cells: 1_001_000,
+                limit: MAX_SNAPSHOT_CELLS,
+            }))
+        ),
+        "excess cells report the snapshot cell cap, got {result:?}"
+    );
+}
+
+/// An excessive cell count rejects before conversion: the buffer below also
+/// carries a poisoned cell that conversion would reject first, so the cell
+/// cap winning proves the dimension check runs before `convert_cells`.
+#[test]
+fn buffer_rejects_excess_cells_before_conversion() {
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 1001, 1000));
+    buffer[(0, 0)].set_symbol("");
+    let settings = ViewSettings::builtin().with_cursor(hidden_cursor());
+    let result = snapshot_from_buffer(&buffer, &settings);
+    assert!(
+        matches!(
+            result,
+            Err(ViewError::Snapshot(SnapshotError::TooManyCells {
+                cells: 1_001_000,
+                limit: MAX_SNAPSHOT_CELLS,
+            }))
+        ),
+        "excess cells report the snapshot cell cap before conversion, got {result:?}"
     );
 }

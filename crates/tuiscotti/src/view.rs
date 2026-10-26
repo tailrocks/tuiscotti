@@ -24,8 +24,9 @@ use ratatui::{Frame, Terminal, backend::TestBackend};
 use tui_test::profile::Rgb;
 use tui_test::terminal::cell::Attrs;
 use tui_test::{
-    SnapshotCell, SnapshotColor, SnapshotCursor, SnapshotCursorShape, SnapshotError,
-    SnapshotMetadata, SnapshotParts, SnapshotScope, SnapshotUnderline, TerminalSnapshot,
+    MAX_SNAPSHOT_CELLS, MAX_SNAPSHOT_DIM, SnapshotCell, SnapshotColor, SnapshotCursor,
+    SnapshotCursorShape, SnapshotError, SnapshotMetadata, SnapshotParts, SnapshotScope,
+    SnapshotUnderline, TerminalSnapshot,
 };
 
 /// Result of a pure-view capture or conversion.
@@ -571,6 +572,40 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
     Ok(cells)
 }
 
+/// Reject grid dimensions before any allocation or conversion, mirroring
+/// the upstream validated constructor's limits field for field: zero stays
+/// [`ViewError::EmptyDimensions`], a dimension above [`MAX_SNAPSHOT_DIM`]
+/// reports `DimensionTooLarge`, and a `cols * rows` product above
+/// [`MAX_SNAPSHOT_CELLS`] reports `TooManyCells`. Both entry points call
+/// this first so an oversize grid never reaches `TestBackend` or the cell
+/// converter: the snapshot validator would reject the same grid only after
+/// those allocations ran.
+fn check_dimensions(cols: u32, rows: u32) -> ViewResult<()> {
+    if cols == 0 || rows == 0 {
+        return Err(ViewError::EmptyDimensions);
+    }
+    if cols > MAX_SNAPSHOT_DIM || rows > MAX_SNAPSHOT_DIM {
+        return Err(ViewError::Snapshot(SnapshotError::DimensionTooLarge {
+            cols: u64::from(cols),
+            rows: u64::from(rows),
+            limit: MAX_SNAPSHOT_DIM,
+        }));
+    }
+    let cells =
+        u64::from(cols)
+            .checked_mul(u64::from(rows))
+            .ok_or(SnapshotError::CountOverflow {
+                field: "cols * rows",
+            })?;
+    if cells > MAX_SNAPSHOT_CELLS {
+        return Err(ViewError::Snapshot(SnapshotError::TooManyCells {
+            cells,
+            limit: MAX_SNAPSHOT_CELLS,
+        }));
+    }
+    Ok(())
+}
+
 /// Assemble a validated snapshot from converted cells and cursor state.
 fn assemble_snapshot(
     cols: u32,
@@ -608,8 +643,10 @@ fn assemble_snapshot(
 ///
 /// # Errors
 ///
-/// Returns [`ViewError`] when the grid is empty, a wide-cell layout is
-/// invalid, or the converted snapshot fails upstream validation.
+/// Returns [`ViewError`] when the grid is empty or exceeds the snapshot
+/// dimension or cell-count limits (rejected before any allocation), a
+/// wide-cell layout is invalid, or the converted snapshot fails upstream
+/// validation.
 ///
 /// # Examples
 ///
@@ -637,9 +674,7 @@ pub fn capture_view<F>(
 where
     F: FnOnce(&mut Frame<'_>),
 {
-    if width == 0 || height == 0 {
-        return Err(ViewError::EmptyDimensions);
-    }
+    check_dimensions(u32::from(width), u32::from(height))?;
     let backend = TestBackend::new(width, height);
     let mut terminal = match Terminal::new(backend) {
         Ok(terminal) => terminal,
@@ -673,9 +708,10 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`ViewError`] when the buffer area is empty, an area coordinate
-/// overflows, a wide-cell layout is invalid, or the converted snapshot fails
-/// upstream validation.
+/// Returns [`ViewError`] when the buffer area is empty or exceeds the
+/// snapshot dimension or cell-count limits (rejected before conversion), an
+/// area coordinate overflows, a wide-cell layout is invalid, or the
+/// converted snapshot fails upstream validation.
 ///
 /// # Examples
 ///
@@ -699,9 +735,7 @@ pub fn snapshot_from_buffer(
     let area = buffer.area;
     let cols = u32::from(area.width);
     let rows = u32::from(area.height);
-    if cols == 0 || rows == 0 {
-        return Err(ViewError::EmptyDimensions);
-    }
+    check_dimensions(cols, rows)?;
     let cursor_state = settings.cursor();
     let cursor = resolve_cursor(
         cursor_state.col(),

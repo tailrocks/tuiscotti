@@ -1151,9 +1151,10 @@ fn read_candidate_bytes(path: &Path) -> Result<Vec<u8>, ApproveError> {
     })
 }
 
-/// Resolve a baseline root: canonicalize it, or its nearest existing
-/// ancestor with the missing remainder appended lexically. A `..` remainder
-/// is rejected rather than resolved.
+/// Resolve a baseline root: anchor a relative root at the working
+/// directory, then canonicalize it, or its nearest existing ancestor with
+/// the missing remainder appended lexically. A `..` remainder is rejected
+/// rather than resolved.
 fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
     if path.as_os_str().is_empty() {
         return Err(ApproveError::InvalidStorePath {
@@ -1161,6 +1162,21 @@ fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
             observed_baseline: None,
         });
     }
+    // Anchor before the ancestor walk: `parent()` of a bare relative tail
+    // is empty and never canonicalizes, so a missing relative root
+    // previously failed outright instead of resolving under the cwd.
+    let anchored: PathBuf;
+    let path: &Path = if path.is_relative() {
+        match std::env::current_dir() {
+            Ok(cwd) => {
+                anchored = cwd.join(path);
+                &anchored
+            }
+            Err(_) => path,
+        }
+    } else {
+        path
+    };
     if let Ok(canonical) = path.canonicalize() {
         return Ok(canonical);
     }

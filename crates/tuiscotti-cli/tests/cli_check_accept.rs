@@ -17,12 +17,13 @@ mod fixtures;
 
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use fixtures::{
     all_files, base_snapshot, candidate_id, pixel_sample_bytes, plain_cell, snapshot_with_cells,
     state_sample_bytes, temp_store, write_baseline_file, write_file,
 };
-use spawn::{assert_no_color, code, parse_json, run_cli_ci, run_cli_env};
+use spawn::{assert_no_color, code, parse_json, run_cli_ci, run_cli_env, spawn_locked};
 
 /// C09 CLI: a missing baseline exits 1 with status `missing` and writes
 /// no baseline; the explicit accept then succeeds and check passes.
@@ -768,5 +769,122 @@ fn invalid_sample_data_exits_three_with_codes() {
         assert_eq!(value["status"], "error");
         assert_eq!(value["error_code"], error_code);
         assert_no_color(&out, error_code);
+    }
+}
+
+/// Run the CLI with `CI` set and the working directory fixed: bare
+/// relative store roots resolve under this directory.
+#[expect(clippy::expect_used, reason = "test children must spawn")]
+fn run_cli_cwd(dir: &Path, args: &[&str], remove_ci: bool) -> std::process::Output {
+    let mut cmd = Command::new(spawn::bin());
+    cmd.args(args).current_dir(dir);
+    if remove_ci {
+        cmd.env_remove("CI");
+    } else {
+        cmd.env("CI", "true");
+    }
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let child = spawn_locked(&mut cmd).expect("CLI child spawns");
+    child.wait_with_output().expect("CLI child waits")
+}
+
+/// Resolve an evidence path from `--json` output against the working
+/// directory: store roots resolve absolutely, so the value is usually
+/// absolute already.
+#[expect(clippy::expect_used, reason = "test report paths are text")]
+fn evidence_path(dir: &Path, value: &serde_json::Value) -> PathBuf {
+    let text = value["output_path"]["value"]
+        .as_str()
+        .expect("report path is text");
+    let path = PathBuf::from(text);
+    if path.is_absolute() {
+        path
+    } else {
+        dir.join(path)
+    }
+}
+
+/// Bare relative store roots work from a clean working directory: the
+/// first `check` exits 1 with `missing` plus candidate evidence, `accept`
+/// exits 0 with the baseline written, and the next `check` exits 0. The
+/// whole cycle repeats after the generated roots are removed.
+#[test]
+fn relative_store_roots_work_from_clean_working_directory() {
+    let dir = tempfile::tempdir().expect("tempdir creates");
+    let bytes = state_sample_bytes("cli/rel", &base_snapshot());
+    write_file(dir.path(), "candidate.tui.json", &bytes);
+    let digest = candidate_id(&bytes);
+
+    let check = [
+        "--json",
+        "check",
+        "--sample",
+        "candidate.tui.json",
+        "--baselines",
+        "baselines",
+        "--artifacts",
+        "artifacts",
+    ];
+    let accept = [
+        "--json",
+        "accept",
+        "--candidate",
+        "candidate.tui.json",
+        "--candidate-sha256",
+        &digest,
+        "--expect-baseline",
+        "missing",
+        "--baselines",
+        "baselines",
+    ];
+
+    for round in 1..=2 {
+        // `check` from a clean directory: missing, exit 1, evidence kept.
+        let out = run_cli_cwd(dir.path(), &check, false);
+        assert_eq!(code(&out), Some(1), "round {round}: missing check exits 1");
+        let value = parse_json(&out);
+        assert_eq!(value["command"], "check");
+        assert_eq!(value["status"], "missing");
+        assert_eq!(value["test_id"], "cli/rel");
+        assert_eq!(value["reason"], "missing");
+        assert_eq!(value["candidate_sha256"], digest);
+        assert_eq!(value["baseline_sha256"], "missing");
+        assert!(value["error_code"].is_null());
+        assert_no_color(&out, "relative missing check");
+        // `check` creates no baseline root and writes no baseline.
+        let baseline_root = dir.path().join("baselines");
+        assert!(
+            !baseline_root.exists() || all_files(&baseline_root).is_empty(),
+            "round {round}: check writes no baseline"
+        );
+        assert!(
+            evidence_path(dir.path(), &value).is_file(),
+            "round {round}: missing evidence keeps its report"
+        );
+
+        // `accept` from the same directory: exit 0, baseline written.
+        let out = run_cli_cwd(dir.path(), &accept, true);
+        assert_eq!(code(&out), Some(0), "round {round}: accept exits 0");
+        let value = parse_json(&out);
+        assert_eq!(value["status"], "pass");
+        assert_eq!(value["test_id"], "cli/rel");
+        assert_eq!(value["baseline_sha256"], digest);
+        assert!(
+            dir.path()
+                .join("baselines")
+                .join("cli")
+                .join("rel.tui.json")
+                .is_file(),
+            "round {round}: accept writes the baseline"
+        );
+
+        // The next `check` passes.
+        let out = run_cli_cwd(dir.path(), &check, false);
+        assert_eq!(code(&out), Some(0), "round {round}: second check exits 0");
+        assert_eq!(parse_json(&out)["status"], "pass");
+
+        // Drop the generated roots so the next round starts missing again.
+        std::fs::remove_dir_all(dir.path().join("baselines")).expect("baselines remove");
+        std::fs::remove_dir_all(dir.path().join("artifacts")).expect("artifacts remove");
     }
 }
