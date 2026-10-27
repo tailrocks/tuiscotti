@@ -102,7 +102,7 @@ BEGIN {
     section = ""
     pend_key = ""
 }
-FNR == 1 { file_index++ }
+FNR == 1 { file_index++; section = ""; pend_key = "" }
 {
     line = trim(strip_comment($0))
     if (line == "") next
@@ -123,6 +123,34 @@ FNR == 1 { file_index++ }
         if (file_index == 1) parse_error("invalid TOML in workspace manifest")
         else parse_error("invalid TOML in crate manifest")
     }
+    effsec = section
+    eff = line
+    if (section == "" && match(line, /^[^=]+=/)) {
+        fullkey = trim(substr(line, 1, RLENGTH - 1))
+        value = substr(line, RSTART + RLENGTH)
+        k = fullkey
+        gsub(/[ \t]*\.[ \t]*/, ".", k)
+        prefix = ""
+        rest = ""
+        if (file_index == 1 && k ~ /^workspace\.dependencies\./) {
+            prefix = "workspace.dependencies"
+            rest = substr(k, 25)
+        } else if (file_index == 2 && k ~ /^target\.[^.]+\.(dependencies|dev-dependencies|build-dependencies)\./) {
+            t = k
+            sub(/^target\.[^.]+\./, "", t)
+            n = split(t, tp, /\./)
+            prefix = tp[1]
+            rest = substr(t, length(tp[1]) + 2)
+        } else if (file_index == 2 && k ~ /^(dependencies|dev-dependencies|build-dependencies)\./) {
+            n = split(k, tp, /\./)
+            prefix = tp[1]
+            rest = substr(k, length(tp[1]) + 2)
+        }
+        if (prefix != "" && rest != "") {
+            effsec = prefix
+            eff = rest " = " value
+        }
+    }
     if (pend_key != "") {
         if (!match(line, /^[^=]+=/)) {
             if (file_index == 1) parse_error("invalid TOML in workspace manifest")
@@ -141,10 +169,10 @@ FNR == 1 { file_index++ }
         next
     }
     if (file_index == 1) {
-        if (section != "workspace.dependencies") next
-        if (!match(line, /^[^=]+=/)) parse_error("invalid TOML in workspace manifest")
-        key = trim(substr(line, RSTART, RLENGTH - 1))
-        rest = trim(substr(line, RSTART + RLENGTH))
+        if (effsec != "workspace.dependencies") next
+        if (!match(eff, /^[^=]+=/)) parse_error("invalid TOML in workspace manifest")
+        key = trim(substr(eff, RSTART, RLENGTH - 1))
+        rest = trim(substr(eff, RSTART + RLENGTH))
         if (rest ~ /^\{/) {
             record_ws(key, table_get(rest, "package"))
         } else if (rest ~ /^"/) {
@@ -154,25 +182,34 @@ FNR == 1 { file_index++ }
         }
         next
     }
-    if (!dep_section(section)) next
-    if (match(line, /^[^=.]+[ \t]*\.[ \t]*workspace[ \t]*=[ \t]*true[ \t]*$/)) {
-        record_dep(trim(substr(line, 1, index(line, ".") - 1)), "workspace", "")
+    if (!dep_section(effsec)) next
+    if (match(eff, /^[^=.]+[ \t]*\.[ \t]*workspace[ \t]*=[ \t]*true[ \t]*$/)) {
+        record_dep(trim(substr(eff, 1, index(eff, ".") - 1)), "workspace", "")
         next
     }
-    if (!match(line, /^[^=]+=/)) parse_error("invalid TOML in crate manifest")
-    key = trim(substr(line, RSTART, RLENGTH - 1))
-    rest = trim(substr(line, RSTART + RLENGTH))
+    if (!match(eff, /^[^=]+=/)) parse_error("invalid TOML in crate manifest")
+    key = trim(substr(eff, RSTART, RLENGTH - 1))
+    rest = trim(substr(eff, RSTART + RLENGTH))
+    alias = key
+    sub(/\..*$/, "", alias)
     if (rest ~ /^\{/) {
         if (table_get(rest, "workspace") == "true") {
-            record_dep(key, "workspace", "")
+            record_dep(alias, "workspace", "")
         } else {
             pkg = table_get(rest, "package")
-            record_dep(key, "direct", (pkg != "" ? pkg : key))
+            record_dep(alias, "direct", (pkg != "" ? pkg : alias))
         }
         next
     }
     if (rest ~ /^"/) {
-        record_dep(key, "direct", key)
+        if (alias != key) {
+            val = rest
+            sub(/^"/, "", val)
+            sub(/".*$/, "", val)
+            record_dep(alias, "direct", val)
+        } else {
+            record_dep(key, "direct", key)
+        }
         next
     }
     parse_error("invalid TOML in crate manifest")

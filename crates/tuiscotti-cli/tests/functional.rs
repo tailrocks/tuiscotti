@@ -245,11 +245,24 @@ fn invalid_input() {
     assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
 }
 
+const DEP_CRATE: &str =
+    "[package]\nname = \"tuiscotti\"\nversion = \"0.2.0\"\nedition = \"2024\"\n";
+const DEP_BARE_WS: &str = "[workspace]\n";
+const DEP_WS_ALIAS: &str = "[workspace]\n[workspace.dependencies]\npty = { package = \"portable-pty\", version = \"0.9\" }\n";
+
+fn dep_case(dir: &Path, seq: u32, workspace: Option<&str>, crate_toml: Option<&str>, want: i32) {
+    let ws_path = dir.join(format!("workspace-{seq}.toml"));
+    let crate_path = dir.join(format!("crate-{seq}.toml"));
+    if let Some(text) = workspace {
+        write_bytes(&ws_path, text.as_bytes());
+    }
+    if let Some(text) = crate_toml {
+        write_bytes(&crate_path, text.as_bytes());
+    }
+    assert_eq!(check_direct_dependencies(&ws_path, &crate_path), want);
+}
+
 fn phase_direct_dep_rules(candidates: &Path) {
-    const CRATE: &str =
-        "[package]\nname = \"tuiscotti\"\nversion = \"0.2.0\"\nedition = \"2024\"\n";
-    const BARE_WS: &str = "[workspace]\n";
-    const WS_ALIAS: &str = "[workspace]\n[workspace.dependencies]\npty = { package = \"portable-pty\", version = \"0.9\" }\n";
     let dir = candidates.join("dep-cases");
     make_dir(&dir);
     let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -260,78 +273,110 @@ fn phase_direct_dep_rules(candidates: &Path) {
         ),
         0
     );
+    dep_rule_flat_tables(&dir);
+    dep_rule_dotted_tables(&dir);
+    dep_rule_errors(&dir);
+}
+
+fn dep_rule_flat_tables(dir: &Path) {
     let mut seq = 0;
     let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
         seq += 1;
-        let ws_path = dir.join(format!("workspace-{seq}.toml"));
-        let crate_path = dir.join(format!("crate-{seq}.toml"));
-        if let Some(text) = workspace {
-            write_bytes(&ws_path, text.as_bytes());
-        }
-        if let Some(text) = crate_toml {
-            write_bytes(&crate_path, text.as_bytes());
-        }
-        assert_eq!(check_direct_dependencies(&ws_path, &crate_path), want);
+        dep_case(dir, seq, workspace, crate_toml, want);
     };
     case(
-        Some(BARE_WS),
-        Some(&format!("{CRATE}[dependencies]\nportable-pty = \"0.9\"\n")),
-        1,
-    );
-    case(
-        Some(BARE_WS),
+        Some(DEP_BARE_WS),
         Some(&format!(
-            "{CRATE}[dependencies]\npty = {{ package = \"portable-pty\", version = \"0.9\" }}\n"
+            "{DEP_CRATE}[dependencies]\nportable-pty = \"0.9\"\n"
         )),
         1,
     );
     case(
-        Some(WS_ALIAS),
-        Some(&format!("{CRATE}[dependencies]\npty.workspace = true\n")),
-        1,
-    );
-    case(
-        Some(BARE_WS),
+        Some(DEP_BARE_WS),
         Some(&format!(
-            "{CRATE}[build-dependencies]\npty = {{ package = \"portable-pty\", version = \"0.9\" }}\n"
+            "{DEP_CRATE}[dependencies]\npty = {{ package = \"portable-pty\", version = \"0.9\" }}\n"
         )),
         1,
     );
     case(
-        Some(BARE_WS),
+        Some(DEP_WS_ALIAS),
         Some(&format!(
-            "{CRATE}[dev-dependencies]\nterm = {{ package = \"termpane\", version = \"0.1\" }}\n"
+            "{DEP_CRATE}[dependencies]\npty.workspace = true\n"
         )),
         1,
     );
     case(
-        Some(WS_ALIAS),
+        Some(DEP_BARE_WS),
         Some(&format!(
-            "{CRATE}[target.'cfg(windows)'.dependencies]\npty.workspace = true\n"
+            "{DEP_CRATE}[build-dependencies]\npty = {{ package = \"portable-pty\", version = \"0.9\" }}\n"
         )),
         1,
     );
     case(
-        Some(BARE_WS),
+        Some(DEP_BARE_WS),
         Some(&format!(
-            "{CRATE}[dependencies.pty]\npackage = \"portable-pty\"\nversion = \"0.9\"\n"
+            "{DEP_CRATE}[dev-dependencies]\nterm = {{ package = \"termpane\", version = \"0.1\" }}\n"
         )),
         1,
     );
     case(
-        Some(BARE_WS),
-        Some(&format!("{CRATE}[dependencies.ok]\nversion = \"1.0\"\n")),
+        Some(DEP_WS_ALIAS),
+        Some(&format!(
+            "{DEP_CRATE}[target.'cfg(windows)'.dependencies]\npty.workspace = true\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_WS_ALIAS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies.ok]\nversion = \"1.0\"\n"
+        )),
         0,
     );
-    case(Some(WS_ALIAS), Some(CRATE), 0);
+    case(Some(DEP_WS_ALIAS), Some(DEP_CRATE), 0);
+}
+
+fn dep_rule_dotted_tables(dir: &Path) {
+    let mut seq = 100;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
     case(
-        Some(BARE_WS),
-        Some(&format!("{CRATE}[dependencies]\npty.workspace = true\n")),
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies.pty]\npackage = \"portable-pty\"\nversion = \"0.9\"\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some("dependencies.pty.package = \"portable-pty\"\ndependencies.pty.version = \"0.9\"\n"),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some("dependencies.ok.version = \"1.0\"\n"),
+        0,
+    );
+}
+
+fn dep_rule_errors(dir: &Path) {
+    let mut seq = 200;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty.workspace = true\n"
+        )),
         2,
     );
-    case(Some(BARE_WS), Some("[[["), 2);
+    case(Some(DEP_BARE_WS), Some("[[["), 2);
     let ws_path = dir.join("workspace-unreadable.toml");
-    write_bytes(&ws_path, BARE_WS.as_bytes());
+    write_bytes(&ws_path, DEP_BARE_WS.as_bytes());
     assert_eq!(
         check_direct_dependencies(&ws_path, &dir.join("crate-absent.toml")),
         2
