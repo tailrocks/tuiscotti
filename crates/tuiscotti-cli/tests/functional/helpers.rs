@@ -73,8 +73,8 @@ pub(crate) fn open_lane() -> ChildEnv<'static> {
 #[expect(clippy::expect_used, reason = "checker child must spawn")]
 pub(crate) fn check_direct_dependencies(workspace: &Path, crate_manifest: &Path) -> i32 {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let script = root.join("scripts/check_direct_dependencies.py");
-    let output = std::process::Command::new("python3")
+    let script = root.join("scripts/check_direct_dependencies.sh");
+    let output = std::process::Command::new("sh")
         .arg(script)
         .arg("--workspace")
         .arg(workspace)
