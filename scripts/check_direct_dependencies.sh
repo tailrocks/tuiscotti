@@ -89,11 +89,17 @@ function normkey(s,    n, parts, i, p, out, f, l) {
         if (length(p) >= 2) {
             f = substr(p, 1, 1)
             l = substr(p, length(p), 1)
-            if ((f == "\"" && l == "\"") || (f == "\x27" && l == "\x27")) p = substr(p, 2, length(p) - 2)
+            if (f == "\"" && l == "\"") p = decode_basic(substr(p, 2, length(p) - 2))
+            else if (f == "\x27" && l == "\x27") p = substr(p, 2, length(p) - 2)
         }
         out = (out == "" ? p : out "." p)
     }
     return out
+}
+function is_table_prefix(p) {
+    if (p == "target" || p == "workspace") return 1
+    if (p ~ /^target\./ && !is_table_path(p)) return 1
+    return 0
 }
 function decode_basic(s,    out, i, c, e, j, hex, code, ok, h) {
     out = ""
@@ -175,7 +181,7 @@ function handle_ws_pair(key, rest,    alias, subkey, val) {
         }
         return
     }
-    parse_error("invalid TOML in workspace manifest")
+    return
 }
 function handle_crate_pair(key, rest,    alias, pkg) {
     alias = key
@@ -197,7 +203,7 @@ function handle_crate_pair(key, rest,    alias, pkg) {
         }
         return
     }
-    parse_error("invalid TOML in crate manifest")
+    return
 }
 function route_top(path, value, src,    t, inner, n, pairs, i, d, q, esc, c, cur, epos, j, pk, pv, fp) {
     t = trim(value)
@@ -240,12 +246,14 @@ function route_top(path, value, src,    t, inner, n, pairs, i, d, q, esc, c, cur
         pv = trim(substr(pairs[i], epos + 1))
         if (pk == "") parse_error("unsupported table form in " src)
         fp = path "." pk
-        if (pv ~ /^\{.*\}$/ && is_table_path(fp)) {
+        if (dep_section(path) || (src == "workspace manifest" && path == "workspace.dependencies")) {
+            if (src == "workspace manifest") {
+                handle_ws_pair(pk, pv)
+            } else {
+                handle_crate_pair(pk, pv)
+            }
+        } else if (pv ~ /^\{.*\}$/ && (is_table_path(fp) || is_table_prefix(fp))) {
             route_top(fp, pv, src)
-        } else if (src == "workspace manifest") {
-            handle_ws_pair(pk, pv)
-        } else {
-            handle_crate_pair(pk, pv)
         }
     }
 }
@@ -372,7 +380,7 @@ FNR == 1 {
         if (prefix != "" && rest != "") {
             effsec = prefix
             eff = rest " = " value
-        } else if (prefix == "" && k != "" && is_table_path(k)) {
+        } else if (prefix == "" && k != "" && (is_table_path(k) || is_table_prefix(k))) {
             if (file_index == 1 && k !~ /^workspace(\.|$)/) {
                 t = trim(value)
                 if (t !~ /^\{.*\}$/) parse_error("unsupported table form in workspace manifest")

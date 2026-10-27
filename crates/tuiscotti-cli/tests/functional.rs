@@ -297,6 +297,7 @@ fn phase_direct_dep_rules(candidates: &Path) {
         0
     );
     dep_rule_flat_tables(&dir);
+    dep_rule_string_forms(&dir);
     dep_rule_dotted_tables(&dir);
     dep_rule_errors(&dir);
 }
@@ -357,6 +358,14 @@ fn dep_rule_flat_tables(dir: &Path) {
         0,
     );
     case(Some(DEP_WS_ALIAS), Some(DEP_CRATE), 0);
+}
+
+fn dep_rule_string_forms(dir: &Path) {
+    let mut seq = 300;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
     case(
         Some(DEP_BARE_WS),
         Some(&format!(
@@ -375,6 +384,13 @@ fn dep_rule_flat_tables(dir: &Path) {
         Some(DEP_BARE_WS),
         Some(&format!(
             "{DEP_CRATE}[dependencies]\npty = {{ package = \"portable\\u002dpty\", path = \"../portable\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\n\"portable\\u002dpty\" = {{ path = \"../portable\" }}\n"
         )),
         1,
     );
@@ -416,6 +432,13 @@ fn dep_rule_dotted_tables(dir: &Path) {
         ),
         Some(&format!(
             "{DEP_CRATE}[dependencies]\npty.workspace = true\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "target = {{ 'cfg(unix)' = {{ dependencies = {{ \"portable-pty\" = {{ path = \"../portable\" }} }} }} }}\n{DEP_CRATE}"
         )),
         1,
     );
