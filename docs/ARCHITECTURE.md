@@ -26,7 +26,7 @@ listed separately.
 
 `Cargo.lock`: 278 packages. Workspace-local packages: exactly two —
 `tuiscotti` and `tuiscotti-cli`. The snapshot/render/pixel APIs come
-from the `tuiscotti-tui-test 0.2.0` registry release (renamed fork;
+from the `tuiscotti-tui-test 0.2.1` registry release (renamed fork;
 lib name `tui_test`); no `[patch.crates-io]` entry and no git
 dependency remains. No `termpane` package exists anywhere in the graph.
 

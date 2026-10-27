@@ -2155,9 +2155,9 @@ dependencies = [
 
 [[package]]
 name = "tuiscotti-tui-test"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e1e3dcd3f914c6b71af120cfac0d82aade62c1b145c58b409685f277980b76a"
+checksum = "abf5d46cc52d4337da1e141a5abd0175c461be323b6f0b4068644089d565f8b9"
 dependencies = [
  "alacritty_terminal",
  "anyhow",
