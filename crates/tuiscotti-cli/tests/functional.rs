@@ -120,6 +120,67 @@ fn live_workflow() {
     phase_missing_glyph(&dirs, &lane);
 }
 
+#[cfg(unix)]
+#[test]
+fn report_indexes_each_check_once_with_directory_symlink_loop() {
+    let root = case_dir("report-symlink-loop");
+    let baselines = root.path().join("baselines");
+    let artifacts = root.path().join("artifacts");
+    let candidates = root.path().join("candidates");
+    for dir in [&baselines, &artifacts, &candidates] {
+        make_dir(dir);
+    }
+    let lane = ci_lane();
+    let open = open_lane();
+    let live_id = pixel_test_id("report-symlink-loop");
+    let candidate_v1 = candidates.join("v1.tui.json");
+    write_bytes(&candidate_v1, &log_sample(&live_id, 30, 0, 8));
+    let sha_v1 = sha256_file(&candidate_v1);
+    let (code, _) = accept_candidate(&candidate_v1, &sha_v1, "missing", &baselines, &open);
+    assert_eq!(code, 0);
+    let candidate_v2 = candidates.join("v2.tui.json");
+    write_bytes(&candidate_v2, &log_sample(&live_id, 30, 1, 8));
+    let (code, _) = check_sample(&candidate_v2, &baselines, &artifacts, &lane);
+    assert_eq!(code, 1);
+    let index = candidates.join("index.html");
+    let out = run_cli(
+        &[
+            "report",
+            "--artifacts",
+            utf8(&artifacts),
+            "--out",
+            utf8(&index),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let before = std::fs::read(&index).unwrap_or_default();
+    let before_text = String::from_utf8_lossy(&before);
+    assert!(before_text.contains("<p>records: 1</p>"));
+    assert_eq!(before_text.matches(">report</a>").count(), 1);
+    let sub = artifacts.join("sub");
+    make_dir(&sub);
+    assert!(std::os::unix::fs::symlink(&artifacts, sub.join("back")).is_ok());
+    let out = run_cli(
+        &[
+            "report",
+            "--artifacts",
+            utf8(&artifacts),
+            "--out",
+            utf8(&index),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let after = std::fs::read(&index).unwrap_or_default();
+    let after_text = String::from_utf8_lossy(&after);
+    assert!(after_text.contains("<p>records: 1</p>"));
+    assert_eq!(after_text.matches(">report</a>").count(), 1);
+    assert_eq!(after, before);
+}
+
 fn phase_missing_glyph(dirs: &WorkflowDirs, lane: &ChildEnv<'_>) {
     let sample = dirs.candidates.join("glyph.tui.json");
     write_bytes(&sample, &glyph_probe_sample("functional/missing-glyph"));
