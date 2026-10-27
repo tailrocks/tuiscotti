@@ -42,8 +42,14 @@ packages = ["tuiscotti", "tuiscotti-cli"]
 publishable_workspace = false
 environment = "release"
 registry = "crates-io"
+authentication = "bootstrap-token"
 release_pr = true
 tag_name = "{{ package }}-v{{ version }}"
+
+[stacks.rust.release.bootstrap]
+package = "tuiscotti"
+version = "0.4.0"
+source_sha = "0baa8ae0b5256017381bde7a3c8e0acfb24e203c"
 
 [stacks.rust.binary_release]
 manifest_path = "Cargo.toml"
