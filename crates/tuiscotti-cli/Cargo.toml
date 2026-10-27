@@ -1,6 +1,6 @@
 [package]
 name = "tuiscotti-cli"
-version = "0.2.0"
+version = "0.3.0"
 description = "Offline CLI for tuiscotti visual snapshots: check, accept, render, report"
 edition.workspace = true
 rust-version.workspace = true
@@ -20,7 +20,7 @@ doc = false
 # (check, accept, render, report) never start an application or open a
 # terminal device. State-only render replays the pinned renderer through
 # the upstream API.
-tuiscotti = { version = "0.2.0", path = "../tuiscotti" }
+tuiscotti = { version = "0.3.0", path = "../tuiscotti" }
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 clap.workspace = true
@@ -29,7 +29,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-tuiscotti = { version = "0.2.0", path = "../tuiscotti" }
+tuiscotti = { version = "0.3.0", path = "../tuiscotti" }
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 image.workspace = true

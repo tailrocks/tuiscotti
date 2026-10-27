@@ -1,34 +1,26 @@
-//! Facade error: one typed `Error`/`Result` over every fallible operation.
-//!
-//! Each variant retains its typed source; nothing is erased to a string.
-//! `?` converts automatically via the [`From`] impls.
-//!
-//! D07: the removed live engine, local renderer, and adapter crates have no
-//! variants here. Live failures surface through the upstream `tui-test`
-//! error types in application test code, never through this facade.
-
+#![doc = include_str!("../docs/error.md")]
 use std::fmt::{Display, Formatter};
 
-/// Fallible-operation result over the facade [`Error`].
+#[doc = "Fallible-operation result over the facade Error."]
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Every failure a facade operation can report, with sources retained.
+#[doc = "Every failure a facade operation can report, with sources retained."]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
-    /// Pure-view capture or conversion failed.
+    #[doc = "Pure-view capture or conversion failed."]
     View(crate::view::ViewError),
-    /// Sample construction, validation, or rendering failed (D02).
+    #[doc = "Sample construction, validation, or rendering failed."]
     Sample(crate::sample::SampleError),
-    /// Frozen comparison or candidate evidence failed (D03).
+    #[doc = "Frozen comparison or candidate evidence failed."]
     Check(crate::check::CheckError),
-    /// Static HTML report rendering failed (D03).
+    #[doc = "Static HTML report rendering failed."]
     Report(crate::report::ReportError),
-    /// Render profile lookup or build failed (D02).
+    #[doc = "Render profile lookup or build failed."]
     Profile(crate::render_profile::ProfileError),
-    /// Approval transaction failed (D04).
+    #[doc = "Approval transaction failed."]
     Approve(crate::approve::ApproveError),
-    /// Filesystem failure.
+    #[doc = "Filesystem failure."]
     Io(std::io::Error),
 }
 

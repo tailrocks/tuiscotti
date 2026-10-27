@@ -1,21 +1,4 @@
-//! Pure-view capture: Ratatui application views into the upstream snapshot model.
-//!
-//! A pure-view test renders an application view in the test process. It starts
-//! no shell, child process, PTY, daemon, or terminal session. The only inputs
-//! are the caller-supplied draw closure, the caller-supplied view settings,
-//! and the Ratatui buffer they produce.
-//!
-//! Two entry points share one conversion:
-//!
-//! - [`capture_view`] renders a production draw closure through a Ratatui
-//!   `TestBackend` and converts the result.
-//! - [`snapshot_from_buffer`] converts a caller-supplied Ratatui buffer with
-//!   explicit cursor state.
-//!
-//! Both pass the converted cells through the upstream validated constructor
-//! [`TerminalSnapshot::try_new`], so one snapshot model serves live tests and
-//! production-view tests.
-
+#![doc = include_str!("../docs/view.md")]
 use std::fmt::{Display, Formatter};
 
 use ratatui::buffer::{Buffer, CellWidth};
@@ -29,52 +12,48 @@ use tui_test::{
     SnapshotUnderline, TerminalSnapshot,
 };
 
-/// Result of a pure-view capture or conversion.
+#[doc = "Result of a pure-view capture or conversion."]
 pub type ViewResult<T> = Result<T, ViewError>;
 
-/// Every failure a pure-view capture or conversion can report, with sources retained.
 #[derive(Debug)]
 #[non_exhaustive]
+#[doc = "Every failure a pure-view capture or conversion can report, with sources retained."]
 pub enum ViewError {
-    /// The requested grid has a zero column or row count.
+    #[doc = "The requested grid has a zero column or row count."]
     EmptyDimensions,
-    /// A buffer area coordinate plus its offset does not fit a 16-bit position.
+    #[doc = "A buffer area coordinate plus its offset does not fit a 16-bit position."]
     AreaOverflow,
-    /// A grid position inside the buffer area has no cell.
+    #[doc = "A grid position inside the buffer area has no cell."]
     CellOutOfBounds {
-        /// Buffer-local column of the missing cell.
+        #[doc = "Buffer-local column of the missing cell."]
         x: u32,
-        /// Buffer-local row of the missing cell.
+        #[doc = "Buffer-local row of the missing cell."]
         y: u32,
     },
-    /// A column covered by a wide leading cell carries its own grapheme
-    /// instead of continuing that cell.
+    #[doc = "A column covered by a wide leading cell carries its own grapheme instead of continuing that cell."]
     CoveredCellOccupied {
-        /// Buffer-local column of the occupying cell.
+        #[doc = "Buffer-local column of the occupying cell."]
         x: u32,
-        /// Buffer-local row of the occupying cell.
+        #[doc = "Buffer-local row of the occupying cell."]
         y: u32,
     },
-    /// A cell outside any wide-cell coverage has zero width, so it cannot
-    /// be a continuation: only a covering leading cell makes a
-    /// zero-width cell valid.
+    #[doc = "A cell outside any wide-cell coverage has zero width, so it cannot be a continuation."]
     UncoveredZeroWidthCell {
-        /// Buffer-local column of the zero-width cell.
+        #[doc = "Buffer-local column of the zero-width cell."]
         x: u32,
-        /// Buffer-local row of the zero-width cell.
+        #[doc = "Buffer-local row of the zero-width cell."]
         y: u32,
     },
-    /// A wide leading cell is wider than the columns left in its row, so its
-    /// continuation would fall outside the grid.
+    #[doc = "A wide leading cell is wider than the columns left in its row, so its continuation would fall outside the grid."]
     LeadingCellOverhang {
-        /// Buffer-local column of the overhanging leading cell.
+        #[doc = "Buffer-local column of the overhanging leading cell."]
         x: u32,
-        /// Buffer-local row of the overhanging leading cell.
+        #[doc = "Buffer-local row of the overhanging leading cell."]
         y: u32,
-        /// Terminal columns the leading cell claims.
+        #[doc = "Terminal columns the leading cell claims."]
         width: u16,
     },
-    /// The upstream validated constructor rejected the converted snapshot.
+    #[doc = "The upstream validated constructor rejected the converted snapshot."]
     Snapshot(SnapshotError),
 }
 
@@ -126,27 +105,23 @@ impl From<SnapshotError> for ViewError {
     }
 }
 
-/// Explicit cursor state for a pure-view capture.
-///
-/// Ratatui buffers carry no cursor, so buffer-only conversion takes the cursor
-/// from these caller-supplied settings. The color doubles as the resolved
-/// default cursor color in the snapshot. Blink intent stays unavailable:
-/// Ratatui reports no blink state, so conversion records `None` rather than a
-/// guessed value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc = "Explicit cursor state for a pure-view capture."]
 pub struct ViewCursor {
+    #[doc = "Buffer-local cursor column."]
     col: u32,
+    #[doc = "Buffer-local cursor row."]
     row: u32,
+    #[doc = "Whether the terminal draws the cursor."]
     visible: bool,
+    #[doc = "The shape the terminal draws the cursor as."]
     shape: SnapshotCursorShape,
+    #[doc = "The resolved cursor color."]
     color: Rgb,
 }
 
 impl ViewCursor {
-    /// Capture explicit cursor state.
-    ///
-    /// The position uses buffer-local coordinates: column and row relative to
-    /// the buffer area origin, matching [`snapshot_from_buffer`].
+    #[doc = "Capture explicit cursor state."]
     #[must_use]
     pub const fn new(
         col: u32,
@@ -164,52 +139,52 @@ impl ViewCursor {
         }
     }
 
-    /// Buffer-local cursor column.
+    #[doc = "Buffer-local cursor column."]
     #[must_use]
     pub const fn col(self) -> u32 {
         self.col
     }
 
-    /// Buffer-local cursor row.
+    #[doc = "Buffer-local cursor row."]
     #[must_use]
     pub const fn row(self) -> u32 {
         self.row
     }
 
-    /// Whether the terminal draws the cursor.
+    #[doc = "Whether the terminal draws the cursor."]
     #[must_use]
     pub const fn visible(self) -> bool {
         self.visible
     }
 
-    /// The shape the terminal draws the cursor as.
+    #[doc = "The shape the terminal draws the cursor as."]
     #[must_use]
     pub const fn shape(self) -> SnapshotCursorShape {
         self.shape
     }
 
-    /// The resolved cursor color.
+    #[doc = "The resolved cursor color."]
     #[must_use]
     pub const fn color(self) -> Rgb {
         self.color
     }
 }
 
-/// Caller-supplied view settings for a pure-view capture.
-///
-/// The palette and defaults are copied into the snapshot as caller-supplied
-/// view settings. They are never observed terminal colors: no child, PTY, or
-/// session runs during conversion, so nothing exists to observe.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc = "Caller-supplied view settings for a pure-view capture."]
 pub struct ViewSettings {
+    #[doc = "Every resolved palette entry, indices 0 through 255."]
     palette: [Rgb; 256],
+    #[doc = "The resolved default foreground."]
     default_foreground: Rgb,
+    #[doc = "The resolved default background."]
     default_background: Rgb,
+    #[doc = "The explicit cursor state."]
     cursor: ViewCursor,
 }
 
 impl ViewSettings {
-    /// Capture caller-supplied view settings with explicit cursor state.
+    #[doc = "Capture caller-supplied view settings with explicit cursor state."]
     #[must_use]
     pub const fn new(
         palette: [Rgb; 256],
@@ -225,11 +200,7 @@ impl ViewSettings {
         }
     }
 
-    /// The built-in view profile: the fixed view palette from the migration
-    /// API record with a hidden block cursor at the origin.
-    ///
-    /// The palette copies the recorded values byte for byte. Do not
-    /// recalculate it from a later dependency version.
+    #[doc = "The built-in view profile: the fixed view palette with a hidden block cursor at the origin."]
     #[must_use]
     pub const fn builtin() -> Self {
         Self {
@@ -246,14 +217,14 @@ impl ViewSettings {
         }
     }
 
-    /// Replace the resolved palette.
+    #[doc = "Replace the resolved palette."]
     #[must_use]
     pub const fn with_palette(mut self, palette: [Rgb; 256]) -> Self {
         self.palette = palette;
         self
     }
 
-    /// Replace the resolved default foreground and background.
+    #[doc = "Replace the resolved default foreground and background."]
     #[must_use]
     pub const fn with_defaults(mut self, default_foreground: Rgb, default_background: Rgb) -> Self {
         self.default_foreground = default_foreground;
@@ -261,45 +232,38 @@ impl ViewSettings {
         self
     }
 
-    /// Replace the explicit cursor state.
+    #[doc = "Replace the explicit cursor state."]
     #[must_use]
     pub const fn with_cursor(mut self, cursor: ViewCursor) -> Self {
         self.cursor = cursor;
         self
     }
 
-    /// Every resolved palette entry, indices 0 through 255.
+    #[doc = "Every resolved palette entry, indices 0 through 255."]
     #[must_use]
     pub const fn palette(&self) -> &[Rgb; 256] {
         &self.palette
     }
 
-    /// The resolved default foreground.
+    #[doc = "The resolved default foreground."]
     #[must_use]
     pub const fn default_foreground(&self) -> Rgb {
         self.default_foreground
     }
 
-    /// The resolved default background.
+    #[doc = "The resolved default background."]
     #[must_use]
     pub const fn default_background(&self) -> Rgb {
         self.default_background
     }
 
-    /// The explicit cursor state.
+    #[doc = "The explicit cursor state."]
     #[must_use]
     pub const fn cursor(&self) -> ViewCursor {
         self.cursor
     }
 }
 
-/// The fixed view palette as recorded `#rrggbb` strings.
-///
-/// Source: the migration API record, copied from an in-memory upstream
-/// emulator read through `Emulator::colors()` with no child, PTY, or session.
-/// The canonical digest over these values is
-/// `92757b147e00dec394b10b7be2fa42f782f0d30325a5922570080f91d60f641e`;
-/// `view_palette_digest` in the test suite pins it.
 const VIEW_PALETTE_HEX: [&str; 256] = [
     "#000000", "#800000", "#008000", "#808000", "#000080", "#800080", "#008080", "#c0c0c0",
     "#808080", "#ff0000", "#00ff00", "#ffff00", "#0000ff", "#ff00ff", "#00ffff", "#ffffff",
@@ -335,11 +299,6 @@ const VIEW_PALETTE_HEX: [&str; 256] = [
     "#a8a8a8", "#b2b2b2", "#bcbcbc", "#c6c6c6", "#d0d0d0", "#dadada", "#e4e4e4", "#eeeeee",
 ];
 
-/// Parse one `#rrggbb` channel pair at compile time.
-///
-/// All inputs are the known-good literals in [`VIEW_PALETTE_HEX`]; the
-/// `view_palette_digest` test pins the parsed palette against the canonical
-/// digest from the migration API record.
 const fn hex_digit(byte: u8) -> u8 {
     match byte {
         b'0'..=b'9' => byte - b'0',
@@ -349,7 +308,6 @@ const fn hex_digit(byte: u8) -> u8 {
     }
 }
 
-/// Parse one `#rrggbb` literal at compile time.
 const fn parse_hex_color(hex: &str) -> Rgb {
     let bytes = hex.as_bytes();
     Rgb::new(
@@ -359,7 +317,6 @@ const fn parse_hex_color(hex: &str) -> Rgb {
     )
 }
 
-/// Build the fixed view palette from its recorded literals.
 const fn build_view_palette() -> [Rgb; 256] {
     let mut palette = [Rgb::new(0, 0, 0); 256];
     let mut index = 0;
@@ -370,11 +327,6 @@ const fn build_view_palette() -> [Rgb; 256] {
     palette
 }
 
-/// Translate a Ratatui color without information loss.
-///
-/// `Reset` stays the terminal default, distinct from an explicit `Indexed` or
-/// `Rgb` reference even when both resolve to the same painted color. Named
-/// ANSI colors map to their fixed palette slots.
 fn convert_color(color: ratatui::style::Color) -> SnapshotColor {
     use ratatui::style::Color as RatatuiColor;
     match color {
@@ -400,11 +352,6 @@ fn convert_color(color: ratatui::style::Color) -> SnapshotColor {
     }
 }
 
-/// Translate Ratatui modifiers into upstream attributes and an underline shape.
-///
-/// Ratatui carries no per-cell underline shape, so an underlined cell maps to
-/// `Single` and a plain cell maps to `None`. Blink speeds collapse into one
-/// blink attribute, matching the single upstream blink bit.
 fn convert_modifier(modifier: ratatui::style::Modifier) -> (Attrs, SnapshotUnderline) {
     use ratatui::style::Modifier as RatatuiModifier;
     let mut attrs = Attrs::empty();
@@ -439,7 +386,6 @@ fn convert_modifier(modifier: ratatui::style::Modifier) -> (Attrs, SnapshotUnder
     (attrs, underline)
 }
 
-/// Convert one Ratatui cell that starts a grapheme.
 fn leading_cell(
     cell: &ratatui::buffer::Cell,
     symbol: &str,
@@ -460,10 +406,6 @@ fn leading_cell(
     .map_err(ViewError::Snapshot)
 }
 
-/// Convert one Ratatui cell covered by a wide leading cell.
-///
-/// Ratatui has no hyperlink storage, so every cell records unavailable link
-/// data. Covered cells keep their own stored colors and attributes.
 fn continuation_cell(cell: &ratatui::buffer::Cell) -> ViewResult<SnapshotCell> {
     let (attrs, underline) = convert_modifier(cell.modifier);
     SnapshotCell::new(
@@ -480,11 +422,6 @@ fn continuation_cell(cell: &ratatui::buffer::Cell) -> ViewResult<SnapshotCell> {
     .map_err(ViewError::Snapshot)
 }
 
-/// Resolve the snapshot cursor from buffer-local coordinates.
-///
-/// A cursor outside the grid is not clamped: it keeps its position and reports
-/// `in_capture` as `false`. Terminal cursor visibility stays separate from
-/// capture clipping.
 fn resolve_cursor(
     col: u32,
     row: u32,
@@ -505,25 +442,6 @@ fn resolve_cursor(
     )
 }
 
-/// Convert a Ratatui buffer area into row-major snapshot cells.
-///
-/// Buffer coordinates normalize to the snapshot origin: the snapshot holds
-/// `area.width` by `area.height` cells starting at the buffer area origin.
-/// Continuation cells resolve from Ratatui layout rules: a wide leading cell
-/// covers its following columns, and covered placeholder cells convert as
-/// continuations. A covered column that carries its own grapheme, a wide
-/// leading cell that overhangs the row end, or a zero-width cell outside
-/// any coverage is an invalid leading and continuation combination:
-/// conversion rejects it here with coordinates, because the upstream
-/// validated constructor accepts individually valid cells and cannot see
-/// the coverage mismatch. It stays as the backstop for every other
-/// malformed combination.
-///
-/// Clipped edges keep the representation Ratatui itself produces: a wide
-/// grapheme that does not fit the remaining row width renders as a blank
-/// narrow leading cell (width one, not a continuation), and only columns a
-/// leading cell actually covers convert as continuations. Coverage never
-/// crosses a row boundary.
 fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
     let area = buffer.area;
     let mut cells = Vec::new();
@@ -572,14 +490,6 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
     Ok(cells)
 }
 
-/// Reject grid dimensions before any allocation or conversion, mirroring
-/// the upstream validated constructor's limits field for field: zero stays
-/// [`ViewError::EmptyDimensions`], a dimension above [`MAX_SNAPSHOT_DIM`]
-/// reports `DimensionTooLarge`, and a `cols * rows` product above
-/// [`MAX_SNAPSHOT_CELLS`] reports `TooManyCells`. Both entry points call
-/// this first so an oversize grid never reaches `TestBackend` or the cell
-/// converter: the snapshot validator would reject the same grid only after
-/// those allocations ran.
 fn check_dimensions(cols: u32, rows: u32) -> ViewResult<()> {
     if cols == 0 || rows == 0 {
         return Err(ViewError::EmptyDimensions);
@@ -606,7 +516,6 @@ fn check_dimensions(cols: u32, rows: u32) -> ViewResult<()> {
     Ok(())
 }
 
-/// Assemble a validated snapshot from converted cells and cursor state.
 fn assemble_snapshot(
     cols: u32,
     rows: u32,
@@ -631,39 +540,7 @@ fn assemble_snapshot(
     .map_err(ViewError::Snapshot)
 }
 
-/// Render an application production view through a Ratatui `TestBackend`.
-///
-/// The draw closure calls the application production view function; it must
-/// not be a test-only replacement view. When the draw result shows a cursor,
-/// conversion keeps its position and visibility; otherwise the cursor stays
-/// hidden at the explicit position from `settings`. The cursor shape and
-/// color always come from `settings`, with a block shape in the built-in
-/// profile. No child process, PTY, or session starts on this path: the only
-/// inputs are the closure, the settings, and the in-memory backend.
-///
-/// # Errors
-///
-/// Returns [`ViewError`] when the grid is empty or exceeds the snapshot
-/// dimension or cell-count limits (rejected before any allocation), a
-/// wide-cell layout is invalid, or the converted snapshot fails upstream
-/// validation.
-///
-/// # Examples
-///
-/// ```rust
-/// use ratatui::Frame;
-/// use ratatui::widgets::Paragraph;
-/// use tuiscotti::view::{ViewSettings, capture_view};
-///
-/// fn login_view(frame: &mut Frame) {
-///     frame.render_widget(Paragraph::new("hello"), frame.area());
-/// }
-///
-/// let snapshot = capture_view(20, 5, &ViewSettings::builtin(), |frame| {
-///     login_view(frame);
-/// });
-/// assert!(snapshot.is_ok());
-/// ```
+#[doc = "Render an application production view through a `Ratatui` `TestBackend`.\n\n# Errors\n\nReturns [`ViewError`] when the grid is empty or exceeds the snapshot dimension or cell-count limits (rejected before any allocation), a wide-cell layout is invalid, or the converted snapshot fails upstream validation."]
 #[must_use = "a captured snapshot has no effect unless inspected"]
 pub fn capture_view<F>(
     width: u16,
@@ -700,33 +577,7 @@ where
     assemble_snapshot(cols, rows, cells, cursor, settings)
 }
 
-/// Convert a Ratatui buffer into the shared snapshot model.
-///
-/// The explicit cursor state in `settings` is mandatory: Ratatui buffers
-/// carry no cursor, so conversion cannot infer one. Buffer coordinates
-/// normalize to the snapshot origin.
-///
-/// # Errors
-///
-/// Returns [`ViewError`] when the buffer area is empty or exceeds the
-/// snapshot dimension or cell-count limits (rejected before conversion), an
-/// area coordinate overflows, a wide-cell layout is invalid, or the
-/// converted snapshot fails upstream validation.
-///
-/// # Examples
-///
-/// ```rust
-/// use ratatui::buffer::Buffer;
-/// use ratatui::layout::Rect;
-/// use tuiscotti::view::{ViewCursor, ViewSettings, snapshot_from_buffer};
-/// use tui_test::{SnapshotCursorShape, profile::Rgb};
-///
-/// let buffer = Buffer::empty(Rect::new(0, 0, 5, 1));
-/// let cursor = ViewCursor::new(0, 0, false, SnapshotCursorShape::Block, Rgb::new(192, 192, 192));
-/// let settings = ViewSettings::builtin().with_cursor(cursor);
-/// let snapshot = snapshot_from_buffer(&buffer, &settings);
-/// assert!(snapshot.is_ok());
-/// ```
+#[doc = "Convert a `Ratatui` buffer into the shared snapshot model.\n\n# Errors\n\nReturns [`ViewError`] when the buffer area is empty or exceeds the snapshot dimension or cell-count limits (rejected before conversion), an area coordinate overflows, a wide-cell layout is invalid, or the converted snapshot fails upstream validation."]
 #[must_use = "a converted snapshot has no effect unless inspected"]
 pub fn snapshot_from_buffer(
     buffer: &Buffer,

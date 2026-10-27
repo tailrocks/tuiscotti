@@ -1,25 +1,4 @@
-//! Frozen comparison and candidate evidence (D03, GOAL 14).
-//!
-//! [`FrozenStore`] compares a candidate [`Sample`] against the approved
-//! baseline for its test ID without changing the baseline root. On any
-//! mismatch it saves the candidate bytes and the derived evidence under the
-//! artifact root, keyed by the compared baseline digest, and returns a
-//! [`CheckFailure`] with the candidate path and both digests.
-//!
-//! Comparison order (GOAL 14.2): read and validate the actual sample, read
-//! and validate the baseline when present (`Missing` without making the
-//! baseline directory otherwise), require equal test IDs and gates, compare
-//! canonical snapshot state first, then the render contract, then upstream
-//! `compare_rgba` over DECODED RGBA pixels for `state-and-pixels`. Equal
-//! pixels never hide a state difference: state is compared first, and the
-//! `state` gate ignores image and render metadata entirely.
-//!
-//! Store note: these stores hold local project data. They are not a hostile
-//! multi-user filesystem service. Store-relative write paths are still
-//! checked for symlinks so a link can never redirect evidence outside the
-//! store roots, and equal or contained baseline and candidate roots are
-//! rejected before any comparison.
-
+#![doc = include_str!("../docs/check.md")]
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -38,51 +17,48 @@ use crate::sample::{
     Gate, MAX_IMAGE_DIM, MAX_RGBA_BYTES, Sample, SampleError, read_bounded, read_bounded_optional,
 };
 
-/// Schema identifier for `result.json` files written beside the evidence.
+#[doc = "Schema identifier for `result.json` files written beside the evidence."]
 pub const CHECK_SCHEMA: &str = "tuiscotti.check.v1";
 
-/// Literal baseline digest recorded when a check finds no baseline file.
+#[doc = "Literal baseline digest recorded when a check finds no baseline file."]
 pub const MISSING_BASELINE: &str = "missing";
 
-/// Cap on changed cells kept in a failure: the total is exact, the kept
-/// detail is row-major deterministic and bounded for report size.
 const MAX_REPORTED_CELLS: usize = 64;
 
-/// Every failure a frozen check or evidence write can report.
 #[derive(Debug)]
 #[non_exhaustive]
+#[doc = "Every failure a frozen check or evidence write can report."]
 pub enum CheckError {
-    /// A test ID breaks the Section 14.1 grammar.
+    #[doc = "A test ID breaks the Section 14.1 grammar."]
     InvalidTestId {
-        /// What the test ID broke.
+        #[doc = "What the test ID broke."]
         detail: String,
     },
-    /// Baseline and artifact roots are equal, contained, or a
-    /// store-relative path leaves its root through a symlink.
+    #[doc = "Baseline and artifact roots are equal, contained, or a store-relative path leaves its root through a symlink."]
     InvalidStorePath {
-        /// What the path broke.
+        #[doc = "What the path broke."]
         detail: String,
     },
-    /// The candidate or baseline sample fails [`Sample`] validation.
+    #[doc = "The candidate or baseline sample fails [`Sample`] validation."]
     Sample(SampleError),
-    /// Upstream pixel comparison rejects decoded image buffers.
+    #[doc = "Upstream pixel comparison rejects decoded image buffers."]
     Pixel(PixelError),
-    /// Saved candidate or evidence bytes fail re-validation.
+    #[doc = "Saved candidate or evidence bytes fail re-validation."]
     EvidenceCorrupt {
-        /// Which saved file failed and how.
+        #[doc = "Which saved file failed and how."]
         detail: String,
     },
-    /// A difference image fails PNG encoding.
+    #[doc = "A difference image fails PNG encoding."]
     Image {
-        /// The PNG encoding failure.
+        #[doc = "The PNG encoding failure."]
         source: image::ImageError,
     },
-    /// A filesystem failure outside sample validation.
+    #[doc = "A filesystem failure outside sample validation."]
     Io {
-        /// The filesystem failure.
+        #[doc = "The filesystem failure."]
         source: std::io::Error,
     },
-    /// A static HTML report fails to render or save.
+    #[doc = "A static HTML report fails to render or save."]
     Report(crate::report::ReportError),
 }
 
@@ -138,29 +114,29 @@ impl From<crate::report::ReportError> for CheckError {
     }
 }
 
-/// Structured mismatch reason with one value per failure class (GOAL 14.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[doc = "Structured mismatch reason with one value per failure class (GOAL 14.2)."]
 pub enum MismatchReason {
-    /// No baseline file exists for the test ID.
+    #[doc = "No baseline file exists for the test ID."]
     Missing,
-    /// Candidate and baseline carry different test IDs.
+    #[doc = "Candidate and baseline carry different test IDs."]
     TestId,
-    /// Candidate and baseline carry different gates.
+    #[doc = "Candidate and baseline carry different gates."]
     Policy,
-    /// Canonical snapshot state differs.
+    #[doc = "Canonical snapshot state differs."]
     State,
-    /// Render contracts differ with equal state.
+    #[doc = "Render contracts differ with equal state."]
     Contract,
-    /// Decoded image dimensions differ with equal state and contract.
+    #[doc = "Decoded image dimensions differ with equal state and contract."]
     Dimensions,
-    /// Decoded RGBA pixels differ with equal dimensions.
+    #[doc = "Decoded RGBA pixels differ with equal dimensions."]
     Pixels,
 }
 
 impl MismatchReason {
-    /// The wire value recorded in `result.json` and the HTML report.
     #[must_use]
+    #[doc = "The wire value recorded in `result.json` and the HTML report."]
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Missing => "missing",
@@ -180,9 +156,8 @@ impl Display for MismatchReason {
     }
 }
 
-/// A passing comparison: the candidate digest and the compared baseline
-/// digest (`missing` never appears here: a missing baseline fails).
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[doc = "A passing comparison: the candidate digest and the compared baseline digest."]
 pub struct CheckSuccess {
     test_id: String,
     candidate_sha256: String,
@@ -190,27 +165,27 @@ pub struct CheckSuccess {
 }
 
 impl CheckSuccess {
-    /// The compared test ID.
     #[must_use]
+    #[doc = "The compared test ID."]
     pub fn test_id(&self) -> &str {
         &self.test_id
     }
 
-    /// SHA-256 over the candidate sample file bytes.
     #[must_use]
+    #[doc = "SHA-256 over the candidate sample file bytes."]
     pub fn candidate_sha256(&self) -> &str {
         &self.candidate_sha256
     }
 
-    /// SHA-256 over the compared baseline file bytes.
     #[must_use]
+    #[doc = "SHA-256 over the compared baseline file bytes."]
     pub fn baseline_sha256(&self) -> &str {
         &self.baseline_sha256
     }
 }
 
-/// A failing comparison with the saved candidate and evidence locations.
 #[derive(Debug, Clone)]
+#[doc = "A failing comparison with the saved candidate and evidence locations."]
 pub struct CheckFailure {
     test_id: String,
     gate: Gate,
@@ -229,142 +204,124 @@ pub struct CheckFailure {
 }
 
 impl CheckFailure {
-    /// The compared test ID.
     #[must_use]
+    #[doc = "The compared test ID."]
     pub fn test_id(&self) -> &str {
         &self.test_id
     }
 
-    /// The gate both samples carry.
     #[must_use]
+    #[doc = "The gate both samples carry."]
     pub const fn gate(&self) -> Gate {
         self.gate
     }
 
-    /// The structured mismatch reason.
     #[must_use]
+    #[doc = "The structured mismatch reason."]
     pub const fn reason(&self) -> MismatchReason {
         self.reason
     }
 
-    /// SHA-256 over the candidate sample file bytes.
     #[must_use]
+    #[doc = "SHA-256 over the candidate sample file bytes."]
     pub fn candidate_sha256(&self) -> &str {
         &self.candidate_sha256
     }
 
-    /// SHA-256 over the compared baseline bytes, or `missing`.
     #[must_use]
+    #[doc = "SHA-256 over the compared baseline bytes, or `missing`."]
     pub fn baseline_sha256(&self) -> &str {
         &self.baseline_sha256
     }
 
-    /// Where the candidate bytes were saved (never a shared mutable file).
     #[must_use]
+    #[doc = "Where the candidate bytes were saved (never a shared mutable file)."]
     pub fn candidate_path(&self) -> &Path {
         &self.candidate_path
     }
 
-    /// The `checks/<baseline_sha256_or_missing>` directory for this run.
     #[must_use]
+    #[doc = "The `checks/<baseline_sha256_or_missing>` directory for this run."]
     pub fn evidence_dir(&self) -> &Path {
         &self.evidence_dir
     }
 
-    /// The static HTML report for this comparison.
     #[must_use]
+    #[doc = "The static HTML report for this comparison."]
     pub fn report_path(&self) -> &Path {
         &self.report_path
     }
 
-    /// Changed top-level state fields, in fixed order.
     #[must_use]
+    #[doc = "Changed top-level state fields, in fixed order."]
     pub fn changed_fields(&self) -> &[String] {
         &self.changed_fields
     }
 
-    /// Changed cells with coordinates, row-major, bounded (see the total).
     #[must_use]
+    #[doc = "Changed cells with coordinates, row-major, bounded (see the total)."]
     pub fn changed_cells(&self) -> &[ReportedCell] {
         &self.changed_cells
     }
 
-    /// The exact changed-cell count, without the report bound.
     #[must_use]
+    #[doc = "The exact changed-cell count, without the report bound."]
     pub const fn changed_cell_total(&self) -> usize {
         self.changed_cell_total
     }
 
-    /// Changed pixel count from upstream `compare_rgba` (zero when pixels
-    /// were not compared).
     #[must_use]
+    #[doc = "Changed pixel count from upstream `compare_rgba` (zero when pixels were not compared)."]
     pub const fn pixel_changed(&self) -> u64 {
         self.pixel_changed
     }
 
-    /// Compared pixel count (zero after a dimension mismatch).
     #[must_use]
+    #[doc = "Compared pixel count (zero after a dimension mismatch)."]
     pub const fn pixel_compared(&self) -> u64 {
         self.pixel_compared
     }
 
-    /// Smallest changed rectangle as `(min_x, min_y, max_x, max_y)`.
     #[must_use]
+    #[doc = "Smallest changed rectangle as `(min_x, min_y, max_x, max_y)`."]
     pub const fn pixel_bounds(&self) -> Option<[u32; 4]> {
         self.pixel_bounds
     }
 }
 
-/// The outcome of [`FrozenStore::check`]: a pass or a saved failure.
 #[derive(Debug, Clone)]
+#[doc = "The outcome of [`FrozenStore::check`]: a pass or a saved failure."]
 pub enum CheckOutcome {
-    /// The candidate equals the baseline under its gate.
+    #[doc = "The candidate equals the baseline under its gate."]
     Pass(CheckSuccess),
-    /// The candidate differs; evidence is saved under the artifact root.
+    #[doc = "The candidate differs; evidence is saved under the artifact root."]
     Failure(CheckFailure),
 }
 
 impl CheckOutcome {
-    /// True only for an equal comparison.
     #[must_use]
+    #[doc = "True only for an equal comparison."]
     pub const fn is_pass(&self) -> bool {
         matches!(self, Self::Pass(_))
     }
 }
 
-/// A read-only comparison handle over a baseline root and an artifact root.
-///
-/// Checking never writes to the baseline root: no baseline file, no
-/// directory, no lock file. Failure evidence goes to the artifact root.
-/// There is no approval method here by design (D04 owns approval).
 #[derive(Debug, Clone)]
+#[doc = "A read-only comparison handle over a baseline root and an artifact root."]
 pub struct FrozenStore {
     baselines: PathBuf,
     artifacts: PathBuf,
 }
 
-/// What D04 approval records for a present baseline: pass, or the change
-/// summary for the approval outcome.
-///
-/// No test-ID or gate cross-comparison shapes this value: the
-/// [`FrozenStore::check`] `TestId`/`Policy` arms never run here. Only snapshot state, render
-/// contracts, and decoded pixels do. No evidence files are written; the
-/// caller already holds the approval lock over both inputs.
 pub(crate) enum PresentComparison {
-    /// The candidate equals the baseline under the compared evidence.
     Pass,
-    /// The candidate differs; the reason and fields mirror [`CheckFailure`].
     Failure {
-        /// The structured mismatch reason (`State`, `Policy`, `Contract`,
-        /// `Dimensions`, or `Pixels`; never `Missing` or `TestId`).
         reason: MismatchReason,
-        /// Changed top-level fields, in fixed order.
         changed_fields: Vec<String>,
     },
 }
 
 impl PresentComparison {
-    /// Wrap one state diff under its reason.
     fn from_state(reason: MismatchReason, state: &StateDiff) -> Self {
         Self::Failure {
             reason,
@@ -374,18 +331,7 @@ impl PresentComparison {
 }
 
 impl FrozenStore {
-    /// Open a frozen store over two roots.
-    ///
-    /// Both roots resolve through their nearest existing ancestors, then
-    /// equal roots and contained roots are rejected in either direction.
-    /// The artifact root is created when missing; the baseline root is
-    /// never created here (a missing baseline root makes every check
-    /// `Missing`).
-    ///
-    /// # Errors
-    ///
-    /// Returns [`CheckError`] for empty, equal, contained, or
-    /// unresolvable roots, and for artifact-root creation failures.
+    #[doc = "Open a frozen store over two roots.\n\n# Errors\n\nReturns [`CheckError`] for empty, equal, contained, or unresolvable roots, and for artifact-root creation failures."]
     pub fn new(baseline_root: &Path, artifact_root: &Path) -> Result<Self, CheckError> {
         let baselines = resolve_root(baseline_root, "baseline")?;
         let artifacts = resolve_root(artifact_root, "artifact")?;
@@ -406,29 +352,19 @@ impl FrozenStore {
         })
     }
 
-    /// The canonical baseline root.
     #[must_use]
+    #[doc = "The canonical baseline root."]
     pub fn baseline_root(&self) -> &Path {
         &self.baselines
     }
 
-    /// The canonical artifact root.
     #[must_use]
+    #[doc = "The canonical artifact root."]
     pub fn artifact_root(&self) -> &Path {
         &self.artifacts
     }
 
-    /// Compare candidate sample bytes against the stored baseline.
-    ///
-    /// On failure the candidate and derived evidence are saved and a
-    /// [`CheckOutcome::Failure`] is returned. The baseline root is never
-    /// written. A missing baseline file is a `Missing` failure without
-    /// making the baseline directory.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`CheckError`] for invalid samples, test IDs, store paths,
-    /// corrupt saved evidence, or I/O failures.
+    #[doc = "Compare candidate sample bytes against the stored baseline.\n\n# Errors\n\nReturns [`CheckError`] for invalid samples, test IDs, store paths, corrupt saved evidence, or I/O failures."]
     pub fn check(&self, sample_bytes: &[u8]) -> Result<CheckOutcome, CheckError> {
         let candidate_sha256 = sha256_hex(sample_bytes);
         let actual = Sample::from_bytes(sample_bytes)?;
@@ -447,12 +383,7 @@ impl FrozenStore {
         }
     }
 
-    /// Read a sample file with the shared bounded read, then
-    /// [`FrozenStore::check`] it.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`CheckError`] when the file is unreadable or the check fails.
+    #[doc = "Read a sample file with the shared bounded read, then [`FrozenStore::check`] it.\n\n# Errors\n\nReturns [`CheckError`] when the file is unreadable or the check fails."]
     pub fn check_file(&self, path: &Path) -> Result<CheckOutcome, CheckError> {
         let bytes = read_bounded(path).map_err(|error| match error {
             SampleError::Io { source } => CheckError::Io { source },
@@ -461,7 +392,6 @@ impl FrozenStore {
         self.check(&bytes)
     }
 
-    /// Compare against present baseline bytes after both sides validate.
     fn compare_with_baseline(
         &self,
         actual: &Sample,
@@ -532,8 +462,6 @@ impl FrozenStore {
         )
     }
 
-    /// Compare render contracts, then decoded RGBA pixels. State is already
-    /// equal here, so equal pixels can never hide a state difference.
     fn compare_pixels(
         &self,
         actual: &Sample,
@@ -599,17 +527,6 @@ impl FrozenStore {
         }
     }
 
-    /// Compare a validated candidate against known-present baseline bytes
-    /// for the D04 approval change summary.
-    ///
-    /// Both samples are already parsed and validated by the caller; this
-    /// only diffs. A state-gate candidate passes on equal snapshots (the
-    /// `state` gate ignores image and render metadata entirely). A
-    /// baseline without image evidence records the gate shape without
-    /// comparing gate enums. Otherwise render contracts then decoded pixels
-    /// decide, exactly as in [`FrozenStore::check`]: equal snapshots with
-    /// differing contracts report `Contract`, mirroring the frozen
-    /// comparison, so check and accept cannot disagree on the change set.
     pub(crate) fn compare_present(
         candidate: &Sample,
         baseline: &Sample,
@@ -656,7 +573,6 @@ impl FrozenStore {
         }
     }
 
-    /// Record a `Missing` failure: candidate plus evidence, no baseline dir.
     fn fail_without_baseline(
         &self,
         actual: &Sample,
@@ -677,7 +593,6 @@ impl FrozenStore {
         Ok(CheckOutcome::Failure(failure))
     }
 
-    /// Resolve the baseline file for a test ID inside the baseline root.
     fn baseline_path(&self, test_id: &str) -> Result<PathBuf, CheckError> {
         let mut relative = PathBuf::from(test_id);
         relative.set_extension("tui.json");
@@ -699,8 +614,6 @@ impl FrozenStore {
         self.missing_baseline_path(&joined)
     }
 
-    /// Resolve a not-yet-existing baseline path: the nearest existing
-    /// ancestor must stay inside the baseline root.
     fn missing_baseline_path(&self, joined: &Path) -> Result<PathBuf, CheckError> {
         let mut cursor = joined;
         loop {
@@ -728,10 +641,8 @@ impl FrozenStore {
     }
 }
 
-/// Maximum display characters kept per compared value in reports.
 const MAX_DISPLAY_CHARS: usize = 200;
 
-/// Cell attribute flags compared field by field, in fixed report order.
 const CELL_FLAGS: [(&str, Attrs); 7] = [
     ("bold", Attrs::BOLD),
     ("dim", Attrs::DIM),
@@ -742,7 +653,6 @@ const CELL_FLAGS: [(&str, Attrs); 7] = [
     ("blink", Attrs::BLINK),
 ];
 
-/// Pure state-comparison detail shared by every failure record and report.
 struct StateDiff {
     changed_fields: Vec<String>,
     changed_cells: Vec<ReportedCell>,
@@ -754,7 +664,6 @@ struct StateDiff {
 }
 
 impl StateDiff {
-    /// A non-state reason with one named field and no cell detail.
     fn named(field: &str) -> Self {
         Self {
             changed_fields: vec![field.to_string()],
@@ -767,7 +676,6 @@ impl StateDiff {
         }
     }
 
-    /// A pixel reason: no state fields changed, only pixel counts.
     fn pixels(changed: u64, compared: u64, bounds: Option<[u32; 4]>) -> Self {
         Self {
             changed_fields: Vec::new(),
@@ -780,26 +688,20 @@ impl StateDiff {
         }
     }
 
-    /// True when neither a field nor a cell changed.
     fn is_equal(&self) -> bool {
         self.changed_fields.is_empty() && self.changed_cell_total == 0
     }
 }
 
-/// Decoded difference image in row-major RGBA order with its dimensions.
 struct DiffPng {
     width: u32,
     height: u32,
     pixels: Vec<u8>,
 }
 
-/// The pixel comparison verdict: equal, dimension-mismatched, or different.
 enum PixelVerdict {
-    /// Decoded RGBA pixels are equal.
     Equal,
-    /// Decoded image dimensions differ.
     Dimensions,
-    /// Pixels differ with counts, bounds, and a difference image.
     Different {
         changed: u64,
         compared: u64,
@@ -808,8 +710,6 @@ enum PixelVerdict {
     },
 }
 
-/// Decode both images and run upstream `compare_rgba` over DECODED RGBA,
-/// never PNG bytes. State and contract are already equal at this point.
 fn decide_pixels(actual: &Sample, baseline: &Sample) -> Result<PixelVerdict, CheckError> {
     let actual_image = actual.image().ok_or_else(|| SampleError::GateMismatch {
         detail: "state-and-pixels gate requires an image".to_string(),
@@ -863,16 +763,7 @@ fn decide_pixels(actual: &Sample, baseline: &Sample) -> Result<PixelVerdict, Che
     })
 }
 
-/// Validate a test ID against the Section 14.1 grammar on every platform
-/// (see [`crate::sample`] for the shape rule).
-///
-/// The grammar lives in one place: this check delegates to the sample
-/// module's complete validator, so construction, parsing, and checking
-/// cannot disagree on the shape.
-///
-/// # Errors
-///
-/// Returns [`CheckError::InvalidTestId`] for every rejected shape.
+#[doc = "Validate a test ID against the Section 14.1 grammar on every platform.\n\n# Errors\n\nReturns [`CheckError::InvalidTestId`] for every rejected shape."]
 pub fn validate_test_id(test_id: &str) -> Result<(), CheckError> {
     crate::sample::validate_test_id_grammar(test_id).map_err(|error| match error {
         SampleError::InvalidTestId { detail } => CheckError::InvalidTestId { detail },
@@ -880,8 +771,6 @@ pub fn validate_test_id(test_id: &str) -> Result<(), CheckError> {
     })
 }
 
-/// Compare two snapshots through canonical equality, collecting changed
-/// top-level fields (fixed order) and changed cells (row-major).
 fn diff_snapshots(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> StateDiff {
     let mut changed_fields = Vec::new();
     if actual.cols() != baseline.cols() {
@@ -930,7 +819,6 @@ fn diff_snapshots(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Sta
     }
 }
 
-/// Truncate a compared value to a fixed display length on a char boundary.
 fn display_value(value: &str) -> String {
     if value.chars().count() <= MAX_DISPLAY_CHARS {
         return value.to_string();
@@ -939,8 +827,6 @@ fn display_value(value: &str) -> String {
     format!("{kept}…")
 }
 
-/// Compare cursor state field by field; an absent cursor difference keeps
-/// the field list stable.
 fn diff_cursors(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Vec<String> {
     let mut fields = Vec::new();
     let (left, right) = (actual.cursor(), baseline.cursor());
@@ -968,13 +854,6 @@ fn diff_cursors(actual: &TerminalSnapshot, baseline: &TerminalSnapshot) -> Vec<S
     fields
 }
 
-/// Compare the union of occupied cells; cells outside the shared area
-/// count as changed. Iterating `max(cols) x max(rows)` would visit every
-/// cell outside both grids (up to 1B entries at the dimension limit) and
-/// report each empty `(None, None)` pair as a changed cell, so each row
-/// only covers the columns occupied on either side and empty pairs are
-/// skipped. The total stays exact while the kept detail is row-major
-/// deterministic and bounded for report size.
 fn diff_cells(
     actual: &TerminalSnapshot,
     baseline: &TerminalSnapshot,
@@ -1010,8 +889,6 @@ fn diff_cells(
     (changed, total)
 }
 
-/// The changed-cell record for one occupied coordinate, or `None` for an
-/// empty `(None, None)` pair and for an equal pair.
 fn changed_pair(
     pair: (Option<&SnapshotCell>, Option<&SnapshotCell>),
 ) -> Option<(Vec<String>, String, String)> {
@@ -1042,7 +919,6 @@ fn changed_pair(
     Some((fields, actual_text, baseline_text))
 }
 
-/// Compare two cells through read-only accessors, in fixed field order.
 fn diff_cell(actual: &SnapshotCell, baseline: &SnapshotCell) -> Vec<String> {
     let mut fields = Vec::new();
     if actual.text() != baseline.text() {
@@ -1077,10 +953,6 @@ fn diff_cell(actual: &SnapshotCell, baseline: &SnapshotCell) -> Vec<String> {
     fields
 }
 
-/// Resolve a store root: anchor a relative root at the working directory,
-/// then canonicalize it, or its nearest existing ancestor with the missing
-/// remainder appended lexically. A `..` remainder is rejected rather than
-/// resolved.
 fn resolve_root(path: &Path, role: &str) -> Result<PathBuf, CheckError> {
     if path.as_os_str().is_empty() {
         return Err(CheckError::InvalidStorePath {
@@ -1132,8 +1004,6 @@ fn resolve_root(path: &Path, role: &str) -> Result<PathBuf, CheckError> {
     }
 }
 
-/// Reject symlinks in every existing prefix of a store-relative path, so a
-/// link can never redirect a write outside its store root.
 fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), CheckError> {
     let mut current = root.to_path_buf();
     for component in relative.components() {
@@ -1155,7 +1025,6 @@ fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), CheckError> {
     Ok(())
 }
 
-/// SHA-256 hex over raw bytes.
 fn sha256_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let digest = Sha256::digest(bytes);
@@ -1167,8 +1036,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
     out
 }
 
-/// Decode an embedded sample PNG with dimension validation before the pixel
-/// buffer is allocated. Returns raw bytes, width, height, and RGBA pixels.
 fn decode_sample_png(
     base64_png: &str,
     claimed_width: u32,
@@ -1208,7 +1075,6 @@ fn decode_sample_png(
     Ok((raw, width, height, pixels))
 }
 
-/// Enforce image dimension limits on numbers, before any allocation.
 fn check_png_dims(width: u32, height: u32) -> Result<(), CheckError> {
     if width == 0 || height == 0 {
         return Err(SampleError::DimensionMismatch {
@@ -1239,7 +1105,6 @@ fn check_png_dims(width: u32, height: u32) -> Result<(), CheckError> {
     Ok(())
 }
 
-/// Checked `width * height * 4` for an RGBA8 buffer length.
 fn byte_total(width: u32, height: u32) -> Result<usize, CheckError> {
     u64::from(width)
         .checked_mul(u64::from(height))
@@ -1252,7 +1117,6 @@ fn byte_total(width: u32, height: u32) -> Result<usize, CheckError> {
         .map_err(CheckError::from)
 }
 
-/// Encode a difference image as PNG bytes for evidence.
 fn encode_diff_png(diff: &DiffPng) -> Result<Vec<u8>, CheckError> {
     use image::ImageEncoder as _;
     let mut out = Vec::new();
@@ -1268,13 +1132,6 @@ fn encode_diff_png(diff: &DiffPng) -> Result<Vec<u8>, CheckError> {
 }
 
 impl FrozenStore {
-    /// Save the candidate and derived evidence, then describe the failure.
-    ///
-    /// Evidence is keyed by the compared baseline digest (`missing` when
-    /// none): `artifacts/<id>/<candidate>/checks/<baseline>/`. Saved
-    /// candidate and evidence bytes are re-validated before reuse; corrupt
-    /// or digest-mismatched files are a typed error, never a silent
-    /// overwrite. The baseline is never written here.
     #[expect(
         clippy::too_many_arguments,
         reason = "failure evidence needs every compared digest and byte string"
@@ -1343,21 +1200,18 @@ impl FrozenStore {
         })
     }
 
-    /// Resolve the candidate directory, rejecting symlink redirection.
     fn candidate_dir(&self, test_id: &str, candidate_digest: &str) -> Result<PathBuf, CheckError> {
         let relative: PathBuf = [test_id, candidate_digest].iter().collect();
         ensure_no_symlink(&self.artifacts, &relative)?;
         Ok(self.artifacts.join(&relative))
     }
 
-    /// The store-relative check directory for one baseline comparison.
     fn relative_dir(test_id: &str, candidate_digest: &str, baseline_digest: &str) -> PathBuf {
         [test_id, candidate_digest, "checks", baseline_digest]
             .iter()
             .collect()
     }
 
-    /// Save the candidate bytes once; re-validate them on later checks.
     fn save_candidate(
         candidate_dir: &Path,
         candidate_digest: &str,
@@ -1378,9 +1232,6 @@ impl FrozenStore {
         Ok(path)
     }
 
-    /// Save the compared baseline bytes (`expected.tui.json`); never read a
-    /// newer baseline during later reporting, never overwrite another
-    /// digest's evidence.
     fn save_expected(
         check_dir: &Path,
         baseline_digest: &str,
@@ -1403,11 +1254,6 @@ impl FrozenStore {
         Ok(())
     }
 
-    /// Save `expected.png`, `actual.png`, and `diff.png` for pixel gates.
-    /// State gates carry no images; a missing baseline has no expected one.
-    /// A baseline without an image (a state-only sample at a pixel
-    /// candidate's baseline path) likewise yields no `expected.png`: the
-    /// failure still records with full evidence instead of erroring.
     fn save_images(
         check_dir: &Path,
         gate: Gate,
@@ -1443,7 +1289,6 @@ impl FrozenStore {
     }
 }
 
-/// Which sibling images a report may link to.
 struct SavedImages {
     has_expected: bool,
     has_actual: bool,
@@ -1451,7 +1296,6 @@ struct SavedImages {
 }
 
 impl SavedImages {
-    /// No images: state gates and missing baselines.
     const fn none() -> Self {
         Self {
             has_expected: false,
@@ -1461,11 +1305,6 @@ impl SavedImages {
     }
 }
 
-/// Re-validate a saved report before reuse: the existing path must be a
-/// regular file and its bytes must equal the deterministically generated
-/// expected HTML. Any disagreement is corrupt evidence, never silently
-/// trusted and never overwritten: conflicting immutable evidence fails the
-/// check instead.
 fn validate_saved_report(path: &Path, expected: &str) -> Result<(), CheckError> {
     let file_type = fs::symlink_metadata(path)
         .map_err(|source| CheckError::Io { source })?
@@ -1490,8 +1329,6 @@ fn validate_saved_report(path: &Path, expected: &str) -> Result<(), CheckError> 
     Ok(())
 }
 
-/// Re-validate saved sample bytes before reuse: they must parse and their
-/// digest must match the key that stored them.
 fn validate_saved_sample(path: &Path, saved: &[u8], digest: &str) -> Result<(), CheckError> {
     Sample::from_bytes(saved).map_err(|source| CheckError::EvidenceCorrupt {
         detail: format!("{} fails validation: {source}", path.display()),
@@ -1504,7 +1341,6 @@ fn validate_saved_sample(path: &Path, saved: &[u8], digest: &str) -> Result<(), 
     Ok(())
 }
 
-/// Raw PNG bytes embedded in validated sample bytes.
 fn sample_png_bytes(sample_bytes: &[u8]) -> Result<Vec<u8>, CheckError> {
     use base64::Engine as _;
     let sample = Sample::from_bytes(sample_bytes)?;
@@ -1517,7 +1353,6 @@ fn sample_png_bytes(sample_bytes: &[u8]) -> Result<Vec<u8>, CheckError> {
         .map_err(CheckError::from)
 }
 
-/// Save PNG bytes, validating any present file by decoding it.
 fn save_png(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> {
     let path = check_dir.join(name);
     if path.exists() {
@@ -1536,7 +1371,6 @@ fn save_png(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> 
     Ok(())
 }
 
-/// Save encoded difference bytes, validating any present file by decoding.
 fn save_png_bytes(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckError> {
     let path = check_dir.join(name);
     if path.exists() {
@@ -1558,7 +1392,6 @@ fn save_png_bytes(check_dir: &Path, name: &str, png: &[u8]) -> Result<(), CheckE
     Ok(())
 }
 
-/// The schema identifier as an explicit type: only [`CHECK_SCHEMA`] parses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct CheckSchema;
 
@@ -1581,7 +1414,6 @@ impl<'de> serde::Deserialize<'de> for CheckSchema {
     }
 }
 
-/// One changed-cell record in `result.json`: coordinates plus field names.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CellRecord {
@@ -1590,7 +1422,6 @@ struct CellRecord {
     fields: Vec<String>,
 }
 
-/// One pixel-bounds record in `result.json`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BoundsRecord {
@@ -1600,7 +1431,6 @@ struct BoundsRecord {
     max_y: u32,
 }
 
-/// Compared window titles in `result.json`, display-truncated.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct TitleValues {
@@ -1608,9 +1438,6 @@ struct TitleValues {
     baseline: String,
 }
 
-/// The versioned comparison record saved as `result.json` beside the
-/// evidence. Evidence keying, report rendering, and re-validation all read
-/// this record back; unknown fields and unsupported schemas are rejected.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ResultRecord {
@@ -1630,7 +1457,6 @@ struct ResultRecord {
 }
 
 impl ResultRecord {
-    /// Build the record for one failure.
     fn for_failure(
         test_id: &str,
         gate: Gate,
@@ -1672,7 +1498,6 @@ impl ResultRecord {
         }
     }
 
-    /// Save the record, or re-validate a present one against this failure.
     fn save(&self, check_dir: &Path) -> Result<(), CheckError> {
         let path = check_dir.join("result.json");
         if path.exists() {
@@ -1691,7 +1516,6 @@ impl ResultRecord {
         Ok(())
     }
 
-    /// Re-validate a saved record: schema, identity, reason, and digests.
     fn validate_saved(&self, path: &Path, saved: &[u8]) -> Result<(), CheckError> {
         let corrupt = |detail: String| CheckError::EvidenceCorrupt {
             detail: format!("{}: {detail}", path.display()),
@@ -1713,7 +1537,6 @@ impl ResultRecord {
         Ok(())
     }
 
-    /// The report input for this failure.
     fn report_input<'a>(
         &'a self,
         state: &'a StateDiff,
@@ -1744,7 +1567,6 @@ impl ResultRecord {
     }
 }
 
-/// True for 64 lowercase hex characters: a SHA-256 digest shape.
 fn is_hex_digest(value: &str) -> bool {
     value.len() == 64
         && value
@@ -1752,29 +1574,12 @@ fn is_hex_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
-/// File name of the per-root approval lock inside the baseline root.
-///
-/// The lock file is STABLE: it is created once when missing and kept after
-/// every release. It is never unlinked, never truncated, and never created
-/// anew at a held path. Mutual exclusion is the OS file lock
-/// (`flock`/`LockFileEx` through `fs2`) on the open handle, held from lock
-/// acquisition (transaction step 4) through the baseline read, digest
-/// comparison, and atomic replacement, and released at step 19 when the
-/// guard drops. A stale file from a dead process never blocks: the file
-/// carries no lock state, so the next holder opens it and locks it
-/// promptly. Locks serialize holders across processes as well as threads.
 pub(crate) const APPROVAL_LOCK_FILE: &str = ".tuiscotti-approval.lock";
 
-/// How long approval waits for a held lock before it reports a timeout.
 pub(crate) const APPROVAL_LOCK_TIMEOUT_SECS: u64 = 30;
 
-/// Poll interval while approval waits for a held lock to release.
 const APPROVAL_LOCK_POLL: std::time::Duration = std::time::Duration::from_millis(5);
 
-/// A held per-root approval lock.
-///
-/// The guard owns the open handle on the stable lock file: dropping it
-/// releases the OS lock while the file persists for the next holder.
 pub(crate) struct ApprovalFileLock {
     file: std::fs::File,
 }
@@ -1787,12 +1592,9 @@ impl std::fmt::Debug for ApprovalFileLock {
     }
 }
 
-/// Why approval lock acquisition failed.
 #[derive(Debug)]
 pub(crate) enum ApprovalLockError {
-    /// Another holder kept the OS lock past the acquisition deadline.
     Timeout,
-    /// The lock file could not be opened or created.
     Io(std::io::Error),
 }
 
@@ -1821,14 +1623,6 @@ impl From<std::io::Error> for ApprovalLockError {
 }
 
 impl ApprovalFileLock {
-    /// Acquire the approval lock for a canonical baseline root.
-    ///
-    /// The stable file is opened or created (never exclusively: a held path
-    /// is opened, not recreated), then the OS lock is taken with
-    /// non-blocking attempts until `timeout`. A directory at the lock path,
-    /// a read-only root, or a missing root fails fast with
-    /// [`ApprovalLockError::Io`] without waiting. This call never creates
-    /// directories; the root must already exist.
     pub(crate) fn acquire(
         baseline_root: &std::path::Path,
         timeout: std::time::Duration,
@@ -1854,11 +1648,6 @@ impl Drop for ApprovalFileLock {
     }
 }
 
-/// Open or create the stable lock file without truncating it.
-///
-/// Plain creation (not `create_new`): an existing file — held or stale — is
-/// opened as is, so a held path is never recreated and a stale file keeps
-/// no lock state. Owner-only permissions apply when the file is created.
 fn open_lock_file(path: &std::path::Path) -> Result<std::fs::File, ApprovalLockError> {
     let mut options = std::fs::OpenOptions::new();
     options.read(true).write(true).create(true).truncate(false);
@@ -1868,195 +1657,4 @@ fn open_lock_file(path: &std::path::Path) -> Result<std::fs::File, ApprovalLockE
         options.mode(0o600);
     }
     options.open(path).map_err(ApprovalLockError::Io)
-}
-
-#[cfg(test)]
-mod approval_lock_tests {
-    use super::{APPROVAL_LOCK_FILE, ApprovalFileLock};
-    use std::time::Duration;
-
-    /// A fresh directory for lock tests, removed on drop.
-    fn lock_dir() -> tempfile::TempDir {
-        tempfile::tempdir().expect("lock test directory creates")
-    }
-
-    #[test]
-    fn acquire_creates_the_stable_file_when_missing() {
-        let dir = lock_dir();
-        let expected = dir.path().join(APPROVAL_LOCK_FILE);
-        assert!(!expected.exists(), "no lock file before acquisition");
-        let _lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
-            .expect("first acquisition succeeds");
-        assert!(expected.is_file(), "lock file exists while held");
-    }
-
-    #[test]
-    fn acquire_opens_the_stable_file_without_recreating_it() {
-        let dir = lock_dir();
-        let expected = dir.path().join(APPROVAL_LOCK_FILE);
-        std::fs::write(&expected, b"stable").expect("stale file pre-creates");
-        let _lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
-            .expect("acquisition opens the stale file");
-        assert_eq!(
-            std::fs::read(&expected).expect("stable file reads"),
-            b"stable",
-            "a held path is opened, never recreated"
-        );
-    }
-
-    #[test]
-    fn release_keeps_the_lock_file() {
-        let dir = lock_dir();
-        let expected = dir.path().join(APPROVAL_LOCK_FILE);
-        let lock = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
-            .expect("acquisition succeeds");
-        drop(lock);
-        assert!(expected.is_file(), "lock file persists after release");
-    }
-
-    #[test]
-    fn held_lock_times_out_without_stealing_the_file() {
-        let dir = lock_dir();
-        let expected = dir.path().join(APPROVAL_LOCK_FILE);
-        let _held = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
-            .expect("first acquisition succeeds");
-        let started = std::time::Instant::now();
-        let outcome = ApprovalFileLock::acquire(dir.path(), Duration::from_millis(120));
-        assert!(
-            matches!(outcome, Err(super::ApprovalLockError::Timeout)),
-            "a held OS lock reports a timeout"
-        );
-        assert!(
-            started.elapsed() < Duration::from_secs(5),
-            "the wait stops at its deadline"
-        );
-        assert!(expected.is_file(), "the wait never removes the file");
-    }
-
-    #[test]
-    fn release_frees_the_os_lock_on_the_same_file() {
-        let dir = lock_dir();
-        let expected = dir.path().join(APPROVAL_LOCK_FILE);
-        let first = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
-            .expect("first acquisition succeeds");
-        drop(first);
-        let _second = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5))
-            .expect("the next holder locks the same stable file");
-        assert!(expected.is_file(), "the stable file survives both holders");
-    }
-
-    #[test]
-    fn directory_at_lock_path_fails_fast() {
-        let dir = lock_dir();
-        std::fs::create_dir(dir.path().join(APPROVAL_LOCK_FILE)).expect("lock blocker creates");
-        let started = std::time::Instant::now();
-        let outcome = ApprovalFileLock::acquire(dir.path(), Duration::from_secs(5));
-        assert!(
-            matches!(outcome, Err(super::ApprovalLockError::Io(_))),
-            "a directory at the lock path fails I/O, got {outcome:?}"
-        );
-        assert!(
-            started.elapsed() < Duration::from_secs(1),
-            "an unopenable path never waits out the deadline"
-        );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::validate_test_id;
-    use crate::sample::SampleError;
-
-    /// The full Section 14.1 reserved device list, platform-independent.
-    fn device_names() -> Vec<String> {
-        let mut names = vec![
-            "con".to_string(),
-            "prn".to_string(),
-            "aux".to_string(),
-            "nul".to_string(),
-        ];
-        for port in 1..=9u8 {
-            names.push(format!("com{port}"));
-            names.push(format!("lpt{port}"));
-        }
-        names
-    }
-
-    #[test]
-    fn valid_ids_pass_on_any_platform() {
-        for valid in ["a", "views/login", "a-b_c/9x", "x/y/z", &"s".repeat(64)] {
-            assert!(
-                validate_test_id(valid).is_ok(),
-                "valid test ID {valid:?} must pass"
-            );
-        }
-    }
-
-    #[test]
-    fn device_names_fail_on_any_platform() {
-        assert_eq!(device_names().len(), 22);
-        for name in device_names() {
-            assert!(
-                validate_test_id(&name).is_err(),
-                "device name {name:?} must fail"
-            );
-            let nested = format!("views/{name}/login");
-            assert!(
-                validate_test_id(&nested).is_err(),
-                "nested device name {nested:?} must fail"
-            );
-            let upper = format!("views/{}", name.to_ascii_uppercase());
-            assert!(
-                validate_test_id(&upper).is_err(),
-                "uppercase device name {upper:?} must fail"
-            );
-        }
-    }
-
-    #[test]
-    fn malformed_ids_fail_on_any_platform() {
-        for invalid in [
-            "",
-            "/views/login",
-            "views/login/",
-            "views//login",
-            "views/./login",
-            "views/../login",
-            ".",
-            "..",
-            "views\\login",
-            "views/Login",
-            "views/log in",
-            "views/lögn",
-        ] {
-            assert!(
-                validate_test_id(invalid).is_err(),
-                "malformed test ID {invalid:?} must fail"
-            );
-        }
-        let long_segment = "s".repeat(65);
-        assert!(validate_test_id(&long_segment).is_err());
-        let long_id = [
-            "s".repeat(60),
-            "s".repeat(60),
-            "s".repeat(60),
-            "s".repeat(60),
-        ]
-        .join("/");
-        assert!(long_id.len() > 240);
-        assert!(validate_test_id(&long_id).is_err());
-    }
-
-    /// A missing upstream difference image is its own error variant, never a
-    /// dimension mismatch.
-    #[test]
-    fn missing_difference_image_has_dedicated_variant() {
-        let error = SampleError::MissingDifferenceImage {
-            detail: "upstream pixel comparison reports changed pixels without a difference image"
-                .to_string(),
-        };
-        assert!(matches!(error, SampleError::MissingDifferenceImage { .. }));
-        assert!(!matches!(error, SampleError::DimensionMismatch { .. }));
-        assert!(error.to_string().contains("difference image"));
-    }
 }

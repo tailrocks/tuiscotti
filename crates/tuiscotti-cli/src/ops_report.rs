@@ -1,17 +1,10 @@
-//! `report`: a static HTML index from saved candidate evidence.
-//!
-//! The typed [`tuiscotti::write_report_index`] operation walks the
-//! artifact root and writes the index; this handler only maps its
-//! outcome to the Section 16.3 result. Nothing here captures state or
-//! changes approvals: the baseline root is never even opened.
-
+#![doc = include_str!("../docs/ops_report.md")]
 use std::path::Path;
 
 use tuiscotti::write_report_index;
 
 use crate::json_out::{CliResult, emit, encode_path};
 
-/// Run `report` and return the process exit code.
 pub(crate) fn cmd_report(artifacts: &Path, out: &Path, as_json: bool) -> i32 {
     let failed = |error: tuiscotti::IndexError| {
         let reason = error.to_string();

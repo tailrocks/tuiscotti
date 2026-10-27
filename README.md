@@ -53,12 +53,11 @@ let store = FrozenStore::new(
 assert!(!store.check(&sample.to_bytes()?)?.is_pass());
 ```
 
-Runnable end to end: `cargo run -p tuiscotti --example 01-pure-view`
-(exit 0, prints `EXAMPLE-01-OK`). The other examples cover a live
-upstream session (`02-live-session`), a missing baseline and its
-explicit approval (`03-missing-baseline`), read-only evidence outside
-the baseline root (`04-frozen-baseline`), and a state-only sample
-with no pixel requirement (`05-state-only`).
+Runnable end to end: the `functional` suite in
+`crates/tuiscotti-cli/tests/` drives the real `tuiscotti` binary
+through check, accept, render, and report (see
+[docs/TESTING.md](docs/TESTING.md)). There are no example targets;
+`cargo run -p tuiscotti --example …` no longer exists.
 
 ## Baseline review procedure
 
@@ -96,4 +95,4 @@ stay removed: they appear only in the migration record under
 
 ## License
 
-MIT OR Apache-2.0 — see [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE). Bundled fonts keep their own licenses under `crates/tuiscotti/fonts/`.

@@ -1,134 +1,4 @@
-//! Baseline approval with digests and frozen checking (D04, GOAL Section 15).
-//!
-//! [`ApprovalStore::accept`] runs one explicit approval transaction for one
-//! test ID: it refuses under `CI`, validates both digests, locks the stable
-//! per-root file, reads the candidate once, validates the candidate test ID
-//! unconditionally, arbitrates digests against the baseline read under the
-//! same lock, re-renders image samples with render-identity verification,
-//! then stages the baseline and commits it with one atomic rename. The
-//! change summary rides in the returned outcome; no approval-success record
-//! is persisted, so the rename is the final fallible filesystem operation.
-//! The baseline root is never trusted blindly: the expected previous digest
-//! (or the literal `missing` for a first approval) must match the digest of
-//! the bytes actually present, and the candidate digest must match the bytes
-//! actually approved.
-//!
-//! What approval does and does not do:
-//!
-//! - It validates the candidate with [`Sample::from_bytes`], which checks
-//!   the schema, test ID, gate pairing, snapshot, and, for a
-//!   `state-and-pixels` sample, the recorded PNG and RGBA digests against the
-//!   decoded image bytes. Frame and image agreement is structural.
-//! - For an image sample it then re-renders the candidate snapshot through
-//!   the upstream renderer under the candidate's SPECIFIED profile (steps
-//!   10-12): an unresolvable profile rejects with
-//!   [`ApproveError::UnknownProfile`], a renderer refusal rejects with
-//!   [`ApproveError::RenderFailed`] (or [`ApproveError::MissingGlyph`] when
-//!   no specified face holds mandatory text). The expected render contract
-//!   is rebuilt through the same typed constructor as sample creation and
-//!   every material field (fonts, renderer, geometry, policy — but not the
-//!   platform key) is compared pre-commit; differing recorded identity, and
-//!   decoded pixels that differ from the candidate pixels, reject with
-//!   [`ApproveError::InconsistentSample`]. State-only samples skip steps
-//!   10-12 ("if the sample has an image").
-//! - The candidate test-ID grammar validates unconditionally, before any
-//!   baseline path is derived or read: a present baseline never skips it.
-//!   Rejected IDs are never normalized into a path, and the derived
-//!   store-relative path accepts only normal components. When a baseline is
-//!   present, no test-ID or gate cross-comparison runs in the change
-//!   summary: the present-baseline `FrozenStore` comparison classifies
-//!   observed evidence shapes (snapshot state, render contracts, decoded
-//!   pixels) without comparing ID or gate enums. The operation targets the
-//!   candidate test ID; the baseline path derives from that ID.
-//! - It carries the change set in the returned outcome from that same
-//!   comparison (state first, then render contract, then decoded RGBA pixels
-//!   through upstream `compare_rgba`), over the stored bytes only. The
-//!   smallest change set wins; no caller-supplied flags steer it.
-//! - It reads the baseline bytes exactly once per transaction, directly
-//!   from the store under the held lock. The candidate bytes are read once
-//!   and reused by digest, validation, comparison, and upsert, so the
-//!   candidate reference stays consistent throughout.
-//!
-//! Transaction order (GOAL Section 15, numbered steps):
-//!
-//! 1. Refuse when the `CI` variable is set, before any write.
-//! 2. Validate the digest arguments (missing, malformed, and zero digests
-//!    are rejected as `INVALID_SAMPLE`) and store paths.
-//! 3. Make the baseline root when missing.
-//! 4. Acquire the operating-system lock on the stable approval file.
-//! 5. Read the candidate bytes one time with the file-size limit.
-//! 6. Compare their digest with the mandatory candidate digest.
-//! 7. Validate the candidate schema and snapshot.
-//! 8. Validate the candidate test ID unconditionally (never skipped, never
-//!    normalized into a path).
-//! 9. Derive the store-relative baseline path (normal components only) and
-//!    read the baseline from the store under the same lock.
-//! 10. Compare the baseline digest with the mandatory baseline digest.
-//! 11. For an image sample, resolve the candidate's specified render profile.
-//! 12. Rebuild the expected render identity, re-render the candidate
-//!     snapshot through the upstream renderer, and compare the recorded
-//!     identity and the new decoded pixels with the candidate record.
-//! 13. Validate the store-relative paths for the baseline's parent directories.
-//! 14. Make the baseline's parent directories under the locked baseline root.
-//! 15. Write the approved sample bytes unchanged to a same-directory temporary file (exclusive, owner-only, no symlinks).
-//! 16. Flush the temporary file.
-//! 17. Close the temporary file and prepare the outcome.
-//! 18. Atomically rename the temporary file over the baseline (same-directory renames cannot EXDEV, so no copy fallback). This is the final fallible filesystem operation: nothing is persisted after the commit.
-//! 19. Release the lock (the stable lock file persists).
-//! 20. Return the approved test ID, sample digest, and change summary.
-//!
-//! Locking: one lock per baseline root, held from step 4 through step 19,
-//! across the baseline read, digest comparison, re-render, and atomic
-//! replacement. The lock file `<root>/.tuiscotti-approval.lock` is stable:
-//! it is created once when missing, opened (never recreated) by every
-//! holder, and kept after release. Mutual exclusion is the OS file lock on
-//! the open handle, so holders serialize across processes as well as
-//! threads, and a dead process leaves a stale file that never blocks. The
-//! wait stops after 30 seconds with a typed timeout.
-//!
-//! Frozen checking: [`FrozenStore`] has no approval method and gains none
-//! here; checking never writes the baseline root. Approval under a frozen
-//! store is refused in two shapes: a read-only baseline tree fails the lock
-//! or the write with a typed I/O error and writes nothing, and any set `CI`
-//! variable (any value, including empty) refuses approval before any write
-//! with [`ApproveError::CiApprovalForbidden`]. Each approval call is its own
-//! explicit opt-in through its digest arguments; nothing unfreezes a root
-//! persistently.
-//!
-//! Error codes (GOAL Section 16.3): there is no `INVALID_DIGEST` code.
-//! Malformed digest arguments report `INVALID_SAMPLE`; every other
-//! failure reports its Section 16.3 code, mapped per failure shape in
-//! [`ApproveError::code`] (unsupported schemas, resource limits, image
-//! errors, unknown profiles, render failures, missing glyphs, stale
-//! digests, inconsistent samples, lock timeouts, store paths, and I/O
-//! each keep their own code instead of flattening to `INVALID_SAMPLE` or
-//! `INVALID_IMAGE`). Process exit codes are owned by the CLI boundary,
-//! which maps the argument-error shape to 2 and every operational
-//! failure to 3.
-//!
-//! Volatile-data exclusion: the outcome carried by a completed approval
-//! holds no absolute paths, process IDs, timestamps, host names, or session
-//! names. It holds only the test ID, gate, digests, and the compared change
-//! set, all of which recompute deterministically from the approved bytes.
-//!
-//! CLI shape for D05 (recorded, not implemented here): the programmatic path
-//! below is what the future offline command calls.
-//!
-//! ```text
-//! tuiscotti accept --candidate PATH --candidate-sha256 SHA256 --expect-baseline SHA256_OR_MISSING --baselines DIR
-//! ```
-//!
-//! No command equivalence is promised here: D05 owns argument parsing, JSON
-//! output, and process exit codes. The stable machine codes from
-//! [`ApproveError::code`] are the mapping inputs for that command.
-//!
-//! Design notes: approval reuses the frozen differ through `FrozenStore`
-//! instead of duplicating it, so check and
-//! accept cannot disagree on the change set. Small byte-level helpers
-//! (digest shape, root resolution, symlink guard, SHA-256) mirror `check.rs`
-//! without sharing code, because only lock and comparison helpers are
-//! shared across the two files.
-
+#![doc = include_str!("../docs/approve.md")]
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io::Write as _;
@@ -149,96 +19,80 @@ use crate::sample::{
     Gate, RenderContract, Sample, SampleError, SampleImage, read_bounded, read_bounded_optional,
 };
 
-/// Every failure an approval transaction can report, with sources retained.
 #[derive(Debug)]
 #[non_exhaustive]
+#[doc = "Every failure an approval transaction can report, with sources retained."]
 pub enum ApproveError {
-    /// The `CI` variable is set, so approval is refused before any write.
+    #[doc = "The `CI` variable is set, so approval is refused before any write."]
     CiApprovalForbidden,
-    /// A digest argument is missing, malformed, or a zero placeholder.
-    /// Digest arguments are sample-selection input, so these report
-    /// `INVALID_SAMPLE`; the CLI boundary maps them to the argument-error
-    /// exit code 2.
+    #[doc = "A digest argument is missing, malformed, or a zero placeholder."]
     InvalidArgument {
-        /// Which argument failed and how.
+        #[doc = "Which argument failed and how."]
         detail: String,
     },
-    /// The candidate bytes disagree with the supplied candidate digest.
+    #[doc = "The candidate bytes disagree with the supplied candidate digest."]
     StaleCandidate {
-        /// The supplied candidate digest.
+        #[doc = "The supplied candidate digest."]
         expected: String,
-        /// The digest of the bytes actually read.
+        #[doc = "The digest of the bytes actually read."]
         actual: String,
     },
-    /// The present baseline disagrees with the expected previous digest.
+    #[doc = "The present baseline disagrees with the expected previous digest."]
     StaleBaseline {
-        /// The expected previous digest, or `missing`.
+        #[doc = "The expected previous digest, or `missing` for a first approval."]
         expected: String,
-        /// The digest of the bytes actually present, or `missing`.
+        #[doc = "The digest of the bytes actually present, or `missing` when absent."]
         actual: String,
     },
-    /// The approval lock stayed held past the acquisition deadline.
+    #[doc = "The approval lock stayed held past the acquisition deadline."]
     LockTimeout,
-    /// The candidate names a render profile outside the D02 registry, so
-    /// steps 10-12 cannot resolve it.
+    #[doc = "The candidate names a render profile outside the D02 registry."]
     UnknownProfile {
-        /// The rejected profile name.
+        #[doc = "The rejected profile name."]
         requested: String,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
-    /// The upstream renderer refused the candidate snapshot during the
-    /// step-11 re-render.
+    #[doc = "The upstream renderer refused the candidate snapshot during the re-render."]
     RenderFailed {
-        /// The upstream rejection, with its source chain.
+        #[doc = "The upstream rejection, with its source chain."]
         source: RenderError,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
-    /// No specified font can render mandatory text in the candidate
-    /// snapshot during the step-11 re-render.
+    #[doc = "No specified font can render mandatory text in the candidate snapshot."]
     MissingGlyph {
-        /// The upstream missing-glyph rejection.
+        #[doc = "The upstream missing-glyph rejection."]
         source: PinnedFontError,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
-    /// The step-12 comparison found re-rendered pixels that differ from
-    /// the stored candidate pixels.
+    #[doc = "The re-rendered pixels differ from the stored candidate pixels."]
     InconsistentSample {
-        /// What disagreed (dimensions and compared byte counts).
+        #[doc = "What disagreed (dimensions and compared byte counts)."]
         detail: String,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
-    /// A baseline or evidence path is empty, unresolvable, or escapes its
-    /// root through a symlink.
+    #[doc = "A baseline or evidence path is empty, unresolvable, or escapes its root."]
     InvalidStorePath {
-        /// What the path broke.
+        #[doc = "What the path broke."]
         detail: String,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
-    /// The inner frozen comparison, candidate validation, or record
-    /// serialization failed.
+    #[doc = "The inner frozen comparison, candidate validation, or record serialization failed."]
     Check {
-        /// The frozen-store failure, with its source chain.
+        #[doc = "The frozen-store failure, with its source chain."]
         source: CheckError,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
-    /// A filesystem failure outside sample validation.
+    #[doc = "A filesystem failure outside sample validation."]
     Io {
-        /// The filesystem failure.
+        #[doc = "The filesystem failure."]
         source: std::io::Error,
-        /// The baseline digest observed under the lock, or `None` when the
-        /// failure precedes the baseline read.
+        #[doc = "The baseline digest observed under the lock, or `None` before the baseline read."]
         observed_baseline: Option<String>,
     },
 }
@@ -325,14 +179,8 @@ impl From<std::io::Error> for ApproveError {
 }
 
 impl ApproveError {
-    /// The stable machine code for this failure, shared with the CLI map.
-    ///
-    /// Every Section 16.3 code is producible here and maps 1:1 with its
-    /// failure shape: malformed digest arguments are `INVALID_SAMPLE`
-    /// (there is no `INVALID_DIGEST` code), and sample, image, profile,
-    /// render, stale, lock, path, and filesystem failures keep their own
-    /// codes instead of flattening to `INVALID_SAMPLE` or `INVALID_IMAGE`.
     #[must_use]
+    #[doc = "The stable machine code for this failure, shared with the CLI map."]
     pub fn code(&self) -> &'static str {
         match self {
             Self::CiApprovalForbidden => "CI_APPROVAL_FORBIDDEN",
@@ -360,14 +208,8 @@ impl ApproveError {
         }
     }
 
-    /// The digest the baseline root actually held when this failure was
-    /// reported: the present digest for a stale baseline (or `missing`
-    /// when no baseline file was present), the digest read under the lock
-    /// for every failure after the baseline read (`missing` when no
-    /// baseline file was present there either), and `None` when the
-    /// failure precedes the baseline read and carries no observed
-    /// baseline.
     #[must_use]
+    #[doc = "The digest the baseline root actually held when this failure was reported."]
     pub fn observed_baseline(&self) -> Option<&str> {
         match self {
             Self::StaleBaseline { actual, .. } => Some(actual),
@@ -396,9 +238,6 @@ impl ApproveError {
         }
     }
 
-    /// Attach the digest read under the lock to a failure produced after
-    /// the baseline read, so the rejection reports what the root actually
-    /// held instead of no observed baseline.
     #[must_use]
     fn with_observed_baseline(mut self, observed: &str) -> Self {
         let (Self::UnknownProfile {
@@ -437,16 +276,8 @@ impl ApproveError {
     }
 }
 
-/// The Section 16.3 code for one validated sample failure.
-///
-/// Resource exhaustion (`TooLarge`, `DimensionTooLarge`, `RgbaTooLarge`)
-/// is `RESOURCE_LIMIT`; an unknown sample schema is `UNSUPPORTED_SCHEMA`;
-/// PNG, digest, and dimension disagreements are `INVALID_IMAGE`; renderer
-/// refusals are `RENDER_FAILED` except a missing glyph, which is
-/// `MISSING_GLYPH`; filesystem failures are `IO`. Everything else —
-/// test IDs, gates, formats, snapshots, contracts, and evidence shapes —
-/// is `INVALID_SAMPLE`.
 #[must_use]
+#[doc = "The Section 16.3 code for one validated sample failure."]
 pub fn sample_code(source: &SampleError) -> &'static str {
     match source {
         SampleError::TooLarge { .. }
@@ -467,127 +298,98 @@ pub fn sample_code(source: &SampleError) -> &'static str {
     }
 }
 
-/// One completed approval transaction: the reviewed candidate is now the
-/// approved baseline for its test ID.
-///
-/// The change summary rides in the outcome itself: no approval-success
-/// record is persisted beside the baseline, so there is no fallible
-/// evidence write after the atomic replacement.
 #[derive(Debug, Clone)]
+#[doc = "One completed approval transaction: the reviewed candidate is now the approved baseline."]
 pub struct AcceptOutcome {
+    #[doc = "The approved test ID."]
     test_id: String,
+    #[doc = "The gate both the candidate and the new baseline carry."]
     gate: Gate,
+    #[doc = "SHA-256 over the approved candidate bytes."]
     candidate_sha256: String,
+    #[doc = "The previous baseline digest, or `missing` for a first approval."]
     previous_baseline_sha256: String,
+    #[doc = "SHA-256 over the written baseline bytes, always the candidate digest."]
     baseline_sha256: String,
+    #[doc = "The upserted baseline file."]
     baseline_path: PathBuf,
+    #[doc = "The structured change reason for this approval."]
     reason: Option<MismatchReason>,
+    #[doc = "Changed fields recorded for this approval, in comparison order."]
     changed_fields: Vec<String>,
 }
 
 impl AcceptOutcome {
-    /// The approved test ID.
     #[must_use]
+    #[doc = "The approved test ID."]
     pub fn test_id(&self) -> &str {
         &self.test_id
     }
 
-    /// The gate both the candidate and the new baseline carry.
     #[must_use]
+    #[doc = "The gate both the candidate and the new baseline carry."]
     pub const fn gate(&self) -> Gate {
         self.gate
     }
 
-    /// SHA-256 over the approved candidate bytes.
     #[must_use]
+    #[doc = "SHA-256 over the approved candidate bytes."]
     pub fn candidate_sha256(&self) -> &str {
         &self.candidate_sha256
     }
 
-    /// The previous baseline digest from the prepared transaction, or
-    /// `missing` for a first approval.
     #[must_use]
+    #[doc = "The previous baseline digest, or `missing` for a first approval."]
     pub fn previous_baseline_sha256(&self) -> &str {
         &self.previous_baseline_sha256
     }
 
-    /// SHA-256 over the written baseline bytes; always the candidate digest,
-    /// because approval writes the reviewed bytes unchanged.
     #[must_use]
+    #[doc = "SHA-256 over the written baseline bytes, always the candidate digest."]
     pub fn baseline_sha256(&self) -> &str {
         &self.baseline_sha256
     }
 
-    /// The upserted baseline file.
     #[must_use]
+    #[doc = "The upserted baseline file."]
     pub fn baseline_path(&self) -> &Path {
         &self.baseline_path
     }
 
-    /// The structured change reason for this approval: `Missing` for a
-    /// first approval, the frozen-comparison reason when the candidate
-    /// differs from the previous baseline, or `None` when the candidate
-    /// already equals it.
     #[must_use]
+    #[doc = "The structured change reason for this approval."]
     pub const fn reason(&self) -> Option<MismatchReason> {
         self.reason
     }
 
-    /// Changed fields recorded for this approval, in comparison order:
-    /// `["baseline"]` for a first approval, empty when nothing changed.
     #[must_use]
+    #[doc = "Changed fields recorded for this approval, in comparison order."]
     pub fn changed_fields(&self) -> &[String] {
         &self.changed_fields
     }
 }
 
-/// An explicit approval handle over one baseline root.
-///
-/// The handle never approves through frozen comparison: checking stays on
-/// [`FrozenStore`], and only this type writes baselines. Roots that cannot
-/// be written (read-only trees) fail at lock acquisition with a typed I/O
-/// error; a set `CI` variable refuses every call before any write.
 #[derive(Debug, Clone)]
+#[doc = "An explicit approval handle over one baseline root."]
 pub struct ApprovalStore {
+    #[doc = "The canonical baseline root this handle approves into."]
     baselines: PathBuf,
 }
 
 impl ApprovalStore {
-    /// Open an approval handle over a baseline root.
-    ///
-    /// The root resolves through its nearest existing ancestor. It is not
-    /// created here; a missing root is created during [`ApprovalStore::accept`].
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ApproveError`] for an empty or unresolvable root.
+    #[doc = "Open an approval handle over a baseline root.\n\n# Errors\n\nReturns [`ApproveError`] for an empty or unresolvable root."]
     pub fn new(baseline_root: &Path) -> Result<Self, ApproveError> {
         let baselines = resolve_baseline_root(baseline_root)?;
         Ok(Self { baselines })
     }
 
-    /// The canonical baseline root this handle approves into.
     #[must_use]
+    #[doc = "The canonical baseline root this handle approves into."]
     pub fn baseline_root(&self) -> &Path {
         &self.baselines
     }
 
-    /// Approve one candidate for one test ID.
-    ///
-    /// The candidate digest and the expected previous digest (a digest or
-    /// the literal `missing`) are mandatory; missing, malformed, and zero
-    /// digests are rejected. The candidate file is read-only input: it is
-    /// read once and never written. The baseline root gains exactly the
-    /// upserted baseline; the change summary rides in the returned outcome
-    /// instead of a persisted report, so the atomic replacement is the final
-    /// fallible filesystem operation. Refusals (CI, stale digests, corrupt
-    /// input, lock failures) write nothing anywhere.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ApproveError`] for CI refusal, digest rejections, stale
-    /// candidates or baselines, invalid samples or paths, lock timeouts, and
-    /// I/O failures.
+    #[doc = "Approve one candidate for one test ID.\n\n# Errors\n\nReturns [`ApproveError`] for `CI` refusal, digest rejections, stale candidates or baselines, invalid samples or paths, lock timeouts, and I/O failures."]
     pub fn accept(
         &self,
         candidate_path: &Path,
@@ -598,20 +400,6 @@ impl ApprovalStore {
         self.accept_core(candidate_path, candidate_sha256, expected_baseline_sha256)
     }
 
-    /// Run the approval transaction mechanics without the CI gate: steps
-    /// 2-20 (digest validation, root creation, lock, read, arbitration,
-    /// re-render, atomic upsert).
-    ///
-    /// Private: every production, integration-test, example, and CLI caller
-    /// reaches approval through [`ApprovalStore::accept`], which refuses
-    /// under `CI`. Only the unit tests below call this core directly, which
-    /// keeps transaction coverage green under `CI` without unsetting it.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ApproveError`] for digest rejections, stale candidates or
-    /// baselines, invalid samples or paths, lock timeouts, and I/O
-    /// failures.
     fn accept_core(
         &self,
         candidate_path: &Path,
@@ -646,9 +434,6 @@ impl ApprovalStore {
         transaction
     }
 
-    /// Run the locked transaction: the single candidate read, test-ID
-    /// validation, digest arbitration, re-render with identity verification,
-    /// change summary, and the commit-last atomic upsert.
     fn accept_locked(
         baselines: &Path,
         candidate_path: &Path,
@@ -704,12 +489,6 @@ impl ApprovalStore {
     }
 }
 
-/// Derive the store-relative baseline path for a candidate test ID.
-///
-/// Every relative component must be [`Component::Normal`]: root, prefix,
-/// current-directory, and parent-directory components are rejected outright,
-/// never normalized, so no test ID can escape the baseline root through the
-/// derived path.
 fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
     let mut relative = PathBuf::new();
     for component in Path::new(candidate.test_id()).components() {
@@ -746,10 +525,6 @@ fn baseline_relative(candidate: &Sample) -> Result<PathBuf, ApproveError> {
     Ok(relative)
 }
 
-/// Read the baseline file under the held lock through the shared bounded
-/// read: `None` when absent, a resource limit past the size bound, an I/O
-/// error for any other read failure. Bytes past the limit never load, so a
-/// hostile baseline cannot exhaust memory before validation runs.
 fn read_baseline_bytes(baselines: &Path, relative: &Path) -> Result<Option<Vec<u8>>, ApproveError> {
     read_bounded_optional(&baselines.join(relative)).map_err(|error| match error {
         SampleError::Io { source } => ApproveError::Io {
@@ -760,13 +535,6 @@ fn read_baseline_bytes(baselines: &Path, relative: &Path) -> Result<Option<Vec<u
     })
 }
 
-/// Steps 13-18: validate paths, make parent directories, stage the
-/// approved bytes, prepare the outcome, and commit the baseline.
-///
-/// The approved bytes reach their name through one atomic rename, and that
-/// rename is the final fallible filesystem operation of the transaction: no
-/// approval-success record is persisted after the commit, so a refusal can
-/// never report an error after a commit.
 fn write_baseline(
     baselines: &Path,
     relative: &Path,
@@ -828,18 +596,6 @@ fn write_baseline(
     Ok(outcome)
 }
 
-/// Steps 10-12: for an image sample, resolve the candidate's specified
-/// render profile, rebuild the expected render identity through the same
-/// typed constructor as sample creation, re-render the snapshot through the
-/// upstream renderer, and compare the expected identity and the new decoded
-/// pixels with the candidate record.
-///
-/// State-only samples carry no image and skip all three steps. An unknown
-/// profile rejects with [`ApproveError::UnknownProfile`]; a renderer
-/// refusal rejects with [`ApproveError::RenderFailed`] (or
-/// [`ApproveError::MissingGlyph`]); a recorded identity that disagrees with
-/// the re-rendered identity, or pixels that differ from the candidate
-/// pixels, reject with [`ApproveError::InconsistentSample`].
 fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
     let Some(image) = candidate.image() else {
         return Ok(());
@@ -902,15 +658,6 @@ fn rerender_check(candidate: &Sample) -> Result<(), ApproveError> {
     Ok(())
 }
 
-/// The first material render-contract field where the recorded candidate
-/// identity differs from the freshly re-rendered identity, or `None` when
-/// they agree.
-///
-/// Every material field compares: profile, contract version, renderer
-/// version, raster policy, fonts with face indices and style slots,
-/// geometry, scale, title bar, palette digest, cursor phase, and blink. The
-/// platform key is addressing metadata, not rendered identity: a foreign
-/// platform alone never rejects reproducible pixels.
 fn contract_identity_change(
     recorded: &RenderContract,
     expected: &RenderContract,
@@ -960,19 +707,13 @@ fn contract_identity_change(
     None
 }
 
-/// Decoded PNG bytes with dimensions for pixel comparison.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DecodedPng {
-    /// Decoded image width in pixels.
     width: u32,
-    /// Decoded image height in pixels.
     height: u32,
-    /// Row-major 8-bit RGBA pixels.
     pixels: Vec<u8>,
 }
 
-/// Decode freshly rendered PNG bytes: failures are render failures, since
-/// the upstream renderer just encoded these bytes.
 fn decode_rendered_png(png: &[u8]) -> Result<DecodedPng, ApproveError> {
     decode_png(png).map_err(|detail| ApproveError::RenderFailed {
         source: RenderError::RasterFailed {
@@ -982,9 +723,6 @@ fn decode_rendered_png(png: &[u8]) -> Result<DecodedPng, ApproveError> {
     })
 }
 
-/// Decode the stored candidate PNG bytes: failures are image errors. These
-/// bytes already passed [`Sample::from_bytes`] validation, so failure here
-/// is unreachable outside memory corruption.
 fn decode_stored_png(image: &SampleImage) -> Result<DecodedPng, ApproveError> {
     use base64::Engine as _;
     let raw = base64::engine::general_purpose::STANDARD
@@ -1009,7 +747,6 @@ fn decode_stored_png(image: &SampleImage) -> Result<DecodedPng, ApproveError> {
     })
 }
 
-/// Decode 8-bit RGBA PNG bytes with their dimensions.
 fn decode_png(png: &[u8]) -> Result<DecodedPng, String> {
     use image::ImageDecoder as _;
     let decoder = image::codecs::png::PngDecoder::new(std::io::Cursor::new(png))
@@ -1038,16 +775,10 @@ fn decode_png(png: &[u8]) -> Result<DecodedPng, String> {
     })
 }
 
-/// True when the `CI` variable is present with any value, including empty.
-///
-/// Any presence freezes approval: there is no override, and ambient
-/// `BLESS`, `UPDATE`, and `INSTA_UPDATE` variables are ignored outright
-/// (they are never read).
 fn ci_is_set() -> bool {
     std::env::var_os("CI").is_some()
 }
 
-/// Refuse approval while the `CI` variable is set, before any write.
 fn require_no_ci() -> Result<(), ApproveError> {
     if ci_is_set() {
         return Err(ApproveError::CiApprovalForbidden);
@@ -1055,9 +786,6 @@ fn require_no_ci() -> Result<(), ApproveError> {
     Ok(())
 }
 
-/// Validate one mandatory digest argument: missing, malformed, and zero
-/// placeholder digests are rejected as invalid sample-selection input.
-/// Only the expected baseline digest may carry the literal `missing`.
 fn require_digest(role: &str, value: &str, allow_missing: bool) -> Result<(), ApproveError> {
     let invalid = |detail: String| ApproveError::InvalidArgument { detail };
     if value.is_empty() {
@@ -1079,10 +807,6 @@ fn require_digest(role: &str, value: &str, allow_missing: bool) -> Result<(), Ap
     Ok(())
 }
 
-/// True for 64 lowercase hex characters: a SHA-256 digest shape.
-///
-/// This mirrors the frozen comparison helper so approval validates digest
-/// arguments without depending on comparison internals.
 fn is_hex_digest(value: &str) -> bool {
     value.len() == 64
         && value
@@ -1090,7 +814,6 @@ fn is_hex_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
-/// SHA-256 hex over raw bytes: the candidate and baseline keying.
 fn sha256_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let digest = Sha256::digest(bytes);
@@ -1102,10 +825,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
     out
 }
 
-/// Read the candidate file once through the shared bounded read: the file
-/// is read-only input, and bytes past the sample limit fail as a resource
-/// limit before validation runs. An unreadable candidate names its path in
-/// the error.
 fn read_candidate_bytes(path: &Path) -> Result<Vec<u8>, ApproveError> {
     read_bounded(path).map_err(|error| match error {
         SampleError::Io { source } => ApproveError::Io {
@@ -1119,10 +838,6 @@ fn read_candidate_bytes(path: &Path) -> Result<Vec<u8>, ApproveError> {
     })
 }
 
-/// Resolve a baseline root: anchor a relative root at the working
-/// directory, then canonicalize it, or its nearest existing ancestor with
-/// the missing remainder appended lexically. A `..` remainder is rejected
-/// rather than resolved.
 fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
     if path.as_os_str().is_empty() {
         return Err(ApproveError::InvalidStorePath {
@@ -1180,8 +895,6 @@ fn resolve_baseline_root(path: &Path) -> Result<PathBuf, ApproveError> {
     }
 }
 
-/// Reject symlinks in every existing prefix of a store-relative path, so a
-/// link can never redirect a baseline or evidence write outside its root.
 fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), ApproveError> {
     let mut current = root.to_path_buf();
     for component in relative.components() {
@@ -1209,19 +922,11 @@ fn ensure_no_symlink(root: &Path, relative: &Path) -> Result<(), ApproveError> {
     Ok(())
 }
 
-/// A temporary file that removes itself on drop unless committed. Writes go
-/// to the destination directory, flush before the handle closes, and reach
-/// their name through one atomic rename.
 struct TempFile {
     path: Option<PathBuf>,
 }
 
 impl TempFile {
-    /// Create a uniquely named temporary file in a directory.
-    ///
-    /// Exclusive creation with owner-only mode: the call never follows a
-    /// symlink (a planted link at the fresh name fails creation), and the
-    /// file is never truncated or reused.
     fn create(dir: &Path, name: &str) -> Result<(fs::File, Self), std::io::Error> {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -1237,11 +942,6 @@ impl TempFile {
         Ok((file, Self { path: Some(path) }))
     }
 
-    /// Flush, close, and atomically rename the temporary file.
-    ///
-    /// Both paths share one directory, so the rename cannot cross devices:
-    /// there is no copy fallback (a copy would not be atomic), and any
-    /// rename failure removes the temporary file and reports I/O.
     fn commit(mut self, target: &Path) -> Result<(), std::io::Error> {
         let Some(path) = self.path.take() else {
             return Err(std::io::Error::other(
@@ -1266,16 +966,12 @@ impl Drop for TempFile {
     }
 }
 
-/// The change summary between the candidate and the previous baseline, in
-/// comparison order: the smallest difference the frozen comparison reports.
-/// The summary rides in the returned outcome; it is never persisted.
 struct ChangeSet {
     reason: Option<MismatchReason>,
     fields: Vec<String>,
 }
 
 impl ChangeSet {
-    /// An empty change set: the candidate already equals the baseline.
     fn empty() -> Self {
         Self {
             reason: None,
@@ -1283,8 +979,6 @@ impl ChangeSet {
         }
     }
 
-    /// The change set for a first approval: no baseline to compare, so
-    /// the single changed field is the missing baseline itself.
     fn missing() -> Self {
         Self {
             reason: Some(MismatchReason::Missing),
@@ -1292,9 +986,6 @@ impl ChangeSet {
         }
     }
 
-    /// The change set from a present-baseline comparison, verbatim. The
-    /// comparison never ran test-ID or gate cross-comparison; a pass is an
-    /// empty change set.
     fn from_present(comparison: PresentComparison) -> Self {
         match comparison {
             PresentComparison::Pass => Self::empty(),
@@ -1305,405 +996,6 @@ impl ChangeSet {
                 reason: Some(reason),
                 fields: changed_fields,
             },
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::{Path, PathBuf};
-
-    use tui_test::profile::Rgb;
-    use tui_test::terminal::cell::Attrs;
-    use tui_test::{
-        SnapshotCell, SnapshotColor, SnapshotCursor, SnapshotCursorShape, SnapshotMetadata,
-        SnapshotParts, SnapshotScope, TerminalSnapshot,
-    };
-
-    use super::{
-        ApprovalStore, is_hex_digest, require_digest, resolve_baseline_root, sample_code,
-        sha256_hex,
-    };
-    use crate::sample::{Observation, Sample, SampleError};
-    use crate::view::ViewSettings;
-
-    #[test]
-    fn sha256_matches_the_known_vector() {
-        assert_eq!(
-            sha256_hex(b"abc"),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
-    }
-
-    #[test]
-    fn digest_shape_rejects_non_digests() {
-        assert!(is_hex_digest(&"a".repeat(64)));
-        assert!(is_hex_digest(&"0".repeat(64)));
-        for bad in ["", "abc", &"a".repeat(63), &"a".repeat(65), &"A".repeat(64)] {
-            assert!(!is_hex_digest(bad), "{bad:?} is not a digest shape");
-        }
-    }
-
-    #[test]
-    fn digest_arguments_reject_missing_malformed_and_zero() {
-        assert!(require_digest("candidate", &"a".repeat(64), false).is_ok());
-        assert!(require_digest("expected baseline", "missing", true).is_ok());
-        for bad in ["", "abc", &"A".repeat(64), &"0".repeat(64)] {
-            match require_digest("candidate", bad, false) {
-                Err(error @ super::ApproveError::InvalidArgument { .. }) => {
-                    assert_eq!(error.code(), "INVALID_SAMPLE");
-                    assert!(error.observed_baseline().is_none());
-                }
-                other => panic!("{bad:?} must fail as an invalid argument, got {other:?}"),
-            }
-        }
-        assert!(
-            require_digest("expected baseline", "", true).is_err(),
-            "an empty expected digest must fail"
-        );
-        assert!(
-            require_digest("expected baseline", "missing", false).is_err(),
-            "`missing` needs its own argument slot"
-        );
-    }
-
-    #[test]
-    fn sample_errors_keep_their_section_16_3_codes() {
-        let invalid_sample = [
-            SampleError::InvalidTestId {
-                detail: "bad".to_string(),
-            },
-            SampleError::GateMismatch {
-                detail: "bad".to_string(),
-            },
-            SampleError::UnknownField {
-                detail: "bad".to_string(),
-            },
-        ];
-        for error in &invalid_sample {
-            assert_eq!(sample_code(error), "INVALID_SAMPLE", "{error:?}");
-        }
-        let resource_limit = [
-            SampleError::TooLarge {
-                what: "sample file",
-                bytes: 1,
-                limit: 0,
-            },
-            SampleError::DimensionTooLarge {
-                width: 1,
-                height: 1,
-                limit: 0,
-            },
-            SampleError::RgbaTooLarge { bytes: 1, limit: 0 },
-        ];
-        for error in &resource_limit {
-            assert_eq!(sample_code(error), "RESOURCE_LIMIT", "{error:?}");
-        }
-        assert_eq!(
-            sample_code(&SampleError::UnsupportedSchema {
-                version: "tuiscotti.sample.v2".to_string(),
-            }),
-            "UNSUPPORTED_SCHEMA"
-        );
-    }
-
-    #[test]
-    fn empty_roots_fail_fast() {
-        let outcome = resolve_baseline_root(std::path::Path::new(""));
-        assert!(
-            matches!(outcome, Err(super::ApproveError::InvalidStorePath { .. })),
-            "an empty root fails before any write"
-        );
-    }
-
-    #[test]
-    fn staged_commit_writes_without_temp_residue() {
-        use std::io::Write as _;
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let (mut staged, temp) =
-            super::TempFile::create(dir.path(), "baseline.tui.json").expect("stage creates");
-        staged.write_all(b"{\"ok\":true}").expect("stage writes");
-        staged.flush().expect("stage flushes");
-        drop(staged);
-        let target = dir.path().join("baseline.tui.json");
-        temp.commit(&target).expect("commit renames");
-        assert_eq!(
-            std::fs::read(&target).expect("written bytes read"),
-            b"{\"ok\":true}"
-        );
-        for entry in std::fs::read_dir(dir.path()).expect("directory lists") {
-            let name = entry
-                .expect("entry reads")
-                .file_name()
-                .to_string_lossy()
-                .into_owned();
-            assert!(
-                !name.starts_with(".tmp-accept-"),
-                "temporary file {name:?} left behind"
-            );
-        }
-    }
-
-    #[test]
-    fn dropped_stage_leaves_no_temp_residue() {
-        use std::io::Write as _;
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let (mut staged, temp) =
-            super::TempFile::create(dir.path(), "baseline.tui.json").expect("stage creates");
-        staged.write_all(b"{\"ok\":true}").expect("stage writes");
-        drop(staged);
-        drop(temp);
-        for entry in std::fs::read_dir(dir.path()).expect("directory lists") {
-            let name = entry
-                .expect("entry reads")
-                .file_name()
-                .to_string_lossy()
-                .into_owned();
-            assert!(
-                !name.starts_with(".tmp-accept-"),
-                "temporary file {name:?} left behind"
-            );
-        }
-    }
-
-    /// Fixed 4x2 snapshot fixture: one grapheme per cell, hidden cursor.
-    fn unit_snapshot() -> Result<TerminalSnapshot, String> {
-        let cells: Vec<SnapshotCell> = (0..8)
-            .map(|_| {
-                SnapshotCell::new(
-                    "a".to_string(),
-                    1,
-                    SnapshotColor::Default,
-                    SnapshotColor::Default,
-                    Attrs::empty(),
-                    tui_test::SnapshotUnderline::None,
-                    SnapshotColor::Default,
-                    None,
-                    None,
-                )
-                .map_err(|error| format!("fixture cell: {error:?}"))
-            })
-            .collect::<Result<_, _>>()?;
-        TerminalSnapshot::try_new(SnapshotParts {
-            cols: 4,
-            rows: 2,
-            scope: SnapshotScope::Viewport,
-            viewport_origin: 0,
-            cells,
-            palette: *ViewSettings::builtin().palette(),
-            default_foreground: Rgb::new(192, 192, 192),
-            default_background: Rgb::new(0, 0, 0),
-            default_cursor: Rgb::new(192, 192, 192),
-            cursor: SnapshotCursor::new(
-                0,
-                0,
-                true,
-                false,
-                SnapshotCursorShape::Block,
-                Rgb::new(192, 192, 192),
-                None,
-            ),
-            title: None,
-            metadata: SnapshotMetadata::default(),
-        })
-        .map_err(|error| format!("fixture snapshot: {error:?}"))
-    }
-
-    /// State-only sample bytes for a test ID: no render contract, no
-    /// image, so the core covers steps 5-9 and 13-20 without fonts.
-    fn unit_state_bytes(test_id: &str) -> Result<Vec<u8>, String> {
-        let snapshot = unit_snapshot()?;
-        Sample::state(test_id, snapshot, Observation::empty())
-            .map_err(|error| format!("fixture sample: {error:?}"))?
-            .to_bytes()
-            .map_err(|error| format!("fixture bytes: {error:?}"))
-    }
-
-    /// Write candidate bytes to a file and return its path.
-    fn unit_candidate_file(dir: &Path, name: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
-        let path = dir.join(name);
-        std::fs::write(&path, bytes)?;
-        Ok(path)
-    }
-
-    /// Store-relative baseline path for a test ID, without touching disk.
-    fn unit_baseline_path(root: &Path, test_id: &str) -> PathBuf {
-        let mut path = root.join(test_id);
-        path.set_extension("tui.json");
-        path
-    }
-
-    /// Write baseline bytes for a test ID, making parent directories.
-    fn unit_write_baseline(root: &Path, test_id: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
-        let path = unit_baseline_path(root, test_id);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::write(&path, bytes)?;
-        Ok(path)
-    }
-
-    /// The core approves a first state-only sample: baseline bytes and the
-    /// outcome-carried change summary, with the lock file kept and no
-    /// evidence directory.
-    #[test]
-    fn core_first_approval_writes_baseline_and_outcome() {
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let baselines = dir.path().join("baselines");
-        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
-        let digest = sha256_hex(&bytes);
-        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
-            .expect("candidate writes");
-        let store = ApprovalStore::new(&baselines).expect("approval store opens");
-        let accepted = store
-            .accept_core(&candidate, &digest, "missing")
-            .expect("core approves");
-        assert_eq!(accepted.test_id(), "views/login");
-        assert_eq!(accepted.candidate_sha256(), digest);
-        assert_eq!(accepted.previous_baseline_sha256(), "missing");
-        assert_eq!(accepted.baseline_sha256(), digest);
-        assert_eq!(
-            accepted.reason(),
-            Some(crate::check::MismatchReason::Missing)
-        );
-        assert_eq!(accepted.changed_fields(), &["baseline".to_string()]);
-        assert_eq!(
-            std::fs::read(unit_baseline_path(&baselines, "views/login")).expect("baseline reads"),
-            bytes
-        );
-        assert!(accepted.baseline_path().is_file());
-        let mut entries: Vec<String> = std::fs::read_dir(&baselines)
-            .expect("baseline root lists")
-            .map(|entry| {
-                entry
-                    .expect("entry reads")
-                    .file_name()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .collect();
-        entries.sort_unstable();
-        assert_eq!(
-            entries,
-            vec![".tuiscotti-approval.lock".to_string(), "views".to_string(),],
-            "a success writes exactly the baseline plus the stable lock file"
-        );
-    }
-
-    /// The core records the previous digest on a second approval of the
-    /// same bytes.
-    #[test]
-    fn core_second_approval_records_previous_digest() {
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let baselines = dir.path().join("baselines");
-        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
-        let digest = sha256_hex(&bytes);
-        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
-            .expect("candidate writes");
-        let store = ApprovalStore::new(&baselines).expect("approval store opens");
-        let first = store
-            .accept_core(&candidate, &digest, "missing")
-            .expect("first approval runs");
-        assert_eq!(first.previous_baseline_sha256(), "missing");
-        let second = store
-            .accept_core(&candidate, &digest, &digest)
-            .expect("second approval runs");
-        assert_eq!(second.test_id(), first.test_id());
-        assert_eq!(second.baseline_sha256(), digest);
-        assert_eq!(second.previous_baseline_sha256(), digest);
-    }
-
-    /// The core rejects a wrong candidate digest before any baseline
-    /// write.
-    #[test]
-    fn core_stale_candidate_rejected_without_baseline() {
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let baselines = dir.path().join("baselines");
-        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
-        let digest = sha256_hex(&bytes);
-        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
-            .expect("candidate writes");
-        let store = ApprovalStore::new(&baselines).expect("approval store opens");
-        let wrong = "d".repeat(64);
-        match store.accept_core(&candidate, &wrong, "missing") {
-            Err(super::ApproveError::StaleCandidate { expected, actual }) => {
-                assert_eq!(expected, wrong);
-                assert_eq!(actual, digest);
-            }
-            other => panic!("a wrong candidate digest must fail, got {other:?}"),
-        }
-        assert!(
-            !unit_baseline_path(&baselines, "views/login").exists(),
-            "stale candidates write no baseline"
-        );
-    }
-
-    /// The core rejects a stale expected digest with the planted baseline
-    /// left untouched.
-    #[test]
-    fn core_stale_baseline_leaves_planted_bytes() {
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let baselines = dir.path().join("baselines");
-        std::fs::create_dir_all(&baselines).expect("baseline root creates");
-        let first_bytes = unit_state_bytes("views/login").expect("fixture sample builds");
-        unit_write_baseline(&baselines, "views/login", &first_bytes).expect("baseline plants");
-        let second_bytes = unit_state_bytes("views/login").expect("fixture sample builds");
-        let second_digest = sha256_hex(&second_bytes);
-        let second = unit_candidate_file(dir.path(), "second.tui.json", &second_bytes)
-            .expect("candidate writes");
-        let store = ApprovalStore::new(&baselines).expect("approval store opens");
-        match store.accept_core(&second, &second_digest, &"c".repeat(64)) {
-            Err(super::ApproveError::StaleBaseline { .. }) => {}
-            other => panic!("a stale baseline must fail, got {other:?}"),
-        }
-        assert_eq!(
-            std::fs::read(unit_baseline_path(&baselines, "views/login")).expect("baseline reads"),
-            first_bytes
-        );
-    }
-
-    /// The core fails a lock path blocked by a directory with a typed I/O
-    /// error and writes nothing.
-    #[test]
-    fn core_blocked_lock_path_fails_without_writes() {
-        let dir = tempfile::tempdir().expect("scratch directory creates");
-        let baselines = dir.path().join("baselines");
-        std::fs::create_dir_all(&baselines).expect("baseline root creates");
-        std::fs::create_dir(baselines.join(".tuiscotti-approval.lock"))
-            .expect("lock blocker creates");
-        let bytes = unit_state_bytes("views/login").expect("fixture sample builds");
-        let digest = sha256_hex(&bytes);
-        let candidate = unit_candidate_file(dir.path(), "candidate.tui.json", &bytes)
-            .expect("candidate writes");
-        let store = ApprovalStore::new(&baselines).expect("approval store opens");
-        match store.accept_core(&candidate, &digest, "missing") {
-            Err(error @ super::ApproveError::Io { .. }) => {
-                assert_eq!(error.code(), "IO");
-            }
-            other => panic!("a blocked lock path must fail I/O, got {other:?}"),
-        }
-        assert!(
-            !unit_baseline_path(&baselines, "views/login").exists(),
-            "lock faults write no baseline"
-        );
-    }
-
-    /// The CI gate coheres with the environment: refusal happens exactly
-    /// when `CI` is present, with the code-3 error. Per-value refusal
-    /// (including empty values) and the no-write guarantee run in
-    /// dedicated child processes in `tests/approval.rs`, which set the
-    /// child environment without touching this process.
-    #[test]
-    fn ci_gate_matches_environment_presence() {
-        let present = std::env::var_os("CI").is_some();
-        assert_eq!(super::ci_is_set(), present);
-        match super::require_no_ci() {
-            Ok(()) => assert!(!present, "an absent CI variable opens the gate"),
-            Err(error @ super::ApproveError::CiApprovalForbidden) => {
-                assert!(present, "a present CI variable refuses the gate");
-                assert_eq!(error.code(), "CI_APPROVAL_FORBIDDEN");
-            }
-            Err(other) => panic!("the CI gate reports only refusal, got {other:?}"),
         }
     }
 }

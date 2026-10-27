@@ -12,11 +12,15 @@ scope, fails closed where applicable).
 | Linux (x86_64) | tested in CI | CI lanes run `ubuntu-24.04`; the D07 head regenerates per-crate lanes from the two remaining members. |
 | Windows (ConPTY) | not run | No Windows lane exists and no Windows test process has ever executed. Windows is never green until a CI lane runs it. |
 
-Unix-only live behavior: `session_migration` (direct upstream
-`tui_test` sessions over PTY) is `#![cfg(unix)]`. Pure-view capture,
-samples, checks, approvals, and all four CLI commands are platform
-portable. Unix file locking (`fs2`) guards approval; on other
-platforms the OS equivalent applies.
+Unix-only live behavior: the old `session_migration` suite (direct
+upstream `tui_test` sessions over PTY, `#![cfg(unix)]`) was retired
+in the functional-suite consolidation; no current test opens a PTY
+directly or carries a `#![cfg(unix)]` gate. Live process behavior is
+exercised portably through real child processes (`closed_stdout`)
+and synthetic capture/check/approve/report flows (`live_workflow`).
+Pure-view capture, samples, checks, approvals, and all four CLI
+commands are platform portable. Unix file locking (`fs2`) guards
+approval; on other platforms the OS equivalent applies.
 
 ## Supported fonts
 

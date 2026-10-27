@@ -264,3 +264,40 @@ multiple locales) drove eight durable design refinements:
   subprocess tests document the two-part deterministic clock/tick
   environment + semantic-wait pattern ([LIMITATIONS.md](LIMITATIONS.md),
   [TESTING.md](TESTING.md)).
+
+## 15. cargo-deny advisory ignores and the provisional fork source
+
+`deny.toml` carries advisory ignores `RUSTSEC-2026-0206` (`rustybuzz`
+unmaintained; transitive via the tui-test-rs fork pin, no safe upgrade,
+ecosystem successor is `skrifa`) and `RUSTSEC-2026-0192` (`ttf-parser`
+unmaintained, same migration path via fontdb/rustybuzz). Remove both
+when shaping migrates off rustybuzz. The only permitted git source is
+the maintained donbeave/tui-test fork (provisional `[patch.crates-io]`
+until upstream merges and a registry release exists); source validation
+stays deny-by-default. Rationale lives here because `deny.toml`
+contains no prose comments: cargo-deny consumes only the IDs and URLs.
+`MPL-2.0` is allowed solely for `option-ext` 0.2.0, pulled transitively
+via `dirs-sys <- dirs <- tui-test-rs` (unavoidable upstream dep of the
+provisional fork pin). Retire this entry only if the upstream dependency
+graph drops `option-ext` (e.g. dirs/tui-test-rs remove the dependency and
+`cargo deny check licenses` stays green without it).
+
+## 16. Local-only mise gates
+
+The `ci-*` tasks in `mise.toml` never run in generated CI: schema 2
+`.velnor/config.toml` has no custom-task hook, and generated CI covers
+fmt, clippy, nextest, doctests, and doc through its own
+compile_driver/test_runner. The tasks exist for local pre-release
+verification (`ci-msrv` is the only MSRV vehicle). They run online
+without `--offline` because fresh CI runners have no cargo cache, and
+every command in them is verified locally before commit.
+
+## 17. Exact toolchain and helper pins
+
+`mise.toml` pins every tool exact, never floating: `mr-boxington`,
+`rust` 1.99.1 with `clippy`/`rustfmt` components and both Linux targets,
+`alint`, and `cargo-deny` as upstream release binaries (same versions
+the old source builds used, but CI-fresh-runner installs download
+binaries instead of compiling). The `rust` 1.99.1 pin stays consistent
+with `rust-toolchain.toml`. Root `mise.toml` matches the Renovate
+`mise` manager file patterns and the Velnor Rust-unit watch list.

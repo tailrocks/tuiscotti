@@ -1,6 +1,6 @@
 # Contributing
 
-Pinned toolchain: Rust **1.98.1** (`rust-toolchain.toml`), edition 2024.
+Pinned toolchain: Rust **1.99.1** (`rust-toolchain.toml`), edition 2024.
 `cargo` on PATH may be a cache shim; behavior is identical.
 
 ## Setup

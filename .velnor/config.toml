@@ -22,7 +22,7 @@ default_shards = 1
 ignore = []
 
 [stacks.rust]
-compile_driver = "cargo"
+compile_driver = "mbx"
 test_runner = "cargo_nextest"
 
 [[stacks.rust.configurations]]

@@ -1,50 +1,31 @@
 # Tests and CI
 
-Two shipping crates, ordinary Rust tests, `nextest` runner. No custom
-test runner, no fixture workspace, no `xtask`. Historical full-suite
-result (not the current HEAD): 205 run / 205 passed in both the
-default and `CI=true` lanes (qual-stack-r5 pin `81da26f`, downstream
-commit `49453af`; macOS/aarch64 workstation, toolchain per
-`rust-toolchain.toml`). The
-per-suite counts below are the V01 vintage (167/167 at `18d57ad`);
-see "Result vintages" before quoting them at HEAD.
+Two shipping crates, one functional suite, `nextest` runner. No custom
+test runner, no fixture workspace, no `xtask`, no unit tests, no
+examples. The suite is `functional` in `crates/tuiscotti-cli/tests/`
+(4 tests, listed below); it exercises the shipped CLI binary and the
+public library API end to end through real files and real processes.
+Historical per-suite counts from retired suites are kept under
+"Result vintages" and must not be quoted for the current tree.
 
 ## Layout
 
-| Location | Suites (tests at V01) |
+| Location | Suites (tests at HEAD) |
 |---|---|
-| `crates/tuiscotti/tests/` | `pure_view` (30), `approval` (30), `samples` (20), `compare` (14), `session_migration` (12), `no_duplicate_engine` (5), `examples_lane` (1) |
-| `crates/tuiscotti/src/` | unit tests (19) + doctests in `view.rs` (2) |
-| `crates/tuiscotti-cli/tests/` | `cli_check_accept` (12), `cli_render_report` (12), `cli_surface` (8), `cli_rework` (5 at HEAD — post-V01 rework-contract suite) |
-| `crates/tuiscotti-cli/src/` | binary unit tests (4) |
-| `crates/tuiscotti/examples/` | `01-pure-view` … `05-state-only` (the learning lane) |
+| `crates/tuiscotti-cli/tests/` | `functional` (4) |
+| `crates/tuiscotti/src/` | no tests |
+| `crates/tuiscotti-cli/src/` | no tests |
 
-Counts are `cargo nextest run --workspace --locked --offline` observed
-results at the V01 vintage above. The `no_duplicate_engine` suite is the C18 removal proof
-(incl. the lockfile test: only `tuiscotti`, `tuiscotti-cli`, and the
-`tui-test-rs` path patch lack a registry source). `compare.rs` carries
-the D03 frozen-store checks (never writes to baselines, read-only-root
-rejection, symlink-escape rejection, concurrency).
+## The functional suite
 
-## Examples lane (learning path)
+| Test | Proves |
+|---|---|
+| `live_workflow` | A user captures a real terminal view from an in-memory Ratatui buffer, compares it, approves it, and reports on it: missing → accept → pass → changed → render (PNG decoding and dimensions, embedded-HTML page with markers) → indexed report with a report filename check. |
+| `invalid_input` | Malformed arguments, corrupt samples, oversize input, and unsupported output extensions fail with the documented exit codes and error codes and never create or replace a baseline. It also checks direct-dependency rules with temporary manifests. |
+| `ci_refuses_approval` | A set `CI` variable (empty, `false`, `true`) refuses approval without touching baselines; an unset `CI` approves. |
+| `closed_stdout` | A closed output pipe preserves the operation result, and nothing panics. |
 
-Five small programs, each one idea. Each binary exits 0 and prints its
-`EXAMPLE-0N-*` marker; `examples_lane` asserts both.
-
-| # | Example | Idea |
-|---|---|---|
-| 01 | `01-pure-view` | Production Ratatui draw closure captured in-process, no terminal device or child process |
-| 02 | `02-live-session` | Live Rust TUI driven through direct upstream `Session` control |
-| 03 | `03-missing-baseline` | Missing baseline → explicit candidate approval |
-| 04 | `04-frozen-baseline` | Read-only baseline check with evidence in a directory outside the baseline root |
-| 05 | `05-state-only` | State-only sample for a test with no pixel requirement |
-
-```sh
-cargo run -p tuiscotti --example 01-pure-view   # any single step
-cargo nextest run -p tuiscotti --test examples_lane  # runs all 5, asserts exit 0 + markers
-```
-
-Direct-view and live-session examples use the same downstream sample API.
+The suite runs the shipped CLI binary in fresh temporary stores. It checks selected exit codes and JSON fields, approved sample bytes, PNG decoding and dimensions, HTML markers, and the report filename in the index.
 
 ## Running the suite
 
@@ -57,8 +38,11 @@ for `--offline` builds):
 
 ```sh
 cargo nextest run --workspace --locked --offline
+cargo nextest run --workspace --locked --offline --no-default-features
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --locked --offline -- -D warnings
+cargo clippy --workspace --all-targets --locked --offline --no-default-features -- -D warnings
+cargo clippy --workspace --all-targets --locked --offline --all-features -- -D warnings
 ```
 
 On this machine, prefix every `cargo` invocation with a `disk-check`
@@ -66,27 +50,27 @@ probe and run it through `rust-build-guard -- mise exec -- cargo …`
 (per `docs/migration/decisions.md`, D-GUARD-1); the bare commands above
 are what the guard executes.
 
-The workspace defines zero cargo features, so there are no
-feature-combination runs. `cargo test` is not used (`nextest` only, per
-repo policy); doctests ride separately (`cargo test --locked --offline
---doc`, same clean-checkout precondition). No task-local config file is
+Neither workspace crate defines cargo features, so there is no
+feature-combination matrix of our own; the default, `--no-default-features`,
+and `--all-features` selections below exercise the same suite against
+dependency feature unification. `cargo test` is not used (`nextest` only,
+per repo policy). No task-local config file is
 involved at any step.
 
 Test discipline: explicit test IDs and explicit artifact roots.
-Concurrent attempts for the same test ID keep every candidate.
 Filesystem tests use temporary directories. No process-wide environment
-mutation in parallel tests. No sleeps to hide races — bounded condition
-waits only.
+mutation in parallel tests. No sleeps to hide races.
 
 ## Result vintages
 
-The per-suite counts above are the V01 record. Later vintages:
-B7 asset relocation (`samples` 20 → 21, HEAD 168); qual-stack-r2
-re-pin + approval-port merge + exit-code repair (HEAD `883c9b1`,
-201/201 in default and `CI=true` lanes); qual-stack-r3 re-pin +
-round-2 fixes (HEAD `49453af`, 205/205 in default and `CI=true`
-lanes). Re-run the suite at HEAD before quoting counts in reviews
-or packets.
+Retired suites (deleted in the Apache-2.0/functional-suite refactor;
+kept here as history, not quoted for the current tree): V01
+(167/167); B7 asset relocation (`samples` 20 → 21, 168/168);
+qual-stack-r2 re-pin + approval-port merge + exit-code repair (HEAD
+`883c9b1`, 201/201 in default and `CI=true` lanes); qual-stack-r3
+re-pin + round-2 fixes (HEAD `49453af`, 205/205 in default and
+`CI=true` lanes). Re-run the suite at HEAD before quoting counts in
+reviews or packets.
 
 ## CI wiring
 
@@ -96,7 +80,12 @@ never hand-edit `.github/workflows/ci.yml` beyond what the generator
 produces (its `Check generated files` job diffs the two).
 The generator emits one `nextest` lane per crate under default and
 `no-default` configurations, plus `actionlint`, `plan`, and the
-`required` merge gate.
+`required` merge gate — except the `tuiscotti` lib crate, which
+declares `[lib] test = false` and therefore gets no `nextest` step
+(the generator reports `no test targets; no test command emitted`).
+That crate is still covered in CI by `Format`, `Clippy`, `Doctests`
+(2 doc tests), and `Documentation`, and its behavior is exercised
+end-to-end by the `functional` suite in the CLI crate.
 
 Gates run everywhere; approval happens only on a human workstation.
 There is no flag or variable that approves — `ApprovalStore::accept`

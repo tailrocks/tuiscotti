@@ -1,11 +1,4 @@
-//! `check`: frozen comparison of a saved sample, fully offline.
-//!
-//! Reads the sample, compares it against the baseline for its test ID
-//! through [`FrozenStore`](tuiscotti::check::FrozenStore), and reports
-//! the outcome. Nothing here starts an application or writes a
-//! baseline: a missing baseline is a `missing` failure at exit 1, and
-//! failure evidence goes to the artifact root only.
-
+#![doc = include_str!("../docs/ops_check.md")]
 use std::path::Path;
 
 use tuiscotti::approve::sample_code;
@@ -14,11 +7,6 @@ use tuiscotti::check::{CheckError, FrozenStore, MISSING_BASELINE};
 use crate::input::read_sample_bytes;
 use crate::json_out::{CliResult, emit, encode_path};
 
-/// The Section 16.3 code for a frozen-check failure, reusing the library
-/// mapping: sample shapes keep their D04 codes, bad store paths are
-/// `INVALID_STORE_PATH`, pixel-comparison refusals are `INVALID_IMAGE`,
-/// and corrupt evidence, image-encoding, I/O, and report failures are
-/// `IO`. Every shape exits 3.
 fn check_error_code(error: &CheckError) -> &'static str {
     match error {
         CheckError::Sample(source) => sample_code(source),
@@ -34,8 +22,6 @@ fn check_error_code(error: &CheckError) -> &'static str {
     }
 }
 
-/// Emit a check error: the input path is known, the digest only when the
-/// sample bytes were read.
 fn emit_error(
     reason: String,
     code: &str,
@@ -58,7 +44,6 @@ fn emit_error(
     emit(&result, 3, as_json)
 }
 
-/// Emit a passing comparison.
 fn emit_pass(
     test_id: &str,
     sample: &Path,
@@ -80,8 +65,6 @@ fn emit_pass(
     emit(&result, 0, as_json)
 }
 
-/// Emit a failing comparison: `missing` without a baseline, `different`
-/// with the mismatch reason otherwise.
 fn emit_failure(failure: &tuiscotti::check::CheckFailure, as_json: bool) -> i32 {
     let missing = failure.baseline_sha256() == MISSING_BASELINE;
     let result = CliResult::new(
@@ -102,7 +85,6 @@ fn emit_failure(failure: &tuiscotti::check::CheckFailure, as_json: bool) -> i32 
     emit(&result, 1, as_json)
 }
 
-/// Run `check` and return the process exit code.
 pub(crate) fn cmd_check(sample: &Path, baselines: &Path, artifacts: &Path, as_json: bool) -> i32 {
     let bytes = match read_sample_bytes(sample) {
         Ok(bytes) => bytes,

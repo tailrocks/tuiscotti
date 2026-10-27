@@ -50,11 +50,13 @@ baseline):
    and atomically installs the baseline — or rejects with a typed
    code and writes nothing.
 
-Refusals (all before any write): a set `CI` variable in any form
-(`approval is forbidden while CI is set`, no override), digest
-mismatch, stale baselines, unknown profiles, inconsistent re-render
-pixels, malformed samples. There is no `--all`, no glob, and no
-bless flag.
+Refusals: when `CI` is set in any form, approval stops before it
+creates files (`approval is forbidden while CI is set`, no override).
+Other refusals (digest mismatch, stale baselines, unknown profiles,
+inconsistent re-render pixels, malformed samples) preserve baseline
+contents: no baseline is created or replaced, although the store
+directory and the stable lock file can exist after a refusal. There
+is no `--all`, no glob, and no bless flag.
 
 ### `render --sample <PATH> --out <PATH>`
 

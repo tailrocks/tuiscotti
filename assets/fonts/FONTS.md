@@ -2,9 +2,8 @@
 
 One profile exists: `tuiscotti-pinned-v1` (`crates/tuiscotti/src/profile.rs`).
 It embeds exactly six font files from `crates/tuiscotti/fonts/` via
-`include_bytes!`, so `cargo package` ships them inside the `tuiscotti`
-library package (asserted by
-`d02_profile_assets_ship_inside_the_crate`). There are no custom font
+`include_bytes!`, so the compiled library always carries its own fonts.
+There are no custom font
 paths, no `--font-file` flag, no host-font lookup, and no network font
 loading anywhere on this path (`crates/tuiscotti-cli/src/cli.rs` defines
 only `check`, `accept`, `render`, and `report`; `render` selects output
@@ -56,8 +55,9 @@ substituted: a grapheme no selected face contains (mandatory case:
 `U+1F980` 🦀) is a typed missing-glyph error. Renders surface it as
 code `MISSING_GLYPH` (`crates/tuiscotti/src/render.rs`); approvals
 surface `ApproveError::MissingGlyph` with the same code and write no
-baseline (asserted by `d02_rejects_missing_glyph` and
-`d04_c10_missing_glyph_rejected`). There is no `.fidelity.json`
+baseline. The `live_workflow` functional test renders a state sample
+carrying `U+1F980` and requires exit 3 with `error_code`
+`MISSING_GLYPH` and no output file. There is no `.fidelity.json`
 sidecar, no `fallback_glyphs` or `approximate` report fields, and no
 tofu substitution: unrenderable text fails the command instead.
 
