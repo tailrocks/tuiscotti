@@ -149,6 +149,123 @@ function str_value(text,    q, v, i, c, out) {
     if (i > 0) v = substr(v, 1, i - 1)
     return v
 }
+function is_table_path(p) {
+    if (p ~ /^(workspace\.)?(dependencies|dev-dependencies|build-dependencies)$/) return 1
+    if (p == "workspace") return 1
+    if (p ~ /^target\.[^.]+\.(dependencies|dev-dependencies|build-dependencies)$/) return 1
+    return 0
+}
+function handle_ws_pair(key, rest,    alias, subkey, val) {
+    if (rest ~ /^\{/) {
+        record_ws(key, table_get(rest, "package"))
+        return
+    }
+    if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
+        if (index(key, ".") > 0) {
+            alias = substr(key, 1, index(key, ".") - 1)
+            subkey = substr(key, index(key, ".") + 1)
+            val = str_value(rest)
+            if (subkey == "package") {
+                if (val != "") ws_name[alias] = val
+                else if (!(alias in ws_name)) ws_name[alias] = alias
+            }
+            else if (!(alias in ws_name)) ws_name[alias] = alias
+        } else {
+            record_ws(key, "")
+        }
+        return
+    }
+    parse_error("invalid TOML in workspace manifest")
+}
+function handle_crate_pair(key, rest,    alias, pkg) {
+    alias = key
+    sub(/\..*$/, "", alias)
+    if (rest ~ /^\{/) {
+        if (table_get(rest, "workspace") == "true") {
+            record_dep(alias, "workspace", "")
+        } else {
+            pkg = table_get(rest, "package")
+            record_dep(alias, "direct", (pkg != "" ? pkg : alias))
+        }
+        return
+    }
+    if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
+        if (alias != key) {
+            record_dep(alias, "direct", str_value(rest))
+        } else {
+            record_dep(key, "direct", key)
+        }
+        return
+    }
+    parse_error("invalid TOML in crate manifest")
+}
+function route_top(path, value, src,    t, inner, n, pairs, i, d, q, esc, c, cur, epos, j, pk, pv, fp) {
+    t = trim(value)
+    if (t !~ /^\{.*\}$/) parse_error("unsupported table form in " src)
+    inner = substr(t, 2, length(t) - 2)
+    n = 0; cur = ""; d = 0; q = ""; esc = 0
+    for (i = 1; i <= length(inner); i++) {
+        c = substr(inner, i, 1)
+        if (q != "") {
+            cur = cur c
+            if (esc) esc = 0
+            else if (q == "\"" && c == "\\") esc = 1
+            else if (c == q) q = ""
+            continue
+        }
+        if (c == "\"" || c == "\x27") { q = c; cur = cur c; continue }
+        if (c == "{" || c == "[") d++
+        if (c == "}" || c == "]") d--
+        if (c == "," && d == 0) { pairs[++n] = cur; cur = ""; continue }
+        cur = cur c
+    }
+    if (trim(cur) != "") pairs[++n] = cur
+    for (i = 1; i <= n; i++) {
+        epos = 0; d = 0; q = ""; esc = 0
+        for (j = 1; j <= length(pairs[i]); j++) {
+            c = substr(pairs[i], j, 1)
+            if (q != "") {
+                if (esc) esc = 0
+                else if (q == "\"" && c == "\\") esc = 1
+                else if (c == q) q = ""
+                continue
+            }
+            if (c == "\"" || c == "\x27") { q = c; continue }
+            if (c == "{" || c == "[") d++
+            else if (c == "}" || c == "]") d--
+            else if (c == "=" && d == 0) { epos = j; break }
+        }
+        if (epos == 0) parse_error("unsupported table form in " src)
+        pk = normkey(trim(substr(pairs[i], 1, epos - 1)))
+        pv = trim(substr(pairs[i], epos + 1))
+        if (pk == "") parse_error("unsupported table form in " src)
+        fp = path "." pk
+        if (pv ~ /^\{.*\}$/ && is_table_path(fp)) {
+            route_top(fp, pv, src)
+        } else if (src == "workspace manifest") {
+            handle_ws_pair(pk, pv)
+        } else {
+            handle_crate_pair(pk, pv)
+        }
+    }
+}
+function bdepth(s,    i, c, q, esc, d) {
+    d = 0; q = ""; esc = 0; bdepth_open = 0
+    for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (q != "") {
+            if (esc) esc = 0
+            else if (q == "\"" && c == "\\") esc = 1
+            else if (c == q) q = ""
+            continue
+        }
+        if (c == "\"" || c == "\x27") q = c
+        else if (c == "{" || c == "[") d++
+        else if (c == "}" || c == "]") d--
+    }
+    if (q != "") bdepth_open = 1
+    return d
+}
 function dep_section(name) {
     if (name == "dependencies") return 1
     if (name == "dev-dependencies") return 1
@@ -189,10 +306,27 @@ BEGIN {
     section = ""
     pend_key = ""
 }
-FNR == 1 { file_index++; section = ""; pend_key = "" }
+FNR == 1 {
+    if (buf != "") {
+        if (file_index == 1) parse_error("unterminated table in workspace manifest")
+        else parse_error("unterminated table in crate manifest")
+    }
+    if (pend_key != "") close_pending()
+    buf = ""
+    file_index++
+    section = ""
+}
 {
-    line = trim(strip_comment($0))
-    if (line == "") next
+    if (index($0, "\"\"\"") > 0) {
+        if (file_index == 1) parse_error("unsupported multi-line string in workspace manifest")
+        else parse_error("unsupported multi-line string in crate manifest")
+    }
+    part = trim(strip_comment($0))
+    if (part != "") buf = (buf == "" ? part : buf "\n" part)
+    if (buf == "") next
+    if (bdepth(buf) != 0 || bdepth_open) next
+    line = buf
+    buf = ""
     if (line ~ /^\[.*\]$/) {
         close_pending()
         section = normkey(substr(line, 2, length(line) - 2))
@@ -238,6 +372,14 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         if (prefix != "" && rest != "") {
             effsec = prefix
             eff = rest " = " value
+        } else if (prefix == "" && k != "" && is_table_path(k)) {
+            if (file_index == 1 && k !~ /^workspace(\.|$)/) {
+                t = trim(value)
+                if (t !~ /^\{.*\}$/) parse_error("unsupported table form in workspace manifest")
+                next
+            }
+            route_top(k, value, (file_index == 1 ? "workspace manifest" : "crate manifest"))
+            next
         }
     }
     if (pend_key != "") {
@@ -260,26 +402,7 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
     if (file_index == 1) {
         if (effsec != "workspace.dependencies") next
         if (!match(eff, /^[^=]+=/)) parse_error("invalid TOML in workspace manifest")
-        key = normkey(trim(substr(eff, RSTART, RLENGTH - 1)))
-        rest = trim(substr(eff, RSTART + RLENGTH))
-        if (rest ~ /^\{/) {
-            record_ws(key, table_get(rest, "package"))
-        } else if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
-            if (index(key, ".") > 0) {
-                alias = substr(key, 1, index(key, ".") - 1)
-                subkey = substr(key, index(key, ".") + 1)
-                val = str_value(rest)
-                if (subkey == "package") {
-                    if (val != "") ws_name[alias] = val
-                    else if (!(alias in ws_name)) ws_name[alias] = alias
-                }
-                else if (!(alias in ws_name)) ws_name[alias] = alias
-            } else {
-                record_ws(key, "")
-            }
-        } else {
-            parse_error("invalid TOML in workspace manifest")
-        }
+        handle_ws_pair(normkey(trim(substr(eff, RSTART, RLENGTH - 1))), trim(substr(eff, RSTART + RLENGTH)))
         next
     }
     if (!dep_section(effsec)) next
@@ -288,31 +411,15 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         next
     }
     if (!match(eff, /^[^=]+=/)) parse_error("invalid TOML in crate manifest")
-    key = normkey(trim(substr(eff, RSTART, RLENGTH - 1)))
-    rest = trim(substr(eff, RSTART + RLENGTH))
-    alias = key
-    sub(/\..*$/, "", alias)
-    if (rest ~ /^\{/) {
-        if (table_get(rest, "workspace") == "true") {
-            record_dep(alias, "workspace", "")
-        } else {
-            pkg = table_get(rest, "package")
-            record_dep(alias, "direct", (pkg != "" ? pkg : alias))
-        }
-        next
-    }
-    if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
-        if (alias != key) {
-            record_dep(alias, "direct", str_value(rest))
-        } else {
-            record_dep(key, "direct", key)
-        }
-        next
-    }
-    parse_error("invalid TOML in crate manifest")
+    handle_crate_pair(normkey(trim(substr(eff, RSTART, RLENGTH - 1))), trim(substr(eff, RSTART + RLENGTH)))
+    next
 }
 END {
     if (bad) exit 2
+    if (buf != "") {
+        if (file_index == 2) parse_error("unterminated table in crate manifest")
+        else parse_error("unterminated table in workspace manifest")
+    }
     close_pending()
     for (i = 1; i <= n_dep; i++) {
         if (dep_kind[i] == "workspace") {

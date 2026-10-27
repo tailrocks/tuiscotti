@@ -8,8 +8,8 @@ mod helpers;
 
 use helpers::{
     ChildEnv, baseline_samples, case_dir, check_direct_dependencies, ci_lane, decode_png,
-    exit_code, log_sample, make_dir, open_lane, parse_json_line, pixel_test_id, report_file_name,
-    run_cli, sha256_bytes, sha256_file, utf8, walk_files, write_bytes,
+    exit_code, glyph_probe_sample, log_sample, make_dir, open_lane, parse_json_line, pixel_test_id,
+    report_file_name, run_cli, sha256_bytes, sha256_file, utf8, walk_files, write_bytes,
 };
 #[derive(Debug)]
 struct WorkflowDirs {
@@ -117,6 +117,29 @@ fn live_workflow() {
     let (code, _) = check_sample(&candidate_v3, &dirs.baselines, &dirs.artifacts, &lane);
     assert_eq!(code, 1);
     phase_render_report(&dirs, &candidate_v2, &report_name, &live_id, &lane);
+    phase_missing_glyph(&dirs, &lane);
+}
+
+fn phase_missing_glyph(dirs: &WorkflowDirs, lane: &ChildEnv<'_>) {
+    let sample = dirs.candidates.join("glyph.tui.json");
+    write_bytes(&sample, &glyph_probe_sample("functional/missing-glyph"));
+    let out = dirs.candidates.join("glyph.png");
+    let result = run_cli(
+        &[
+            "render",
+            "--sample",
+            utf8(&sample),
+            "--out",
+            utf8(&out),
+            "--json",
+        ],
+        lane,
+    );
+    assert_eq!(exit_code(&result), 3);
+    assert!(!out.exists());
+    let body = parse_json_line(&result.stdout);
+    assert_eq!(body["status"], "error");
+    assert_eq!(body["error_code"], "MISSING_GLYPH");
 }
 
 fn phase_render_report(

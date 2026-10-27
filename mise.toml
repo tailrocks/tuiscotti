@@ -1,16 +1,3 @@
-# Tuiscotti mise tool pins. Target: <repo-root>/mise.toml
-# (root `mise.toml` matches both the Renovate `mise` manager file patterns and
-# the Velnor Rust-unit watch list `mise.toml`/`mise.lock`.)
-#
-# mr-boxington 1.21.1 = latest stable verified via `mise ls-remote mr-boxington`.
-# Pinned exact, never floating `latest` (G7).
-# rust 1.99.1 keeps the Mise pin consistent with rust-toolchain.toml
-# (`mise ls-remote rust` lists 1.99.1; `rust` is a mise core backend).
-# github:asamarts/alint 0.15.2 provisions the repo shape/line gate
-# (local `mise run alint`; not emitted into generated CI).
-# github: (upstream release binaries) for alint/cargo-deny: exact same pinned
-# versions as the old cargo: source builds, but CI-fresh-runner installs
-# download binaries instead of compiling from source in every crate job.
 [tools]
 mr-boxington = "1.21.1"
 rust = { version = "1.99.1", profile = "minimal", components = [

@@ -139,6 +139,20 @@ pub(crate) fn pixel_test_id(name: &str) -> String {
 }
 
 #[expect(clippy::expect_used, reason = "samples are the reviewed input")]
+pub(crate) fn glyph_probe_sample(test_id: &str) -> Vec<u8> {
+    let settings = ViewSettings::builtin();
+    let snapshot = capture_view(30, 8, &settings, |frame| {
+        let buffer = frame.buffer_mut();
+        buffer[(0, 0)].set_char('🦀');
+    })
+    .expect("view captures");
+    Sample::state(test_id, snapshot, Observation::empty())
+        .expect("state sample builds without rendering")
+        .to_bytes()
+        .expect("sample encodes")
+}
+
+#[expect(clippy::expect_used, reason = "samples are the reviewed input")]
 pub(crate) fn log_sample(test_id: &str, width: u16, first_line: u32, rows: u16) -> Vec<u8> {
     let settings = ViewSettings::builtin();
     let snapshot = capture_view(width, rows, &settings, |frame| {

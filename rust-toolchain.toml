@@ -1,4 +1,3 @@
-# Tuiscotti rust-toolchain.toml. Target: <repo-root>/rust-toolchain.toml
 [toolchain]
 channel = "1.99.1"
 profile = "minimal"

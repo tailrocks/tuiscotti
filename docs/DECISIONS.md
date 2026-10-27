@@ -286,3 +286,13 @@ compile_driver/test_runner. The tasks exist for local pre-release
 verification (`ci-msrv` is the only MSRV vehicle). They run online
 without `--offline` because fresh CI runners have no cargo cache, and
 every command in them is verified locally before commit.
+
+## 17. Exact toolchain and helper pins
+
+`mise.toml` pins every tool exact, never floating: `mr-boxington`,
+`rust` 1.99.1 with `clippy`/`rustfmt` components and both Linux targets,
+`alint`, and `cargo-deny` as upstream release binaries (same versions
+the old source builds used, but CI-fresh-runner installs download
+binaries instead of compiling). The `rust` 1.99.1 pin stays consistent
+with `rust-toolchain.toml`. Root `mise.toml` matches the Renovate
+`mise` manager file patterns and the Velnor Rust-unit watch list.
