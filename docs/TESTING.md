@@ -1,6 +1,6 @@
 # Tests and CI
 
-Two shipping crates, one functional suite, `nextest` runner. No custom
+Two shipping crates, one functional suite: `nextest` runs the integration tests. No custom
 test runner, no fixture workspace, no `xtask`, no unit tests, no
 examples. The suite is `functional` in `crates/tuiscotti-cli/tests/`
 (4 tests, listed below); it exercises the shipped CLI binary and the
@@ -31,7 +31,7 @@ The suite runs the shipped CLI binary in fresh temporary stores. It checks selec
 
 Every command below works from a clean checkout: the `tui-test-rs`
 dependency is the committed `[patch.crates-io]` git pin in `Cargo.toml`
-(`rev = "e15339fd136b5454849e1107bab142c98416b174"`, locked in
+(`rev = "3887a75dee4463ce0122c37eb278ab7ebb71aeaf"`, locked in
 `Cargo.lock`), so no untracked `.cargo/config.toml`, `--config` flag,
 or registry access is needed (`cargo fetch --locked` warms the cache
 for `--offline` builds):
@@ -53,8 +53,8 @@ are what the guard executes.
 Neither workspace crate defines cargo features, so there is no
 feature-combination matrix of our own; the default, `--no-default-features`,
 and `--all-features` selections below exercise the same suite against
-dependency feature unification. `cargo test` is not used (`nextest` only,
-per repo policy). No task-local config file is
+dependency feature unification. `nextest` runs the integration tests
+(per repo policy, never plain `cargo test`). No task-local config file is
 involved at any step.
 
 Test discipline: explicit test IDs and explicit artifact roots.

@@ -21,10 +21,12 @@ drive `tui_test::Session` directly.
 
 ```sh
 cargo fmt --check
-cargo clippy --locked --offline --all-targets --all-features -D warnings
+cargo clippy --locked --offline --all-targets --all-features -- -D warnings
 cargo nextest run --locked --offline --all-features
-cargo test --locked --offline --doc   # doctests ride separately
 ```
+
+Doctests (2 at HEAD) run in CI via `mbx test --doc`; never run
+`cargo test --doc` locally (the build guard denies it).
 
 Workspace lints forbid `unwrap_used`, `expect_used`, `panic!`,
 `todo!`, `dbg!` in shipped code; tests use the standard helpers.
@@ -35,7 +37,7 @@ Workspace lints forbid `unwrap_used`, `expect_used`, `panic!`,
 - `crates/tuiscotti` — public facade: `view` (Ratatui buffer capture),
   `sample` (versioned visual samples), `check` (frozen-store checks),
   `approve` (`ApprovalStore` transaction), `report` (static evidence),
-  `error`, plus the usage examples.
+  `error`.
 - `crates/tuiscotti-cli` — the `tuiscotti` offline binary
   (`check`/`accept`/`render`/`report`). Thin: parse args, call the facade.
 

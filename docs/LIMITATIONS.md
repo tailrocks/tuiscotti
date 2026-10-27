@@ -15,7 +15,8 @@ scope, fails closed where applicable).
 Unix-only live behavior: the old `session_migration` suite (direct
 upstream `tui_test` sessions over PTY, `#![cfg(unix)]`) was retired
 in the functional-suite consolidation; no current test opens a PTY
-directly or carries a `#![cfg(unix)]` gate. Live process behavior is
+directly. The report directory-symlink-loop regression test is Unix-only
+(`#[cfg(unix)]`), so Windows has no symlink-loop index coverage. Live process behavior is
 exercised portably through real child processes (`closed_stdout`)
 and synthetic capture/check/approve/report flows (`live_workflow`).
 Pure-view capture, samples, checks, approvals, and all four CLI

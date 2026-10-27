@@ -234,15 +234,18 @@ fn collect_records(artifacts: &Path) -> Result<Vec<IndexedRecord>, std::io::Erro
     let mut records = Vec::new();
     let mut stack = vec![artifacts.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let mut entries: Vec<PathBuf> = Vec::new();
+        let mut entries: Vec<std::fs::DirEntry> = Vec::new();
         for entry in std::fs::read_dir(&dir)? {
-            entries.push(entry?.path());
+            entries.push(entry?);
         }
-        entries.sort();
-        for path in entries {
-            if path.is_dir() {
+        entries.sort_by_key(std::fs::DirEntry::path);
+        for entry in entries {
+            let file_type = entry.file_type()?;
+            let path = entry.path();
+            if file_type.is_dir() {
                 stack.push(path);
-            } else if path.file_name().is_some_and(|name| name == "result.json")
+            } else if file_type.is_file()
+                && path.file_name().is_some_and(|name| name == "result.json")
                 && let Some(record) = read_record(&path, artifacts)
             {
                 records.push(record);

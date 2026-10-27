@@ -2,7 +2,12 @@
 use std::path::{Path, PathBuf};
 
 use image::GenericImageView as _;
+use ratatui::buffer::{Buffer, Cell};
+use ratatui::layout::{Position, Rect};
+use tuiscotti::view::{ViewError, ViewSettings, snapshot_from_buffer};
 
+#[path = "functional/dependencies.rs"]
+mod dependencies;
 #[path = "functional/helpers.rs"]
 mod helpers;
 
@@ -118,6 +123,68 @@ fn live_workflow() {
     assert_eq!(code, 1);
     phase_render_report(&dirs, &candidate_v2, &report_name, &live_id, &lane);
     phase_missing_glyph(&dirs, &lane);
+    #[cfg(unix)]
+    phase_report_symlink_loop();
+}
+
+#[cfg(unix)]
+fn phase_report_symlink_loop() {
+    let root = case_dir("report-symlink-loop");
+    let baselines = root.path().join("baselines");
+    let artifacts = root.path().join("artifacts");
+    let candidates = root.path().join("candidates");
+    for dir in [&baselines, &artifacts, &candidates] {
+        make_dir(dir);
+    }
+    let lane = ci_lane();
+    let open = open_lane();
+    let live_id = pixel_test_id("report-symlink-loop");
+    let candidate_v1 = candidates.join("v1.tui.json");
+    write_bytes(&candidate_v1, &log_sample(&live_id, 30, 0, 8));
+    let sha_v1 = sha256_file(&candidate_v1);
+    let (code, _) = accept_candidate(&candidate_v1, &sha_v1, "missing", &baselines, &open);
+    assert_eq!(code, 0);
+    let candidate_v2 = candidates.join("v2.tui.json");
+    write_bytes(&candidate_v2, &log_sample(&live_id, 30, 1, 8));
+    let (code, _) = check_sample(&candidate_v2, &baselines, &artifacts, &lane);
+    assert_eq!(code, 1);
+    let index = candidates.join("index.html");
+    let out = run_cli(
+        &[
+            "report",
+            "--artifacts",
+            utf8(&artifacts),
+            "--out",
+            utf8(&index),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let before = std::fs::read(&index).unwrap_or_default();
+    let before_text = String::from_utf8_lossy(&before);
+    assert!(before_text.contains("<p>records: 1</p>"));
+    assert_eq!(before_text.matches(">report</a>").count(), 1);
+    let sub = artifacts.join("sub");
+    make_dir(&sub);
+    assert!(std::os::unix::fs::symlink(&artifacts, sub.join("back")).is_ok());
+    let out = run_cli(
+        &[
+            "report",
+            "--artifacts",
+            utf8(&artifacts),
+            "--out",
+            utf8(&index),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let after = std::fs::read(&index).unwrap_or_default();
+    let after_text = String::from_utf8_lossy(&after);
+    assert!(after_text.contains("<p>records: 1</p>"));
+    assert_eq!(after_text.matches(">report</a>").count(), 1);
+    assert_eq!(after, before);
 }
 
 fn phase_missing_glyph(dirs: &WorkflowDirs, lane: &ChildEnv<'_>) {
@@ -265,7 +332,56 @@ fn invalid_input() {
     assert_eq!(parse_json_line(&out.stdout)["error_code"], "RESOURCE_LIMIT");
     phase_usage_errors(&candidates, &sample, &baselines, &lane);
     phase_direct_dep_rules(&candidates);
+    #[cfg(unix)]
+    approval_refuses_symlink_lock_without_external_write();
+    phase_view_error_coordinates();
     assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
+}
+
+#[cfg(unix)]
+fn approval_refuses_symlink_lock_without_external_write() {
+    let lane = open_lane();
+    let root = case_dir("approval-lock-regular");
+    let baselines = root.path().join("baselines");
+    let candidates = root.path().join("candidates");
+    make_dir(&baselines);
+    make_dir(&candidates);
+    let lock = baselines.join(".tuiscotti-approval.lock");
+    write_bytes(&lock, b"held");
+    let candidate = candidates.join("regular.tui.json");
+    write_bytes(
+        &candidate,
+        &log_sample(&pixel_test_id("approval-lock-regular"), 30, 0, 8),
+    );
+    let digest = sha256_file(&candidate);
+    let (code, _) = accept_candidate(&candidate, digest.as_str(), "missing", &baselines, &lane);
+    assert_eq!(code, 0);
+    assert_eq!(baseline_samples(&baselines).len(), 1);
+    assert!(lock.is_file());
+    assert_eq!(std::fs::read(&lock).unwrap_or_default(), b"held");
+    let root = case_dir("approval-lock-symlink");
+    let baselines = root.path().join("baselines");
+    let candidates = root.path().join("candidates");
+    let outside = root.path().join("outside");
+    make_dir(&baselines);
+    make_dir(&candidates);
+    make_dir(&outside);
+    let target = outside.join("external.lock");
+    let link = baselines.join(".tuiscotti-approval.lock");
+    assert!(std::os::unix::fs::symlink(&target, &link).is_ok());
+    let candidate = candidates.join("candidate.tui.json");
+    write_bytes(
+        &candidate,
+        &log_sample(&pixel_test_id("approval-lock-symlink"), 30, 0, 8),
+    );
+    let digest = sha256_file(&candidate);
+    let (code, stdout) =
+        accept_candidate(&candidate, digest.as_str(), "missing", &baselines, &lane);
+    assert_eq!(code, 3);
+    assert_eq!(parse_json_line(&stdout)["error_code"], "INVALID_STORE_PATH");
+    assert!(!target.exists());
+    assert_eq!(baseline_samples(&baselines), [] as [std::path::PathBuf; 0]);
+    assert!(std::fs::symlink_metadata(&link).is_ok_and(|meta| meta.file_type().is_symlink()));
 }
 
 const DEP_CRATE: &str =
@@ -300,6 +416,60 @@ fn phase_direct_dep_rules(candidates: &Path) {
     dep_rule_string_forms(&dir);
     dep_rule_dotted_tables(&dir);
     dep_rule_errors(&dir);
+    phase_direct_dep_parser_forms(&dir);
+    phase_direct_dep_type_errors(&dir);
+}
+
+fn phase_direct_dep_type_errors(dir: &Path) {
+    let mut seq = 500;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
+    case(
+        Some(DEP_WS_ALIAS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty = {{ workspace = \"true\" }}\n"
+        )),
+        2,
+    );
+    case(Some("workspace = 7\n"), Some(DEP_CRATE), 2);
+}
+
+fn phase_direct_dep_parser_forms(dir: &Path) {
+    let mut seq = 400;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[target.'cfg(unix)']\ndependencies = {{ \"portable-pty\" = \"0.9\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_WS_ALIAS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty.\"workspace\" = true\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty = {{ package = '''portable-pty''', version = \"0.9\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some(
+            "[package]\nname = \"tuiscotti\"\nname = \"tuiscotti-duplicate\"\nversion = \"0.2.0\"\nedition = \"2024\"\n[dependencies]\nok = \"1.0\"\n",
+        ),
+        2,
+    );
 }
 
 fn dep_rule_flat_tables(dir: &Path) {
@@ -498,6 +668,67 @@ fn phase_usage_errors(candidates: &Path, sample: &Path, baselines: &Path, lane: 
     );
     assert_eq!(exit_code(&out), 2);
     assert_eq!(out.stdout, [] as [u8; 0]);
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "constructed buffers contain their cells"
+)]
+fn phase_view_error_coordinates() {
+    let settings = ViewSettings::builtin();
+    let mut valid = Buffer::empty(Rect::new(10, 20, 2, 1));
+    valid
+        .cell_mut(Position::new(10, 20))
+        .expect("valid buffer contains its leading cell")
+        .set_symbol("あ");
+    let snapshot = snapshot_from_buffer(&valid, &settings).expect("wide cell plus space converts");
+    assert_eq!(snapshot.cols(), 2);
+    assert_eq!(snapshot.rows(), 1);
+    let mut occupied = Buffer::empty(Rect::new(10, 20, 2, 1));
+    occupied
+        .cell_mut(Position::new(10, 20))
+        .expect("occupied buffer contains its leading cell")
+        .set_symbol("あ");
+    occupied
+        .cell_mut(Position::new(11, 20))
+        .expect("occupied buffer contains its covered cell")
+        .set_symbol("x");
+    assert!(matches!(
+        snapshot_from_buffer(&occupied, &settings),
+        Err(ViewError::CoveredCellOccupied { x: 1, y: 0 })
+    ));
+    let mut hollow = Buffer::empty(Rect::new(10, 20, 1, 1));
+    hollow
+        .cell_mut(Position::new(10, 20))
+        .expect("hollow buffer contains its cell")
+        .set_symbol("");
+    assert!(matches!(
+        snapshot_from_buffer(&hollow, &settings),
+        Err(ViewError::UncoveredZeroWidthCell { x: 0, y: 0 })
+    ));
+    let mut overhang = Buffer::empty(Rect::new(10, 20, 1, 1));
+    overhang
+        .cell_mut(Position::new(10, 20))
+        .expect("overhang buffer contains its leading cell")
+        .set_symbol("あ");
+    assert!(matches!(
+        snapshot_from_buffer(&overhang, &settings),
+        Err(ViewError::LeadingCellOverhang {
+            x: 0,
+            y: 0,
+            width: 2
+        })
+    ));
+    let mut leading = Cell::default();
+    leading.set_symbol("a");
+    let truncated = Buffer {
+        area: Rect::new(10, 20, 2, 1),
+        content: vec![leading],
+    };
+    assert!(matches!(
+        snapshot_from_buffer(&truncated, &settings),
+        Err(ViewError::CellOutOfBounds { x: 1, y: 0 })
+    ));
 }
 
 #[test]

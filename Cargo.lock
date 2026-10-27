@@ -2124,7 +2124,7 @@ dependencies = [
 [[package]]
 name = "tui-test-rs"
 version = "0.1.1"
-source = "git+https://github.com/donbeave/tui-test?rev=e15339fd136b5454849e1107bab142c98416b174#e15339fd136b5454849e1107bab142c98416b174"
+source = "git+https://github.com/donbeave/tui-test?rev=3887a75dee4463ce0122c37eb278ab7ebb71aeaf#3887a75dee4463ce0122c37eb278ab7ebb71aeaf"
 dependencies = [
  "alacritty_terminal",
  "anyhow",
@@ -2173,10 +2173,12 @@ dependencies = [
  "base64 0.23.1",
  "clap",
  "image",
+ "ratatui",
  "serde",
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
+ "toml",
  "tui-test-rs",
  "tuiscotti",
 ]

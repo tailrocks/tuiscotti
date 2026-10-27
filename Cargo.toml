@@ -22,6 +22,7 @@ serde_json = "1.0"
 sha2 = "0.11"
 ratatui = { version = "0.30", default-features = false, features = ["underline-color"] }
 tempfile = "3.27"
+toml = "0.9"
 
 [workspace.package]
 edition = "2024"
@@ -72,4 +73,4 @@ debug = "line-tables-only"
 # carries the accepted upstream APIs until the PRs merge and a registry
 # release exists. Pinned to the full commit SHA; remove at R02 adoption.
 [patch.crates-io]
-tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "e15339fd136b5454849e1107bab142c98416b174" }
+tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "3887a75dee4463ce0122c37eb278ab7ebb71aeaf" }
