@@ -11,17 +11,15 @@ belongs to upstream `tui-test-rs` and is scripted through its Rust API
 
 ## Install
 
-Requires Rust 1.99.1 with `cargo` on `PATH`. Build from this
-workspace:
+Requires Rust 1.99.1 with `cargo` on `PATH`. Install from
+crates.io:
 
 ```sh
-cargo fetch --locked # warm the registry for offline builds
-cargo build --locked --offline -p tuiscotti-cli
+cargo install tuiscotti-cli --version 0.4.0 --locked
 ```
 
-Run without installing via `cargo run -q -p tuiscotti-cli --locked
---offline -- <command>`, or install the binary with `cargo install
---path crates/tuiscotti-cli --locked --offline`.
+From a workspace checkout, run without installing via
+`cargo run -q -p tuiscotti-cli --locked --offline -- <command>`.
 
 ## Commands
 

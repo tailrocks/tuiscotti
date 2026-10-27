@@ -385,12 +385,13 @@ let sample = tuiscotti::sample::Sample::with_pixels(
 ## 10. Downstream crates: no pin needed
 
 There is no `[patch.crates-io]` section anymore: downstream crates
-depend on `tuiscotti` (path or git) plus `tuiscotti-tui-test 0.2.1`
+depend on `tuiscotti "0.4"` plus `tuiscotti-tui-test 0.2.1`
 from crates.io and resolve the same release with no extra pin.
-Verified with a scratch crate outside the workspace depending on
-`tuiscotti` by path plus the registry release: `cargo run
---offline` builds and a `FrozenStore::check` against a fresh store
-reports `is_pass=false` as expected. (Against crates.io
+This verification runs at publish time with a scratch crate outside
+the workspace depending on `tuiscotti 0.4` from the registry plus the
+registry release: `cargo run --offline` builds and a
+`FrozenStore::check` against a fresh store reports `is_pass=false` as
+expected. (Against crates.io
 `tui-test-rs` 0.1.1 the build fails — it lacks the fork-only APIs
 tuiscotti consumes:
 
