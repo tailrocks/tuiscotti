@@ -51,7 +51,6 @@ run = 'RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked'
 [tasks.ci-no-default]
 description = "No-default gate: pure-view builds, lints, tests, no direct PTY/engine dep, and pure-view starts no child/device"
 run = [
-  "rustup component add clippy",
   "cargo check --workspace --no-default-features --locked --all-targets",
   "cargo clippy --workspace --no-default-features --locked --all-targets -- -D warnings",
   "cargo nextest run --workspace --no-default-features --locked",
@@ -79,8 +78,6 @@ run = [
 [tasks.ci-msrv]
 description = "MSRV gate: 1.99.1 (the declared rust-version floor) builds and tests all"
 run = [
-  "rustup toolchain install 1.99.1 --profile minimal",
-  "rustup component add --toolchain 1.99.1 clippy",
-  "rustup run 1.99.1 cargo check --workspace --locked --all-targets --all-features",
-  "rustup run 1.99.1 cargo nextest run --workspace --locked --all-features",
+  "cargo check --workspace --locked --all-targets --all-features",
+  "cargo nextest run --workspace --locked --all-features",
 ]
