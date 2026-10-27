@@ -11,8 +11,8 @@ use sha2::{Digest, Sha256};
 use tui_test::{PinnedFontError, RenderError, render_snapshot_png};
 
 use crate::check::{
-    APPROVAL_LOCK_TIMEOUT_SECS, ApprovalFileLock, ApprovalLockError, CheckError, FrozenStore,
-    MISSING_BASELINE, MismatchReason, PresentComparison, validate_test_id,
+    APPROVAL_LOCK_FILE, APPROVAL_LOCK_TIMEOUT_SECS, ApprovalFileLock, ApprovalLockError,
+    CheckError, FrozenStore, MISSING_BASELINE, MismatchReason, PresentComparison, validate_test_id,
 };
 use crate::render_profile::{ProfileError, resolve_profile};
 use crate::sample::{
@@ -415,6 +415,7 @@ impl ApprovalStore {
                 observed_baseline: None,
             })?;
         }
+        ensure_no_symlink(&baselines, Path::new(APPROVAL_LOCK_FILE))?;
         let lock =
             ApprovalFileLock::acquire(&baselines, Duration::from_secs(APPROVAL_LOCK_TIMEOUT_SECS))
                 .map_err(|error| match error {
