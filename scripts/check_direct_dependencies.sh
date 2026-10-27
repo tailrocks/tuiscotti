@@ -152,7 +152,7 @@ function normkey(s,    n, parts, i, p, out, f, l) {
     n = split(s, parts, /\./)
     out = ""
     for (i = 1; i <= n; i++) {
-        p = parts[i]
+        p = trim(parts[i])
         if (length(p) >= 2) {
             f = substr(p, 1, 1)
             l = substr(p, length(p), 1)
