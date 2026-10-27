@@ -1,225 +1,57 @@
 # Snapshot and approval semantics
 
 Three gates, one rule: **actuals are written before any assertion,
-approvals change only by explicit review.** CI must never approve
-snapshots by itself — there is no bless flag, env var, or accepting
-CI mode, and a test proves no env var accepts.
+approvals change only by explicit review.** CI must never approve by
+itself — there is no bless flag, env var, or accepting CI mode.
 
-## Classic store (`snapshot::Store`)
+## Sample (`sample.rs`)
 
-Layout under one root:
+A sample is versioned canonical JSON: the test ID, the gate
+(`state` or `state-and-pixels`), the snapshot payload, the render
+contract (profile + font digest), and SHA-256 digests sealing each
+part. `state` compares the full canonical state; `state-and-pixels`
+additionally compares the render contract and decoded RGBA pixels. A
+gate change is a policy mismatch — never weaken a gate after a failure.
+State-only samples carry no pixel requirement.
 
-```text
-<store>/approved/<name>.frame.json   # committed: canonical cells
-<store>/approved/<name>.png          # committed: approved pixels (required)
-<store>/actual/<name>.frame.json     # per-run evidence (gitignored)
-<store>/actual/<name>.png            # + <name>.png.fidelity.json
-<store>/actual/<name>.manifest.json  # candidate seal (sha256 trio + profile)
-<store>/diff/<name>.png              # red-overlay diff, on mismatch
-<store>/report.html                  # review index; links files, never embeds
-```
+## Frozen check (`check.rs`)
 
-`check` / `check_with` (caller-owned `Renderer` for suite-wide glyph
-cache reuse) always write the actual trio + manifest first, sealed
-last: a crash between writes leaves an absent or disagreeing
-manifest, and `verify_candidate` reports `capture-incomplete`
-instead of letting a later report silently re-render the gap.
+`FrozenStore::check` / `check_file` reads a saved sample and a baseline
+tree and reports a `CheckOutcome`: pass, missing baseline, or differ.
+The check never writes to the baseline tree — evidence lands in a
+separate artifacts directory, which may live outside the baseline root.
+Contained roots, symlink escapes, and read-only baselines are rejected
+with typed errors. Concurrent checks for the same test ID keep every
+candidate; gate data never clobbers.
 
-Gate order per name: name validation (rejects escapes before any
-write) → threshold validation (`PerceptualPolicy` rejects
-NaN/out-of-range) → actual validate + render + write trio + seal →
-approved frame read (missing → `missing-approval`) → cell compare
-(exact; cursor-only changes reported as cursor summaries) →
-approved PNG read **from disk** (missing → `missing-approval`,
-never regenerated in memory: a renderer upgrade must fail loudly,
-not re-render the expectation it gates) → decoded-pixel compare.
+## Approval (`approve.rs`)
 
-Statuses (`snapshot::Status`): `matched`, `cells-differ`,
-`pixels-differ`, `dimension-mismatch`, `missing-approval`,
-`corrupt-approval`, `capture-incomplete`, `not-checked`
-(`verify_candidate` only: trio intact, no verdict yet).
-`CompareOutcome` is `#[must_use]` — dropping one without
-`ensure_matched()` warns instead of silently passing.
+`ApprovalStore::accept` runs the full transaction: hold the OS lock on
+the stable `.tuiscotti-approval.lock` (kept after release, never
+unlinked), read the candidate, compare digests (a changed candidate is
+`STALE_CANDIDATE`, a changed baseline `STALE_BASELINE`), then —
+mandatory — resolve the candidate's profile and re-render through the
+upstream renderer. Unknown profiles reject with `UNKNOWN_PROFILE`;
+pixels that differ from the stored candidate pixels reject with
+`INCONSISTENT_SAMPLE`. First approval for a test validates the
+candidate test ID; a present baseline skips the ID comparison. Temp
+files use exclusive creation with owner-only mode and never follow
+symlinks; the baseline is replaced atomically. `CI` in the environment
+refuses approval (`CI_APPROVAL_FORBIDDEN`). Malformed samples map to
+`INVALID_SAMPLE`.
 
-Acceptance is explicit and per-name: `Store::accept(name)` (Rust)
-or `tuiscotti accept --store <dir> <name>` (CLI). `actual_names()`
-lists reviewable candidates. `report` / `report_with` re-verify and
-rewrite `report.html`; `StoreReport::failed()` counts failures.
+## Report (`report.rs`)
 
-## Grouped store (`grouped::GroupedStore`)
+`report` builds a static index from saved candidate evidence. It
+captures no state and changes no approvals.
 
-For suites that want nested scenario names and committed,
-human-reviewable artifacts. `GroupedStore` supports two artifact modes
-via `GroupedStore::with_artifacts(ArtifactSet)`:
+## CLI mapping
 
-### 1. `ArtifactSet::All` (default, 4 committed files per scenario)
-
-A scenario `<group>/…/<name>` commits four files under the approved
-root — no `.frame.json`, no sidecars:
-
-```text
-snapshots/<group>/<name>_<cols>x<rows>_<profile>.ansi   # normalized SGR dump (cell-exact gate)
-snapshots/<group>/<name>_<cols>x<rows>_<profile>.txt    # plain black-and-white text
-snapshots/<group>/<name>_<cols>x<rows>_<profile>.png    # colored image (pixel gate)
-snapshots/<group>/<name>_<cols>x<rows>_<profile>.html   # standalone colored HTML render
-```
-
-### 2. `ArtifactSet::AnsiCursor` (minimal `.ansi`-only baseline, on-demand PNG/HTML diff)
-
-For large multi-dimensional suites (thousands of scenarios), committing
-PNG and HTML files per scenario inflates repository size and passing-run
-I/O. With `.with_artifacts(ArtifactSet::AnsiCursor)`:
-
-- Only `<approved>/<name>.ansi` (written via
-  `render::ansi_dump_with_cursor`, which appends a canonical VT cursor
-  trailer `ESC[?25l` or `ESC[?25h ESC[<y>;<x>H ESC[<Ps> q`) is
-  committed to git.
-- **On a passing check**: the candidate's normalized `.ansi` + cursor
-  trailer is compared in memory against the approved `.ansi`. No PNG or
-  HTML rasterization runs (~0.37 ms per 120×40 check). The store writes
-  the sealed `<actual_root>/<name>.{ansi,manifest.json,verdict.json}`
-  and scrubs any stale mismatch-only files
-  (`<actual_root>/<name>.{txt,png,html,frame.json,png.fidelity.json}`,
-  `<expected_root>/<name>.{png,html}`, `<diff_root>/<name>.png`) left by
-  an earlier failing run.
-- **On a mismatch or missing approval**: `formats::ansi::frame_from_ansi`
-  reconstructs the expected `Frame` (including cursor position/shape/blink)
-  from the approved `.ansi`, populates `cell_diffs` and `note`, and —
-  when `store.review_evidence()` is `true` (default; disable via
-  `GroupedStore::with_review_evidence(false)` or
-  `TUISCOTTI_REVIEW_EVIDENCE=0` during bulk determinism sweeps or
-  initial migrations) — renders:
-  - `<actual_root>/<name>.{ansi,png,html}` (plus `.frame.json`,
-    `.png.fidelity.json`, `.manifest.json`, `.verdict.json`),
-  - `<expected_root>/<name>.{png,html}` (rebuilt from the approved `.ansi`),
-  - `<diff_root>/<name>.png` (red-overlay pixel diff).
-  When `review_evidence` is `false`, PNG/HTML/diff rasterization is
-  skipped while the sealed `<actual_root>/<name>.{ansi,frame.json,manifest.json,verdict.json}`
-  and full cell verdict are still written so `accept` / `accept_matching`
-  work unchanged.
-- **Cross-cell grapheme cluster invariant (`frame_from_ansi`)**:
-  `render::ansi_dump` emits an `ESC[0m` reset (and re-emits the active
-  cell SGR) whenever two adjacent cells' symbols on a row would
-  otherwise join into a single UAX #29 extended grapheme cluster (e.g. a
-  regional-indicator flag pair in two `width=1` cells, `'e'` followed by
-  a separate cell holding `U+0301`, an emoji ZWJ sequence split across
-  single-grapheme cells, or adjacent Hangul L+V jamo cells), and
-  `GroupedStore::accept` in `AnsiCursor` mode enforces lossless
-  round-trip (`ansi_dump_with_cursor(&decoded) == text`), rejecting any
-  non-canonical candidate before it can be blessed.
-
-### Scratch roots, `run_id` freshness, and acceptance
-
-Actuals (`<root>.actual/`), rebuilt expected renders
-(`<root>.expected/`), diff PNGs (`<root>.diff/`), and the report
-(`<root>.actual/report.html`) live OUTSIDE the approved tree by default;
-override with `with_actual_root` / `with_expected_root` /
-`with_diff_root` / `with_report_path` (when `with_actual_root` ends in
-`actual` and `with_expected_root` was not explicitly called,
-`expected_root` automatically follows to the sibling `expected`
-directory). Configure a logical test-run identifier via
-`GroupedStore::with_run_id(id)` (or let it default to `NEXTEST_RUN_ID` /
-`TUISCOTTI_RUN_ID` when set in the environment) so every candidate
-`<name>.manifest.json` is stamped with `run_id`. Missing approvals fail
-closed; names with absolute paths, `..`, empty segments, or backslashes
-are rejected (`InvalidName`).
-
-Acceptance is explicit and guarded:
-- **Refuses in CI**: `Store::accept`, `GroupedStore::{accept, accept_matching, accept_all}`,
-  and `tuiscotti accept` fail closed if `CI` is set in the environment
-  (non-empty and not `"0"` or `"false"`).
-- **Candidate seal & verdict check**: every accepted candidate must have
-  a valid `<name>.manifest.json` and `<name>.verdict.json` whose SHA-256
-  digests match the files on disk (unsealed "ghost" `.ansi` files or
-  post-check tampered files are rejected). In pattern/bulk acceptance
-  (`accept_matching`), scenarios whose fresh verdict already recorded
-  `status == "matched"` are skipped automatically so only new or changed
-  candidates are copied.
-- **`run_id` freshness guard**: when `GroupedStore::with_run_id` is set,
-  or when multiple candidates matched by `accept_matching` carry
-  `run_id` stamps from different test runs, `accept_matching` rejects
-  stale candidates whose manifest `run_id` does not match the pinned or
-  newest run.
-- `accept(name)` blesses one scenario (in `AnsiCursor` mode, validates
-  `<actual>/<name>.ansi` via `frame_from_ansi` and lossless
-  `ansi_dump_with_cursor` round-trip, writes `<approved>/<name>.ansi`,
-  and removes any stale approved `.txt`/`.png`/`.html`/`.png.fidelity.json`),
-- `accept_matching(filter)` blesses all non-`matched` scenarios in
-  `actual_names()` matching an exact name, segment-aware prefix
-  (`group` / `group/`, where `pages/tab` matches `pages/tab/...` and
-  never `pages/tables/...`), or glob (`*` matches within a single path
-  segment without crossing `/`, `**` matches across `/`, and `?` matches
-  one non-`/` char), and errors when zero scenarios match,
-- `accept_all()` blesses every reviewed actual recursively and returns
-  the accepted names.
-
-The classic `Store` is unaffected; both share statuses, report
-machinery, and the renderer.
-
-## Generations (same-sample binding)
-
-Every artifact of one capture belongs to one `formats::Generation`
-(frame + profile name). For the macro gates,
-`assert::generation_id` is the hex SHA-256 of the canonical text,
-embedded in each `.snap` description (`tuiscotti generation <hex>
-render <profile>/rv<N>/straight-rgba/profile-<hash> at <file>:<line>`) AND in the
-PNG `tEXt` chunk (`png_tag_generation`). `check_consistent` reads
-all three bindings (canonical `.snap`, PNG `.snap`, sidecar bytes)
-and fails on any mix — never half-passes. A changed screen yields a
-new generation; a changed renderer names itself in the description
-via the render identity.
-
-## Frozen vs evolving review
-
-Evolving roots accept: `Store::accept`, `GroupedStore::accept` /
-`accept_all`, `tuiscotti accept <name>`, `cargo insta review` —
-always explicit, per-name (or per-reviewed-actual), on a
-workstation. Frozen roots never accept:
-
-- Layout: `<root>/<name>.canonical.txt` + `<root>/<name>.png`
-  (generation-tagged bytes).
-- Gates: `check_frozen_snapshot` / `check_frozen_screenshot` /
-  `assert_frozen_snapshot` / `assert_frozen_screenshot`, or
-  `Policy::Frozen{root}`. Read-only: missing/corrupt files fail,
-  never self-heal.
-- `frozen_accept` always errors (`FrozenError::AcceptRejected`).
-- CLI: `tuiscotti import --dir <tree>` is the read-only frozen view
-  (`<stem>.{ansi,txt,png,html}` → scenarios; extras reported, never
-  fatal). `tuiscotti accept` against a frozen root rejects.
-
-## SHA256SUMS (fixture approvals)
-
-`crates/tuiscotti-fixtures/tests/SHA256SUMS` pins every committed
-approval byte. The `sha256sums_manifest_pins_every_approval` test
-fails on any drift; after a qualified approval change, re-record
-with `cargo xtask fixtures --bless-manifest`. This is tooling
-(`xtask`), not product code — no snapshot gate reads the manifest
-at runtime.
-
-## Macro gates (`assert_snapshot!` / `assert_screenshot!`)
-
-- `assert_snapshot!(name, screen)` — Insta text gate over the
-  canonical projection (`screen::canonical_string`).
-- `assert_screenshot!(name, screen)` — compound gate: canonical
-  text + generation-tagged PNG as one sample. Evidence lands on
-  disk BEFORE failure; mixed generations fail, never half-pass
-  (`generation_id`, `png_tag_generation`, `check_consistent`).
-- `Policy::EvolvingIn { snapshots, evidence }` pins explicit dirs;
-  frozen roots (`check_frozen_*`) are read-only and never
-  self-heal — `frozen_accept` always errors.
-- `emit_four` exports one generation as `.ansi`/`.txt`/`.png`/`.html`;
-  `import_frozen_v1` reads a frozen tree back read-only.
-
-Review with `cargo insta review`. `INSTA_UPDATE=no` keeps suites
-fail-closed in automation.
-
-## Pixel gate
-
-The PNG gate compares exact decoded pixels: re-encoding passes,
-one changed channel fails. Review leniency lives only on a
-validated `PerceptualPolicy` threshold passed to `check`. Fidelity
-sidecars (`<name>.png.fidelity.json`) record missing/fallback
-glyphs next to every PNG; fallback-served cells are listed in
-`fallback_glyphs` (omitted when empty, so sidecars stay
-byte-stable). Same frame + same profile + same vendored font bytes
-= byte-identical PNGs — no system fonts anywhere on the PNG path.
+`tuiscotti check` applies the frozen check to a saved sample.
+`tuiscotti accept` applies the approval transaction (no `--all`, no
+glob, no CI override). `tuiscotti render` writes `.png` or `.html` from
+a saved sample (other extensions rejected). `tuiscotti report` writes
+the static index. Exit codes: 0 pass, 1 missing/different, 2 invalid
+arguments, 3 file/format/profile/rendering/approval/I/O failure.
+Machine-readable `--json` output uses the `tuiscotti.cli.v1` schema;
+see the [CLI guide](CLI.md).

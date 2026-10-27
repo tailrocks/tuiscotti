@@ -13,7 +13,7 @@
 # download binaries instead of compiling from source in every crate job.
 [tools]
 mr-boxington = "1.21.1"
-rust = "1.98.1"
+rust = { version = "1.98.1", profile = "minimal", components = ["clippy", "rustfmt"] }
 "github:asamarts/alint" = "0.15.2"
 "aqua:nextest-rs/nextest/cargo-nextest" = "0.9.148"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
@@ -35,26 +35,21 @@ description = "Rustdoc gate: workspace docs build with warnings denied"
 run = 'RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked'
 
 [tasks.ci-no-default]
-description = "No-default gate: pure-view builds, lints, tests, and pty-free graph"
+description = "No-default gate: pure-view builds, lints, tests, no direct PTY/engine dep, and pure-view starts no child/device"
 run = [
   "rustup component add clippy",
   "cargo check --workspace --no-default-features --locked --all-targets",
   "cargo clippy --workspace --no-default-features --locked --all-targets -- -D warnings",
   "cargo nextest run --workspace --no-default-features --locked",
-  'out=$(cargo tree -p tuiscotti --no-default-features --locked --prefix none) || exit 1; printf "%s\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true',
+  "mise run ci-no-default-graph",
 ]
 
-[tasks.ci-xtask-policy]
-description = "xtask umbrella: source policies (crates-only, scripts, line limits)"
-run = "cargo run -p xtask -- policy"
-
-[tasks.ci-xtask-deps]
-description = "xtask umbrella: dependency inspection (bans, git sources, lockfile)"
-run = "cargo run -p xtask -- deps"
-
 [tasks.ci-no-default-graph]
-description = "Pty-free negative guard: tuiscotti no-default graph must not contain portable-pty/alacritty_terminal/termpane (a green no-default build alone cannot catch a silently reintroduced pty dep)"
-run = 'out=$(cargo tree -p tuiscotti --no-default-features --locked --prefix none) || exit 1; printf "%s\\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true'
+description = "Pty-free negative guard: tuiscotti has no DIRECT portable-pty/alacritty_terminal/termpane dep (they stay permitted as upstream-transitive via tui-test-rs), and the pure-view path starts no child process or device"
+run = [
+  'out=$(cargo tree -p tuiscotti --no-default-features --locked --depth 1 --prefix none) || exit 1; printf "%s\n" "$out" | grep -q -E "portable-pty|alacritty_terminal|termpane" && exit 1 || true',
+  'grep -rE "std::process|Command::new|Stdio|portable.?pty|openpty|/dev/(pts|tty|ptmx)" crates/tuiscotti/examples/01-pure-view.rs crates/tuiscotti/examples/common/ci_fixture.rs crates/tuiscotti/src/view.rs && exit 1 || true',
+]
 
 [tasks.ci-deny]
 description = "Dependency policy gate: cargo-deny advisories/bans/licenses/sources (pinned github:EmbarkStudios/cargo-deny)"
@@ -66,10 +61,6 @@ run = [
   "cargo check --workspace --locked --all-targets --all-features",
   "cargo clippy --workspace --locked --all-targets --all-features -- -D warnings",
 ]
-
-[tasks.ci-package]
-description = "xtask umbrella: packaging dry-run for publishable members"
-run = "cargo run -p xtask -- package"
 
 [tasks.ci-msrv]
 description = "MSRV gate: 1.98.0 (the declared rust-version floor) builds and tests all"

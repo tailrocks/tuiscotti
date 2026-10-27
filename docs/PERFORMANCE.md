@@ -1,5 +1,9 @@
 # Performance
 
+> SUPERSEDED (D07): the `tuiscotti-bench` harness and `cargo xtask bench`
+> were removed with the old engine. The commands below no longer run.
+> The dated numbers stay as historical record only.
+
 One current performance report for Tuiscotti: methodology, the committed
 reproducible benchmark suite, budget scoreboards, and this-host numbers.
 It replaces all prior scratch-harness notes (the F12 `/tmp` harness and the
@@ -27,17 +31,22 @@ operation) is unchanged, so the wall-time tables below stay comparable
 across the rework; the retired allocator rows do not, and are marked as
 such. Nothing below is final until the clean-head rerun.
 
-## How to run
+## How to run (retired)
+
+The bench harness was removed at D07; there is no runnable benchmark
+command. The invocation below is the historical record, not a live
+instruction:
 
 ```sh
-cargo xtask bench                      # full suite, ~5 min on the reference host
-cargo xtask bench --quick              # reduced samples, same suites
-cargo xtask bench --suite views        # views|pty|cli|builds|nextest, or all
-cargo xtask bench --out /tmp/bench-out # results dir (default benches/results/)
+cargo xtask bench                      # REMOVED — full suite, ~5 min on the reference host
+cargo xtask bench --quick              # REMOVED — reduced samples, same suites
+cargo xtask bench --suite views        # REMOVED — views|pty|cli|builds|nextest, or all
+cargo xtask bench --out /tmp/bench-out # REMOVED — results dir (default benches/results/)
 ```
 
-Exit 0 when every measured budget passes, 1 otherwise. `xtask` stays
-zero-dependency: stats (p50/p95/tail/throughput) and JSON are hand-rolled.
+Budget discipline for new work: same frame + same profile + same
+vendored font bytes = byte-identical PNGs. Measure before claiming;
+do not add a cache without a measurement that makes it necessary.
 
 ## Suite layout
 

@@ -1,13 +1,12 @@
-//! Executed examples lane (backlog N10): every learning example runs green.
+//! D06 executable-examples lane: the five GOAL Section 17 examples run green.
 //!
-//! Each `examples/NN-*.rs` binary must exit 0 and print its `EXAMPLE-NN-...`
+//! Each `examples/0N-*.rs` binary must exit 0 and print its `EXAMPLE-0N-...`
 //! marker. Binaries resolve at runtime from this test's own location
-//! (`<profile>/deps/<test>` → `<profile>/examples/<name>`), so the lane works
-//! under `cargo test`, `cargo nextest run`, custom target dirs, and
-//! release profiles. Missing binaries trigger one `cargo build --examples`.
-//!
-//! Doctest lane: `cargo test --doc` runs 5 doctests (recorded 2026-09-28;
-//! re-check with `cargo test --doc 2>&1 | tail -3`).
+//! (`<profile>/deps/<test>` → `<profile>/examples/<name>`), so the lane
+//! works under `cargo nextest run`, custom target dirs, and release
+//! profiles. Build the examples first with the toolchain-guard command:
+//! `rust-build-guard -- mise exec -- cargo build --examples` (preceded by
+//! `disk-check`). This test never shells out to `cargo` itself.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -15,62 +14,34 @@ use std::process::Command;
 /// (example binary, acceptable stdout markers — first is the normal one).
 const CASES: &[(&str, &[&str])] = &[
     ("01-pure-view", &["EXAMPLE-01-OK"]),
-    ("02-styled-shot", &["EXAMPLE-02-OK"]),
-    ("03-piped-cli", &["EXAMPLE-03-OK"]),
-    // Without the `pty` feature the TUI journey reports SKIP, still exit 0.
-    ("04-interactive-tui", &["EXAMPLE-04-OK", "EXAMPLE-04-SKIP"]),
-    ("05-locators-waits", &["EXAMPLE-05-OK"]),
-    ("06-artifacts-review", &["EXAMPLE-06-OK"]),
-    ("07-advanced-profiles", &["EXAMPLE-07-OK"]),
-    ("08-agent-workflow", &["EXAMPLE-08-OK"]),
+    ("02-live-session", &["EXAMPLE-02-OK", "EXAMPLE-02-SKIP"]),
+    ("03-missing-baseline", &["EXAMPLE-03-OK"]),
+    ("04-frozen-baseline", &["EXAMPLE-04-OK"]),
+    ("05-state-only", &["EXAMPLE-05-OK"]),
 ];
 
 fn examples_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let exe = std::env::current_exe()?;
-    // .../target/<profile>/deps/examples_lane-<hash> → .../target/<profile>
     let profile = exe
         .parent()
-        .and_then(|d| d.parent())
+        .and_then(|dir| dir.parent())
         .ok_or("profile dir above deps/")?
         .to_path_buf();
     Ok(profile.join("examples"))
 }
 
-fn build_examples(profile_dir_name: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    let mut cmd = Command::new(cargo);
-    cmd.args(["build", "--examples"]);
-    if profile_dir_name == Some("release") {
-        cmd.arg("--release");
-    }
-    // Run from the package root so plain `cargo build` resolves the manifest.
-    cmd.current_dir(env!("CARGO_MANIFEST_DIR"));
-    let out = cmd.output()?;
-    assert!(
-        out.status.success(),
-        "cargo build --examples failed:\n{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    Ok(())
-}
-
 #[test]
 fn examples_lane_executes_everything() {
     let dir = examples_dir().expect("examples_dir succeeds");
-    let profile_name = dir
-        .parent()
-        .and_then(|p| p.file_name())
-        .map(|s| s.to_string_lossy().into_owned());
-    let exe = |name: &str| dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
-    if CASES.iter().any(|(n, _)| !exe(n).is_file()) {
-        build_examples(profile_name.as_deref()).expect("build_examples succeeds");
-    }
-
     let mut failures = Vec::new();
     for (name, markers) in CASES {
-        let path = exe(name);
+        let path = dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
         if !path.is_file() {
-            failures.push(format!("{name}: binary missing at {}", path.display()));
+            failures.push(format!(
+                "binary missing at {}: build it with \
+                 `rust-build-guard -- mise exec -- cargo build --examples`",
+                path.display()
+            ));
             continue;
         }
         match Command::new(&path).output() {
@@ -82,13 +53,13 @@ fn examples_lane_executes_everything() {
                         "{name}: exit {}:\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}",
                         out.status
                     ));
-                } else if !markers.iter().any(|m| stdout.contains(m)) {
+                } else if !markers.iter().any(|marker| stdout.contains(marker)) {
                     failures.push(format!(
                         "{name}: exit 0 but no marker {markers:?} in stdout:\n{stdout}\n--- stderr ---\n{stderr}"
                     ));
                 }
             }
-            Err(e) => failures.push(format!("{name}: cannot run {}: {e}", path.display())),
+            Err(error) => failures.push(format!("{name}: cannot run {}: {error}", path.display())),
         }
     }
     assert!(

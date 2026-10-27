@@ -1,5 +1,12 @@
 # PR #6 Closure Ledger — v8 (2026-10-01, post-merge)
 
+> VINTAGE (pre-D07): this ledger records the termpane-swap PR #6
+> closure as of 2026-10-01. It is historical context only — at D07 the
+> section-3.3 crates (including the termpane backend) were removed and
+> the live PTY boundary moved to upstream `tui-test`
+> (see [migration/removals.md](migration/removals.md)). When rows below
+> disagree with the tree, the tree wins. Do not update this file.
+
 Single source of truth for PR #6 closure. Every row: ID, impact, owner, reproducer/evidence, fixing commit, verifier, disposition. Unlisted items do not exist as findings. PENDING = not yet revalidated at current HEAD.
 
 HEAD: main `d996feb` (PR #6 squash-merged 2026-10-01; branch deleted) · termpane `=0.1.0` from crates.io (F01 LANDED) · main CI SUCCESS (run 36856119450) · suite 683/683 + 1 skipped · pre-merge rows below are historical record; v8 rows carry post-merge truth.

@@ -19,6 +19,10 @@ see §2. Transitive is permitted; direct is banned.)
 > swap is merged on this branch — the §0 blocker is cleared and the
 > target end state holds (no direct `portable-pty` /
 > `alacritty_terminal` / `libc` deps; `cargo xtask deps` enforces).
+> **SUPERSEDED (D07):** the termpane backend itself was removed with
+> the section-3.3 crates; the live PTY boundary is upstream `tui-test`
+> (see [migration/removals.md](migration/removals.md)), with
+> `portable-pty` / `alacritty_terminal` transitive through `tui-test-rs`.
 > The rest of this document is the pre-swap evidence record.
 
 ## 0. External blocker — the swap cannot land yet (PRE-SWAP RECORD; cleared by F01 — termpane 0.1.0 released and integrated, merge `d996feb`)

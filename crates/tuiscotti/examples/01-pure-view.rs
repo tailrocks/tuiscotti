@@ -1,58 +1,73 @@
-//! 01: pure view test — production draw closure → `Screen` → `assert_snapshot!`.
+//! 01: pure Ratatui view test with the production draw function.
 //!
 //! Run: `cargo run --example 01-pure-view`
 //!
-//! The gate is pre-approved into a temp snapshot dir, so the assertion PASSES
-//! deterministically. Hermetic dirs travel on [`Policy::EvolvingIn`] (in-process
-//! `set_var` is unavailable: an `unsafe fn` in edition 2024); `INSTA_UPDATE`
-//! stays ambient.
+//! A pure-view test renders an application view in the test process. It
+//! starts no shell, child process, PTY, daemon, or terminal session: the
+//! only inputs are the production draw closure below and the caller-supplied
+//! view settings. The converted snapshot travels the same downstream sample
+//! API the live-session example uses (`Sample`, `FrozenStore`).
+//!
+//! Under `CI` approval is refused by design, so the example plants the
+//! candidate as a frozen baseline fixture and checks it green instead of
+//! approving; the marker and exit code stay the same.
 
+#[path = "common/ci_fixture.rs"]
+mod ci_fixture;
+
+use ratatui::Frame;
+use ratatui::layout::Position;
 use ratatui::widgets::Paragraph;
-use tuiscotti::assert::{Policy, generation_id};
-use tuiscotti::ratatui::{EdgePolicy, render_screen};
-use tuiscotti::screen::canonical_string;
+use tuiscotti::check::FrozenStore;
+use tuiscotti::render_profile::{PROFILE_NAME, platform_key, resolve_profile};
+use tuiscotti::sample::{Observation, Sample};
+use tuiscotti::view::{ViewSettings, capture_view};
+
+/// Production draw function: the real render path, never a test-only grid.
+fn login_view(frame: &mut Frame<'_>) {
+    frame.render_widget(Paragraph::new("hello tuiscotti"), frame.area());
+    frame.set_cursor_position(Position::new(16, 2));
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Production draw closure: the real render path, not a hand-made grid.
-    let shot = render_screen(
-        20,
-        4,
-        |f| f.render_widget(Paragraph::new("hello tuiscotti"), f.area()),
-        EdgePolicy::default(),
-    )?;
-    assert!(!shot.has_clips());
-    let screen = shot.into_screen();
-    // Row 0 carries the paragraph text (canonical form is per-cell lines).
-    let mut row0 = String::new();
-    for x in 0..screen.cols() {
-        row0.push_str(&screen.get(x, 0).ok_or("row0 cell missing")?.symbol);
-    }
-    assert!(row0.contains("hello tuiscotti"), "row0 was {row0:?}");
+    let snapshot = capture_view(80, 24, &ViewSettings::builtin(), login_view)?;
+    let profile = resolve_profile(PROFILE_NAME)?;
+    let test_id = format!("examples/pure-view/pixels-{}", platform_key());
+    let sample = Sample::with_pixels(&test_id, &snapshot, Observation::empty(), profile)?;
+    let bytes = sample.to_bytes()?;
 
-    // Pre-approve: exact canonical bytes under a temp snapshot dir.
-    let tmp = tempfile::tempdir()?;
-    let snaps = tmp.path().join("snaps");
-    std::fs::create_dir(&snaps)?;
-    let policy = Policy::EvolvingIn {
-        snapshots: snaps.clone(),
-        evidence: tmp.path().join("evidence"),
-    };
-    let canonical = canonical_string(&screen);
-    let generation = generation_id(&canonical);
-    std::fs::write(
-        snaps.join("pure-view.snap"),
-        format!(
-            "---\nsource: examples/01-pure-view.rs\ndescription: tuiscotti generation {generation}\n\
-             expression: canonical\n---\n{canonical}"
-        ),
-    )?;
-
-    tuiscotti::assert_snapshot!("pure-view", &screen, &policy);
-    assert!(!snaps.join("pure-view.snap.new").exists());
-    println!(
-        "EXAMPLE-01-OK gen={} bytes={}",
-        &generation[..12],
-        canonical.len()
+    let root = tempfile::tempdir()?;
+    let baselines = root.path().join("baselines");
+    let artifacts = root.path().join("artifacts");
+    let store = FrozenStore::new(&baselines, &artifacts)?;
+    let outcome = store.check(&bytes)?;
+    assert!(
+        !outcome.is_pass(),
+        "first check over an empty baseline root must fail"
     );
+
+    let failure = match outcome {
+        tuiscotti::check::CheckOutcome::Failure(failure) => failure,
+        tuiscotti::check::CheckOutcome::Pass(_) => {
+            return Err("first check unexpectedly passed".into());
+        }
+    };
+    if ci_fixture::ci_is_set() {
+        ci_fixture::plant_frozen_baseline(&baselines, &test_id, &bytes)?;
+    } else {
+        let approvals = tuiscotti::approve::ApprovalStore::new(&baselines)?;
+        approvals.accept(
+            failure.candidate_path(),
+            failure.candidate_sha256(),
+            tuiscotti::check::MISSING_BASELINE,
+        )?;
+    }
+    let rerun = store.check(&bytes)?;
+    assert!(
+        rerun.is_pass(),
+        "approved pure-view sample must check green"
+    );
+
+    println!("EXAMPLE-01-OK id=examples/pure-view");
     Ok(())
 }

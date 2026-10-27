@@ -16,7 +16,11 @@ external-default-features = "allow"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+# R26 provisional-fork exception, REMOVE AT R02: the workspace
+# [patch.crates-io] pins tui-test-rs to our maintained fork until the
+# upstream PRs merge and a registry release exists (D-R02-1). This is the
+# only permitted git source; source validation stays deny-by-default.
+allow-git = ["https://github.com/donbeave/tui-test"]
 
 [licenses]
 allow = [
@@ -25,6 +29,12 @@ allow = [
     "BSD-2-Clause",
     "BSD-3-Clause",
     "ISC",
+    # MPL-2.0 solely for `option-ext` 0.2.0, pulled transitively via
+    # `dirs-sys <- dirs <- tui-test-rs` (unavoidable upstream dep of the
+    # provisional fork pin). Retire this entry only if the upstream
+    # dependency graph drops `option-ext` (e.g. dirs/tui-test-rs remove
+    # the dependency and `cargo deny check licenses` stays green without it).
+    "MPL-2.0",
     "Unicode-3.0",
     "Zlib",
 ]

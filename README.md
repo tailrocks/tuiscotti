@@ -1,234 +1,98 @@
-# tuiscotti — Rust TUI visual-regression toolkit
+# tuiscotti — offline visual-regression workflow for Ratatui views
 
-Two capture paths share one canonical frame (`tuiscotti::Frame`,
-schema v3). Both produce approved frames, readable PNGs, and
-portable HTML expected/actual/diff reports.
+Two shipping crates. One executable. No live engine, no renderer, no
+adapter, no daemon downstream.
+
+| Crate | Function |
+|---|---|
+| `tuiscotti` | Pure-view capture (`view`), versioned samples (`sample`), frozen checks (`check`), explicit approval (`approve`), static reports (`report`), one typed error (`error`), one pinned render profile (`render_profile`) |
+| `tuiscotti-cli` | Offline binary `tuiscotti`: exactly four commands — `check`, `accept`, `render`, `report` |
+
+Live terminal work (child process, PTY, input, locators, waits,
+capture, rendering, pixel comparison) belongs to upstream `tui-test`.
+Application tests use `tui_test::Session` directly. There is no
+tuiscotti session, locator engine, input API, operation enum, or
+re-export of the upstream API.
 
 ```text
-Fixture model + view state + viewport + theme
-        └─▶ actual production Ratatui view ──▶ frame        (no PTY, no subprocess)
-
-Real executable ──▶ PTY + terminal-state engine ──▶ frame   (keyboard/mouse/resize)
+production Ratatui draw closure ──▶ capture_view ──▶ TerminalSnapshot
+    ──▶ Sample (tuiscotti.sample.v1) ──▶ FrozenStore::check ──▶ pass / missing / different
+    ──▶ ApprovalStore::accept (explicit digests, refuses under CI) ──▶ baseline
+    ──▶ tuiscotti report ──▶ static HTML evidence
 ```
 
-A changed snapshot requires explicit review (`Store::accept` /
-`GroupedStore::{accept, accept_matching, accept_all}` / `tuiscotti accept`
-with an exact name, segment-aware prefix, single-segment `*`, or
-multi-segment `**` glob, or `cargo insta review` for the macro gates).
-There is deliberately **no** `BLESS=1` / auto-accept, and `accept`
-refuses when `CI` is set: CI must never approve snapshots by itself.
-Equality only validates the fixtures covered — never every app state.
+## Pure-view test
 
-Names: facade `tuiscotti`, binary `tuiscotti` (from
-`tuiscotti-cli`), config `tuiscotti.toml`.
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Workflow 1: pure view + `assert_screenshot!`
-
-Render the ACTUAL production view from fixture data, gate it with
-the compound macro (canonical text + generation-tagged PNG as one
-sample). Approvals are explicit: seed the reviewed sample first, as
-below — a first run with no approval fails closed.
+Render the actual production view in the test process. No shell,
+child process, PTY, daemon, or terminal session starts. Compiling
+`tui-test` runtime code as a dependency does not start anything: only
+calling its session APIs opens a terminal.
 
 ```rust
 use ratatui::widgets::Paragraph;
-use tuiscotti::assert::{Policy, generation_id, png_tag_generation, render_sample};
-use tuiscotti::ratatui::{EdgePolicy, render_screen};
+use tuiscotti::check::FrozenStore;
+use tuiscotti::render_profile::{PROFILE_NAME, platform_key, resolve_profile};
+use tuiscotti::sample::{Observation, Sample};
+use tuiscotti::view::{ViewSettings, capture_view};
 
-#[test]
-fn styled_shot() {
-    let screen = render_screen(
-        24,
-        4,
-        |f| f.render_widget(Paragraph::new("styled shot"), f.area()),
-        EdgePolicy::default(),
-    )
-    .unwrap()
-    .into_screen();
-    let tmp = tempfile::tempdir().unwrap();
-    let snaps = tmp.path().join("snaps");
-    std::fs::create_dir(&snaps).unwrap();
-    let policy = Policy::EvolvingIn {
-        snapshots: snaps.clone(),
-        evidence: tmp.path().join("evidence"),
-    };
-    // Review-then-accept, made explicit: seed the approved sample first.
-    let sample = render_sample(&screen).unwrap();
-    let generation = generation_id(&sample.canonical);
-    std::fs::write(
-        snaps.join("styled-shot.snap"),
-        format!(
-            "---\nsource: readme\ndescription: tuiscotti generation {generation}\n\
-             expression: canonical\n---\n{}",
-            sample.canonical
-        ),
-    )
-    .unwrap();
-    std::fs::write(
-        snaps.join("styled-shot-img.snap"),
-        format!(
-            "---\nsource: readme\ndescription: tuiscotti generation {generation}\n\
-             expression: png_bytes\nextension: png\nsnapshot_kind: binary\n---\n"
-        ),
-    )
-    .unwrap();
-    std::fs::write(
-        snaps.join("styled-shot-img.snap.png"),
-        png_tag_generation(&sample.png, &generation),
-    )
-    .unwrap();
-    tuiscotti::assert_screenshot!("styled-shot", &screen, &policy);
-}
+let snapshot = capture_view(80, 24, &ViewSettings::builtin(), |frame| {
+    frame.render_widget(Paragraph::new("hello"), frame.area());
+})?;
+let profile = resolve_profile(PROFILE_NAME)?;
+let sample = Sample::with_pixels(
+    &format!("views/hello/pixels-{}", platform_key()),
+    &snapshot,
+    Observation::empty(),
+    profile,
+)?;
+let root = tempfile::tempdir()?;
+let store = FrozenStore::new(
+    &root.path().join("baselines"),
+    &root.path().join("artifacts"),
+)?;
+assert!(!store.check(&sample.to_bytes()?)?.is_pass());
 ```
 
-Runnable end to end: `cargo run -p tuiscotti --example 02-styled-shot`
-(exit 0, prints `EXAMPLE-02-OK`). Pure view tests build without the
-PTY engine: `cargo test -p tuiscotti --no-default-features`.
+Runnable end to end: `cargo run -p tuiscotti --example 01-pure-view`
+(exit 0, prints `EXAMPLE-01-OK`). The other examples cover a live
+upstream session (`02-live-session`), a missing baseline and its
+explicit approval (`03-missing-baseline`), read-only evidence outside
+the baseline root (`04-frozen-baseline`), and a state-only sample
+with no pixel requirement (`05-state-only`).
 
-## Workflow 2: live spawn + locators + snapshot (feature `pty`, on by default)
+## Baseline review procedure
 
-```rust
-use std::time::{Duration, Instant};
-use tuiscotti::tui::{CancelToken, Tui};
-
-#[test]
-fn live_menu() {
-    let mut s = Tui::new([
-        "/bin/sh",
-        "-c",
-        "printf 'menu: alpha\\nmenu: beta\\n'; sleep 30",
-    ])
-    .size(40, 8)
-    .spawn()
-    .unwrap();
-    let cancel = CancelToken::new();
-    s.wait_predicate(
-        |o| {
-            tuiscotti::proto::screen_text(&o.screen).contains("menu: beta")
-        },
-        Instant::now() + Duration::from_secs(5),
-        &cancel,
-    )
-    .unwrap();
-    let span = s.get_by_text("menu: beta").expect_visible().unwrap();
-    assert_eq!(span.text, "menu: beta");
-    let screen = s.snapshot().unwrap();
-    assert!(
-        tuiscotti::observe::screen_text(&screen).contains("menu: alpha")
-    );
-    s.close().unwrap();
-}
-```
-
-Timeouts fail WITH the last screen (including a bounded text dump in
-`WaitError`'s `Display` output), never a bare deadline error.
-Mouse input without app-enabled reporting fails closed
-(`ModeNotEnabled`), never silently drops.
-
-Runnable end to end: `cargo run -p tuiscotti --example 04-interactive-tui`
-(exit 0, prints `EXAMPLE-04-OK`).
-
-### Workflow 2 to files: live PTY + pointer actions + `GroupedStore` (`ArtifactSet::AnsiCursor`)
-
-```rust,no_run
-use std::path::Path;
-use std::time::{Duration, Instant};
-use tuiscotti::grouped::{ArtifactSet, GroupedStore};
-use tuiscotti::tui::{CancelToken, MouseButton, MouseMods, Tui};
-use tuiscotti::{Profile, VENDORED_FACES, render};
-
-fn workflow_2_to_files() -> Result<(), Box<dyn std::error::Error>> {
-    let session = Tui::new(["./target/debug/my-tui"])
-        .size(120, 40)
-        .env_clear(true)
-        .env("TERM", "xterm-256color")
-        .env("TUISCOTTI_FIXED_TIME", "2026-01-01T00:00:00Z")
-        .spawn()?;
-
-    // 1. Wait on semantic readiness, then a short PTY quiet window.
-    session.get_by_text("Ready").any().expect_visible()?;
-    let cancel = CancelToken::new();
-    session.wait_stable_quiet(
-        Instant::now() + Duration::from_secs(2),
-        Duration::from_millis(50),
-        &cancel,
-    )?;
-
-    // 2. Pointer hover (DEC 1003 + 1006) and press-and-hold (DEC 1000/1002/1003 + 1006).
-    session.mouse_move(10, 5, MouseMods::NONE)?;
-    session.mouse_down(MouseButton::Left, 10, 5, MouseMods::NONE)?;
-    session.mouse_up(MouseButton::Left, 10, 5, MouseMods::NONE)?;
-
-    // 3. Capture canonical Frame and check against an AnsiCursor grouped store.
-    let frame = render::frame_from_screen(&session.snapshot()?, "tuiscotti-default");
-    let store = GroupedStore::new(Path::new("snapshots/visual"))
-        .with_artifacts(ArtifactSet::AnsiCursor)
-        .with_actual_root(Path::new("target/tuiscotti/actual"))
-        .with_expected_root(Path::new("target/tuiscotti/expected"))
-        .with_diff_root(Path::new("target/tuiscotti/diff"));
-    let profile = Profile::default_profile();
-    store
-        .check("dashboard/hover_120x40", &frame, &profile, &VENDORED_FACES, 1.0)?
-        .ensure_matched()?;
-
-    session.close()?;
-    Ok(())
-}
-```
-
-## Workflow 3: CLI capture + frozen review
+A changed sample never self-heals. `check` writes the candidate and
+its evidence to the artifact root and reports `different`. Review
+means reading the candidate evidence, then running one explicit
+command with both digests:
 
 ```sh
-tuiscotti capture --out /tmp/shots/demo -- echo hello
-# captured Exit(0) -> /tmp/shots/demo
-tuiscotti inspect --dir /tmp/shots/demo
-# artifacts in /tmp/shots/demo (3 files, offline view): manifest + stdout/stderr
-tuiscotti render --input crates/tuiscotti-fixtures/tests/visual/approved/dialog-dark-80x24.frame.json --format png --out /tmp/shots/shot
-# wrote /tmp/shots/shot.png
-tuiscotti diff --expected crates/tuiscotti-fixtures/tests/visual/approved/dialog-dark-80x24.png --actual /tmp/shots/shot.png
-# pixels_equal=true dims_equal=true score=1 (exit 0: offline re-render is byte-identical)
-tuiscotti render --input crates/tuiscotti-fixtures/tests/visual/approved/dialog-dark-80x24.frame.json --format ansi --format txt --format png --format html --out /tmp/frozen/shot
-tuiscotti import --dir /tmp/frozen
-# scenarios: 1 (shot); read-only — frozen trees never accept
-# (also reports "unsupported: 1" for shot.png.fidelity.json: extras are listed, never fatal)
-echo '{"type":"capabilities"}' | tuiscotti machine
-# {"ok":true,"result":{"type":"capabilities","capabilities":{"protocol":"2.0.0",…}}}
+tuiscotti accept --candidate <CANDIDATE> --candidate-sha256 <SHA> \
+  --expect-baseline <SHA_OR_MISSING> --baselines <DIR>
 ```
 
-Run the binary via `cargo run -q -p tuiscotti-cli -- <args>` (or
-`cargo build -p tuiscotti-cli`, then `./target/debug/tuiscotti`).
-Frozen roots are read-only by construction (`frozen_accept` always
-errors); the Rust side is `cargo run -p tuiscotti --example
-06-artifacts-review` (exit 0, prints `EXAMPLE-06-OK`).
-
-Exit statuses: 0 ok; 2 CLI usage error; 3 op error; 4 verification
-disagreement. `capture`/`record` preserve the child's exit code.
-Full grammar: [docs/CLI.md](docs/CLI.md) (transcribed from `--help`).
+Approval is refused before any write when the `CI` variable is set
+(any value, including empty), on digest mismatch, on stale baselines,
+and on unknown profiles. There is no bless flag, no auto-accept, and
+no override. See [docs/CLI.md](docs/CLI.md) and [docs/API.md](docs/API.md).
 
 ## Docs
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — crates, dependency graph, data flow
-- [docs/API.md](docs/API.md) — public Rust API design and status labels
+- [docs/API.md](docs/API.md) — public Rust API per section-3.1 responsibility
 - [docs/CLI.md](docs/CLI.md) — CLI reference (from the implemented Clap grammar)
-- [crates/tuiscotti-cli/SYNTAX.md](crates/tuiscotti-cli/SYNTAX.md) — Rust + CLI syntax matrix (every surface, one table)
-- [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) — snapshot/approval semantics
-- [docs/TESTING.md](docs/TESTING.md) — tests, fixtures, examples lane, CI wiring
-- [docs/COMPARISON.md](docs/COMPARISON.md) — vs tui-test, terminal-control, termlens
-- [docs/PERFORMANCE.md](docs/PERFORMANCE.md) — measured build/test/render numbers
-- [docs/MIGRATION.md](docs/MIGRATION.md) — schema and layout migrations
-- [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — platform matrix, known gaps
-- [docs/DECISIONS.md](docs/DECISIONS.md) — durable decisions and rationale
-- [CONTRIBUTING.md](CONTRIBUTING.md) — tooling, gates, workflow
-- `assets/fonts/FONTS.md` — font licensing and coverage
+- [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — fonts, platform limits, unsupported features
+- [docs/MIGRATION.md](docs/MIGRATION.md) — schema and layout migrations (historical)
 
 ## Status labels
 
-Docs use five truthful labels, reconciled from code + tests at the
-current head: **implemented** (shipped, tested), **partial** (works
-with documented gaps), **unsupported** (explicitly rejected, fails
-closed), **future** (planned, not present), and per-platform
-**tested / compiles-only / not run**. No legacy shims: removed APIs
-stay removed.
+Docs use five truthful labels: **implemented** (shipped, tested),
+**partial** (works with documented gaps), **unsupported**
+(explicitly rejected, fails closed), **future** (planned, absent),
+and per-platform **tested / compiles-only / not run**. Removed APIs
+stay removed: they appear only in the migration record under
+[docs/migration/](docs/migration/), never as available features.
 
 ## License
 

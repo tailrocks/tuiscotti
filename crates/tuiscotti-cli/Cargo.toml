@@ -1,7 +1,7 @@
 [package]
 name = "tuiscotti-cli"
 version = "0.2.0"
-description = "Capture, inspect, sessions, render, diff, review, and report CLI for TUI snapshots"
+description = "Offline CLI for tuiscotti visual snapshots: check, accept, render, report"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -15,30 +15,27 @@ path = "src/main.rs"
 # library API, so only the lib is documented.
 doc = false
 
-# No required-features: the binary always builds. Offline commands (inspect,
-# render, diff, review, accept, report, import, trace) work without `pty`;
-# PTY-backed machine ops report `unsupported` instead.
-[features]
-default = ["pty"]
-pty = ["tuiscotti/pty"]
-
 [dependencies]
-# default-features = false: without the CLI `pty` feature this must not
-# compile the terminal runtime (offline render/diff/report/import only).
-tuiscotti = { version = "0.2.0", path = "../tuiscotti", default-features = false }
+# D07: the facade ships no PTY, engine, or renderer, so the offline commands
+# (check, accept, render, report) never start an application or open a
+# terminal device. State-only render replays the pinned renderer through
+# the upstream API.
+tuiscotti = { version = "0.2.0", path = "../tuiscotti" }
+tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
+base64.workspace = true
 clap.workspace = true
+image.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-insta.workspace = true
-ratatui.workspace = true
+tuiscotti = { version = "0.2.0", path = "../tuiscotti" }
+tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
+base64.workspace = true
+image.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tempfile.workspace = true
-# Test-only: enables `tuiscotti::proto::set_runtime_dir_override` for the
-# in-process session tests (F12 `test-overrides`). Production builds never
-# see it. `default-features = false` mirrors the main dependency so the
-# `--no-default-features` lane stays PTY-free.
-tuiscotti = { version = "0.2.0", path = "../tuiscotti", default-features = false, features = ["test-overrides"] }
 
 [lints]
 workspace = true
