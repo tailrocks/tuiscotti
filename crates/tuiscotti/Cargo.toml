@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+test = false
+
 [dependencies]
 # D07: pure-view execution. Live sessions, input, locators, waits, capture,
 # rendering, and comparison all come from the upstream `tui-test-rs` snapshot

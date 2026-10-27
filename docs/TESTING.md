@@ -83,7 +83,12 @@ never hand-edit `.github/workflows/ci.yml` beyond what the generator
 produces (its `Check generated files` job diffs the two).
 The generator emits one `nextest` lane per crate under default and
 `no-default` configurations, plus `actionlint`, `plan`, and the
-`required` merge gate.
+`required` merge gate — except the `tuiscotti` lib crate, which
+declares `[lib] test = false` and therefore gets no `nextest` step
+(the generator reports `no test targets; no test command emitted`).
+That crate is still covered in CI by `Format`, `Clippy`, `Doctests`
+(6 doc tests), and `Documentation`, and its behavior is exercised
+end-to-end by the `functional` suite in the CLI crate.
 
 Gates run everywhere; approval happens only on a human workstation.
 There is no flag or variable that approves — `ApprovalStore::accept`

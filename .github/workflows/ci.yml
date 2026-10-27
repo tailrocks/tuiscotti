@@ -821,10 +821,6 @@ jobs:
         background: true
         uses: ./.github/actions/declared-task-0 # zizmor: ignore[self-repository]
         with: {"digest": "b3-a1f8c16878bb986e41d2680c21d9fb35dc3f75066fc01884d48a93f0979e0f2b"}
-      - name: Unit and integration tests
-        background: true
-        uses: ./.github/actions/declared-task-0 # zizmor: ignore[self-repository]
-        with: {"digest": "b3-ed8bed392c879e255eb6b2e818ba312cadd79cdda1a41fd66f64d26dd1111812"}
       - name: Doctests
         background: true
         uses: ./.github/actions/declared-task-0 # zizmor: ignore[self-repository]
@@ -1434,10 +1430,6 @@ jobs:
         background: true
         uses: ./.github/actions/declared-task-0 # zizmor: ignore[self-repository]
         with: {"digest": "b3-1310c55b57ada3e129998b032f9f1a050a67c4fa34eb8a9afaff285c60637000"}
-      - name: Unit and integration tests
-        background: true
-        uses: ./.github/actions/declared-task-0 # zizmor: ignore[self-repository]
-        with: {"digest": "b3-541633c0d2eccfc76e8b5265fdbf180d5f12620e4524a904d1c65fc3720f1fd7"}
       - name: Doctests
         background: true
         uses: ./.github/actions/declared-task-0 # zizmor: ignore[self-repository]
