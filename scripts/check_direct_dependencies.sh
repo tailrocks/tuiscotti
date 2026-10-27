@@ -35,7 +35,7 @@ function table_get(table_text, field,    rest, val) {
     rest = trim(substr(rest, RSTART + RLENGTH))
     if (match(rest, /^"[^"]*"/)) {
         val = substr(rest, 2, RLENGTH - 2)
-        return val
+        return decode_basic(val)
     }
     if (match(rest, "^\x27[^\x27]*\x27")) {
         val = substr(rest, 2, RLENGTH - 2)
@@ -94,6 +94,60 @@ function normkey(s,    n, parts, i, p, out, f, l) {
         out = (out == "" ? p : out "." p)
     }
     return out
+}
+function decode_basic(s,    out, i, c, e, j, hex, code, ok, h) {
+    out = ""
+    i = 1
+    while (i <= length(s)) {
+        c = substr(s, i, 1)
+        if (c != "\\" || i == length(s)) { out = out c; i++; continue }
+        e = substr(s, i + 1, 1)
+        if (e == "n") { out = out "\n"; i += 2 }
+        else if (e == "t") { out = out "\t"; i += 2 }
+        else if (e == "r") { out = out "\r"; i += 2 }
+        else if (e == "b") { out = out "\b"; i += 2 }
+        else if (e == "f") { out = out "\f"; i += 2 }
+        else if (e == "\"") { out = out "\""; i += 2 }
+        else if (e == "\\") { out = out "\\"; i += 2 }
+        else if (e == "/") { out = out "/"; i += 2 }
+        else if ((e == "u" && i + 5 <= length(s)) || (e == "U" && i + 9 <= length(s))) {
+            hex = (e == "u" ? substr(s, i + 2, 4) : substr(s, i + 2, 8))
+            code = 0; ok = 1
+            for (j = 1; j <= length(hex); j++) {
+                h = substr(hex, j, 1)
+                if (h >= "0" && h <= "9") code = code * 16 + h
+                else if (h == "a" || h == "A") code = code * 16 + 10
+                else if (h == "b" || h == "B") code = code * 16 + 11
+                else if (h == "c" || h == "C") code = code * 16 + 12
+                else if (h == "d" || h == "D") code = code * 16 + 13
+                else if (h == "e" || h == "E") code = code * 16 + 14
+                else if (h == "f" || h == "F") code = code * 16 + 15
+                else { ok = 0; break }
+            }
+            if (ok) { out = out sprintf("%c", code); i += (e == "u" ? 6 : 10) }
+            else { out = out c; i++ }
+        }
+        else { out = out c; i++ }
+    }
+    return out
+}
+function str_value(text,    q, v, i, c, out) {
+    q = substr(text, 1, 1)
+    v = substr(text, 2)
+    if (q == "\"") {
+        out = ""
+        i = 1
+        while (i <= length(v)) {
+            c = substr(v, i, 1)
+            if (c == "\\" && i < length(v)) { out = out c substr(v, i + 1, 1); i += 2; continue }
+            if (c == "\"") break
+            out = out c; i++
+        }
+        return decode_basic(out)
+    }
+    i = index(v, q)
+    if (i > 0) v = substr(v, 1, i - 1)
+    return v
 }
 function dep_section(name) {
     if (name == "dependencies") return 1
@@ -211,7 +265,18 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         if (rest ~ /^\{/) {
             record_ws(key, table_get(rest, "package"))
         } else if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
-            record_ws(key, "")
+            if (index(key, ".") > 0) {
+                alias = substr(key, 1, index(key, ".") - 1)
+                subkey = substr(key, index(key, ".") + 1)
+                val = str_value(rest)
+                if (subkey == "package") {
+                    if (val != "") ws_name[alias] = val
+                    else if (!(alias in ws_name)) ws_name[alias] = alias
+                }
+                else if (!(alias in ws_name)) ws_name[alias] = alias
+            } else {
+                record_ws(key, "")
+            }
         } else {
             parse_error("invalid TOML in workspace manifest")
         }
@@ -238,12 +303,7 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
     }
     if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
         if (alias != key) {
-            val = rest
-            q = substr(val, 1, 1)
-            val = substr(val, 2)
-            i = index(val, q)
-            if (i > 0) val = substr(val, 1, i - 1)
-            record_dep(alias, "direct", val)
+            record_dep(alias, "direct", str_value(rest))
         } else {
             record_dep(key, "direct", key)
         }
