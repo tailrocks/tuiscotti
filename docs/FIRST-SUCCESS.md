@@ -387,10 +387,10 @@ let sample = tuiscotti::sample::Sample::with_pixels(
 There is no `[patch.crates-io]` section anymore: downstream crates
 depend on `tuiscotti "0.4"` plus `tuiscotti-tui-test 0.2.1`
 from crates.io and resolve the same release with no extra pin.
-This verification runs at publish time with a scratch crate outside
+This was verified after publication with a scratch crate outside
 the workspace depending on `tuiscotti 0.4` from the registry plus the
-registry release: `cargo run --offline` builds and a
-`FrozenStore::check` against a fresh store reports `is_pass=false` as
+registry release: `cargo run --offline` built and a
+`FrozenStore::check` against a fresh store reported `is_pass=false` as
 expected. (Against crates.io
 `tui-test-rs` 0.1.1 the build fails — it lacks the fork-only APIs
 tuiscotti consumes:
