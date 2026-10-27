@@ -5,7 +5,7 @@ Status values: `todo`, `active`, `review`, `done`. Owners: primary agent, upstre
 | Task | Subject | Owner | Status | Branch | Base SHA |
 |---|---|---|---|---|---|
 | P01 | Source, instructions, branches, base behavior | primary agent | done | `goal/tui-test-extension` | `a1ea27f757d75d07b05499276cd932e9f8e067ad` |
-| P02 | Corpus, API record, task records | primary agent | done (corpus.json, api-contract.md, task board maintained through V01; F01 records complete) | `goal/tui-test-extension` | `a1ea27f757d75d07b05499276cd932e9f8e067ad` |
+| P02 | Corpus, API record, task records | primary agent | done (corpus.json removed as stale evidence — survives in git history; api-contract.md, task board maintained through V01; F01 records complete) | `goal/tui-test-extension` | `a1ea27f757d75d07b05499276cd932e9f8e067ad` |
 | U01 | Strict upstream snapshot policy | upstream writer | done ([draft PR 276](https://github.com/microsoft/tui-test/pull/276)) | `goal/u01-strict-snapshots` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U02 | Owned snapshot and atomic capture | upstream writer | done ([draft PR 278](https://github.com/microsoft/tui-test/pull/278)) | `goal/u02-owned-snapshot` | `f2760592ed00e90436f8c3bae124dab712eaecf8` |
 | U03 | Public offline rendering | upstream writer | done ([draft PR 280](https://github.com/microsoft/tui-test/pull/280)) | `goal/u03-offline-rendering` | U02 head (`364719a`, parent PR #278) |
