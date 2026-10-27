@@ -1,6 +1,6 @@
 [package]
 name = "tuiscotti"
-version = "0.2.0"
+version = "0.3.0"
 description = "Rust TUI visual-regression toolkit: pure-view capture, versioned samples, frozen checks, approval, reports"
 edition.workspace = true
 rust-version.workspace = true

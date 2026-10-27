@@ -113,8 +113,7 @@ holds no absolute paths, process IDs, timestamps, host names, or session
 names. It holds only the test ID, gate, digests, and the compared change
 set, all of which recompute deterministically from the approved bytes.
 
-CLI shape for D05 (recorded, not implemented here): the programmatic path
-below is what the future offline command calls.
+The offline CLI calls this approval path:
 
 ```text
 tuiscotti accept --candidate PATH --candidate-sha256 SHA256 --expect-baseline SHA256_OR_MISSING --baselines DIR
@@ -409,10 +408,9 @@ Run the approval transaction mechanics without the CI gate: steps
 2-20 (digest validation, root creation, lock, read, arbitration,
 re-render, atomic upsert).
 
-Private: every production, integration-test, example, and CLI caller
-reaches approval through [`ApprovalStore::accept`], which refuses
-under `CI`. Only the unit tests below call this core directly, which
-keeps transaction coverage green under `CI` without unsetting it.
+This private method is called by [`ApprovalStore::accept`] after the CI
+check succeeds. The functional suite exercises approval through the
+shipped CLI. Successful approval uses a child process with `CI` unset.
 
 # Errors
 

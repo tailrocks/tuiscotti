@@ -70,6 +70,21 @@ pub(crate) fn open_lane() -> ChildEnv<'static> {
     }
 }
 
+#[expect(clippy::expect_used, reason = "checker child must spawn")]
+pub(crate) fn check_direct_dependencies(workspace: &Path, crate_manifest: &Path) -> i32 {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let script = root.join("scripts/check_direct_dependencies.py");
+    let output = std::process::Command::new("python3")
+        .arg(script)
+        .arg("--workspace")
+        .arg(workspace)
+        .arg("--crate")
+        .arg(crate_manifest)
+        .output()
+        .expect("dependency checker spawns");
+    output.status.code().unwrap_or(2)
+}
+
 #[expect(clippy::expect_used, reason = "temp dirs anchor every case")]
 pub(crate) fn case_dir(name: &str) -> tempfile::TempDir {
     tempfile::Builder::new()

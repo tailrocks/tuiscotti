@@ -189,15 +189,13 @@ Source: the migration API record, copied from an in-memory upstream
 emulator read through `Emulator::colors()` with no child, PTY, or session.
 The canonical digest over these values is
 `92757b147e00dec394b10b7be2fa42f782f0d30325a5922570080f91d60f641e`;
-`view_palette_digest` in the test suite pins it.
+The digest above records the palette; no test pins it.
 
 # `const fn hex_digit(byte: u8) -> u8 {`
 
 Parse one `#rrggbb` channel pair at compile time.
 
-All inputs are the known-good literals in `VIEW_PALETTE_HEX`; the
-`view_palette_digest` test pins the parsed palette against the canonical
-digest from the migration API record.
+All inputs are the fixed literals in `VIEW_PALETTE_HEX`.
 
 # `const fn parse_hex_color(hex: &str) -> Rgb {`
 

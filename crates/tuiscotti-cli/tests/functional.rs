@@ -7,9 +7,9 @@ use image::GenericImageView as _;
 mod helpers;
 
 use helpers::{
-    ChildEnv, baseline_samples, case_dir, ci_lane, decode_png, exit_code, log_sample, make_dir,
-    open_lane, parse_json_line, pixel_test_id, report_file_name, run_cli, sha256_bytes,
-    sha256_file, utf8, walk_files, write_bytes,
+    ChildEnv, baseline_samples, case_dir, check_direct_dependencies, ci_lane, decode_png,
+    exit_code, log_sample, make_dir, open_lane, parse_json_line, pixel_test_id, report_file_name,
+    run_cli, sha256_bytes, sha256_file, utf8, walk_files, write_bytes,
 };
 #[derive(Debug)]
 struct WorkflowDirs {
@@ -241,7 +241,89 @@ fn invalid_input() {
     assert_eq!(exit_code(&out), 3);
     assert_eq!(parse_json_line(&out.stdout)["error_code"], "RESOURCE_LIMIT");
     phase_usage_errors(&candidates, &sample, &baselines, &lane);
+    phase_direct_dep_rules(&candidates);
     assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
+}
+
+fn phase_direct_dep_rules(candidates: &Path) {
+    const CRATE: &str =
+        "[package]\nname = \"tuiscotti\"\nversion = \"0.2.0\"\nedition = \"2024\"\n";
+    const BARE_WS: &str = "[workspace]\n";
+    const WS_ALIAS: &str = "[workspace]\n[workspace.dependencies]\npty = { package = \"portable-pty\", version = \"0.9\" }\n";
+    let dir = candidates.join("dep-cases");
+    make_dir(&dir);
+    let manifest_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    assert_eq!(
+        check_direct_dependencies(
+            &manifest_root.join("Cargo.toml"),
+            &manifest_root.join("crates/tuiscotti/Cargo.toml")
+        ),
+        0
+    );
+    let mut seq = 0;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        let ws_path = dir.join(format!("workspace-{seq}.toml"));
+        let crate_path = dir.join(format!("crate-{seq}.toml"));
+        if let Some(text) = workspace {
+            write_bytes(&ws_path, text.as_bytes());
+        }
+        if let Some(text) = crate_toml {
+            write_bytes(&crate_path, text.as_bytes());
+        }
+        assert_eq!(check_direct_dependencies(&ws_path, &crate_path), want);
+    };
+    case(
+        Some(BARE_WS),
+        Some(&format!("{CRATE}[dependencies]\nportable-pty = \"0.9\"\n")),
+        1,
+    );
+    case(
+        Some(BARE_WS),
+        Some(&format!(
+            "{CRATE}[dependencies]\npty = {{ package = \"portable-pty\", version = \"0.9\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(WS_ALIAS),
+        Some(&format!("{CRATE}[dependencies]\npty.workspace = true\n")),
+        1,
+    );
+    case(
+        Some(BARE_WS),
+        Some(&format!(
+            "{CRATE}[build-dependencies]\npty = {{ package = \"portable-pty\", version = \"0.9\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(BARE_WS),
+        Some(&format!(
+            "{CRATE}[dev-dependencies]\nterm = {{ package = \"termpane\", version = \"0.1\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(WS_ALIAS),
+        Some(&format!(
+            "{CRATE}[target.'cfg(windows)'.dependencies]\npty.workspace = true\n"
+        )),
+        1,
+    );
+    case(Some(WS_ALIAS), Some(CRATE), 0);
+    case(
+        Some(BARE_WS),
+        Some(&format!("{CRATE}[dependencies]\npty.workspace = true\n")),
+        2,
+    );
+    case(Some(BARE_WS), Some("[[["), 2);
+    let ws_path = dir.join("workspace-unreadable.toml");
+    write_bytes(&ws_path, BARE_WS.as_bytes());
+    assert_eq!(
+        check_direct_dependencies(&ws_path, &dir.join("crate-absent.toml")),
+        2
+    );
 }
 
 fn phase_usage_errors(candidates: &Path, sample: &Path, baselines: &Path, lane: &ChildEnv<'_>) {

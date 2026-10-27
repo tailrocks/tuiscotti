@@ -58,11 +58,7 @@ Metrics: 16-pixel font, 10-by-20 cell, baseline 15 pixels from the cell
 top, scale 1, zero canvas and content padding, no title bar, controls,
 shadow, border, or radius. Resolved terminal colors come from the
 snapshot; a cursor the snapshot does not hide draws in the fixed shown
-phase. Metric clipping was verified before candidate construction (see
-`crates/tuiscotti/tests/samples.rs`): the mandatory glyphs
-(`e`+U+0301, `a`+U+0308, U+6771, last-column wide cell, cursor over
-combined and wide cells) keep every ink pixel inside their cell bounds
-at these metrics, so no metric changed from its initial value.
+phase.
 
 # `PROFILE_NAME`
 

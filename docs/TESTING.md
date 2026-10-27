@@ -20,15 +20,12 @@ Historical per-suite counts from retired suites are kept under
 
 | Test | Proves |
 |---|---|
-| `live_workflow` | A user can capture a real terminal view, compare it, approve it, and report on it: missing → accept → pass → changed → render (decoded PNG pixels, embedded-HTML page) → indexed report with working evidence links. |
-| `invalid_input` | Malformed arguments, corrupt samples, oversize input, and unsupported output extensions fail with the documented exit codes and error codes and never create or replace a baseline. |
+| `live_workflow` | A user captures a real terminal view from an in-memory Ratatui buffer, compares it, approves it, and reports on it: missing → accept → pass → changed → render (PNG decoding and dimensions, embedded-HTML page with markers) → indexed report with a report filename check. |
+| `invalid_input` | Malformed arguments, corrupt samples, oversize input, and unsupported output extensions fail with the documented exit codes and error codes and never create or replace a baseline. It also checks direct-dependency rules with temporary manifests. |
 | `ci_refuses_approval` | A set `CI` variable (empty, `false`, `true`) refuses approval without touching baselines; an unset `CI` approves. |
 | `closed_stdout` | A closed output pipe preserves the operation result, and nothing panics. |
 
-Each test drives the real `tuiscotti` binary in a fresh temporary
-store, asserts real exit codes with the full JSON result object, and
-checks resulting files (baselines, PNG pixels, HTML pages, report
-links resolve to existing evidence).
+The suite runs the shipped CLI binary in fresh temporary stores. It checks selected exit codes and JSON fields, approved sample bytes, PNG decoding and dimensions, HTML markers, and the report filename in the index.
 
 ## Running the suite
 
@@ -87,7 +84,7 @@ The generator emits one `nextest` lane per crate under default and
 declares `[lib] test = false` and therefore gets no `nextest` step
 (the generator reports `no test targets; no test command emitted`).
 That crate is still covered in CI by `Format`, `Clippy`, `Doctests`
-(6 doc tests), and `Documentation`, and its behavior is exercised
+(2 doc tests), and `Documentation`, and its behavior is exercised
 end-to-end by the `functional` suite in the CLI crate.
 
 Gates run everywhere; approval happens only on a human workstation.
