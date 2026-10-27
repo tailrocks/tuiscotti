@@ -631,7 +631,7 @@ The stable file is opened or created (never exclusively: a held path
 is opened, not recreated), then the OS lock is taken with
 non-blocking attempts until `timeout`. A directory at the lock path,
 a read-only root, or a missing root fails fast with
-[`ApprovalLockError::Io`] without waiting. This call never creates
+`ApprovalLockError::Io` without waiting. This call never creates
 directories; the root must already exist.
 
 # fn `open_lock_file`

@@ -1,20 +1,12 @@
 #![doc = include_str!("../docs/lib.md")]
-#[doc = "Explicit digest-arbitrated review for new or changed samples."]
 pub mod approve;
-#[doc = "Frozen-baseline checks of rendered samples."]
 pub mod check;
-#[doc = "Facade error unifying every fallible operation."]
 pub mod error;
-#[doc = "Offline rendering of saved samples."]
 pub mod render;
-#[doc = "Static HTML comparison reports and evidence index."]
 pub mod report;
-#[doc = "Saved sample construction and validation."]
 pub mod sample;
-#[doc = "Pure-view rendering of application views in the test process."]
 pub mod view;
 
-#[doc = "Render profile selecting the pinned upstream raster policy and fonts."]
 #[path = "profile.rs"]
 pub mod render_profile;
 

@@ -107,7 +107,7 @@ Changed cells with coordinates, row-major, bounded.
 
 The exact changed-cell count, without the report bound.
 
-# pub pixels: Option<PixelSummary>,
+# `pub pixels: Option<PixelSummary>,`
 
 Pixel summary when pixels were compared.
 

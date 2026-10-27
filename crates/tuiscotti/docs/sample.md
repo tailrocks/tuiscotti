@@ -666,7 +666,7 @@ This is the single complete test-ID validator: construction
 ([`Sample::state`], [`Sample::with_pixels`]) and parsing
 ([`Sample::from_bytes`] through [`Sample::validate_structure`]) all run
 through it, and the frozen checker delegates its grammar-only check to
-[`validate_test_id_grammar`], so no second shape rule can drift.
+`validate_test_id_grammar`, so no second shape rule can drift.
 
 # `pub(crate) fn validate_test_id_grammar(test_id: &str) -> Result<(), SampleError> {`
 
@@ -752,7 +752,7 @@ arithmetic: zero chrome means exactly `cols * cell` by `rows * cell`.
 
 Decode 8-bit RGBA PNG bytes with dimension validation before the pixel
 buffer is allocated. The caller checks header dimensions first through
-[`check_image_dims`]; this decoder reads the IHDR again from untrusted
+`check_image_dims`; this decoder reads the IHDR again from untrusted
 bytes and refuses anything that changed or is not RGBA8.
 
 # `fn sha256_hex(bytes: &[u8]) -> String {`

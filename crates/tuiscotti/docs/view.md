@@ -195,7 +195,7 @@ The canonical digest over these values is
 
 Parse one `#rrggbb` channel pair at compile time.
 
-All inputs are the known-good literals in [`VIEW_PALETTE_HEX`]; the
+All inputs are the known-good literals in `VIEW_PALETTE_HEX`; the
 `view_palette_digest` test pins the parsed palette against the canonical
 digest from the migration API record.
 
