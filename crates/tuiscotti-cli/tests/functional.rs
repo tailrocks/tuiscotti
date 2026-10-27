@@ -125,6 +125,8 @@ fn live_workflow() {
     phase_missing_glyph(&dirs, &lane);
     #[cfg(unix)]
     phase_report_symlink_loop();
+    #[cfg(unix)]
+    phase_report_relative_href(&dirs.baselines, &candidate_v2, &lane);
 }
 
 #[cfg(unix)]
@@ -185,6 +187,60 @@ fn phase_report_symlink_loop() {
     assert!(after_text.contains("<p>records: 1</p>"));
     assert_eq!(after_text.matches(">report</a>").count(), 1);
     assert_eq!(after, before);
+}
+
+#[cfg(unix)]
+#[expect(
+    clippy::expect_used,
+    reason = "canonical temp parent and report JSON shape are assertions"
+)]
+fn phase_report_relative_href(baselines: &Path, candidate_v2: &Path, lane: &ChildEnv<'_>) {
+    let parent = case_dir("report-relative-href");
+    let canonical = std::fs::canonicalize(parent.path()).expect("canonical temp parent");
+    for (dirname, encoded_first) in [("runs-local", "runs-local"), ("runs:local", "runs%3Alocal")] {
+        let artifacts = canonical.join(dirname);
+        make_dir(&artifacts);
+        let (code, body) = check_sample(candidate_v2, baselines, &artifacts, lane);
+        assert_eq!(code, 1);
+        assert_eq!(body["status"], "different");
+        let report_path = PathBuf::from(
+            body.get("output_path")
+                .and_then(|path| path.get("value"))
+                .and_then(serde_json::Value::as_str)
+                .expect("report path present"),
+        );
+        assert!(report_path.is_file());
+        let suffix = report_path
+            .strip_prefix(&artifacts)
+            .expect("report under artifact root");
+        let slug = dirname.replace(':', "-");
+        let index = canonical.join(format!("index-{slug}.html"));
+        let out = run_cli(
+            &[
+                "report",
+                "--artifacts",
+                utf8(&artifacts),
+                "--out",
+                utf8(&index),
+                "--json",
+            ],
+            lane,
+        );
+        assert_eq!(exit_code(&out), 0);
+        let index_bytes = std::fs::read(&index).unwrap_or_default();
+        let text = String::from_utf8_lossy(&index_bytes);
+        assert!(text.contains("<p>records: 1</p>"));
+        assert_eq!(text.matches(">report</a>").count(), 1);
+        let href = text
+            .split("href=\"")
+            .nth(1)
+            .and_then(|rest| rest.split('"').next())
+            .expect("report anchor href");
+        let mut expected = std::ffi::OsString::from(encoded_first);
+        expected.push("/");
+        expected.push(suffix);
+        assert_eq!(href, expected.to_str().expect("href utf8"));
+    }
 }
 
 fn phase_missing_glyph(dirs: &WorkflowDirs, lane: &ChildEnv<'_>) {

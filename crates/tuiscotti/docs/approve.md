@@ -390,11 +390,12 @@ Approve one candidate for one test ID.
 The candidate digest and the expected previous digest (a digest or
 the literal `missing`) are mandatory; missing, malformed, and zero
 digests are rejected. The candidate file is read-only input: it is
-read once and never written. The baseline root gains exactly the
-upserted baseline; the change summary rides in the returned outcome
-instead of a persisted report, so the atomic replacement is the final
-fallible filesystem operation. Refusals (CI, stale digests, corrupt
-input, lock failures) write nothing anywhere.
+read once and never written. A rejected candidate does not replace a
+baseline sample. The method can create the baseline root and stable
+lock file before it rejects the candidate. CI refusal and invalid
+digest syntax occur before these writes. The change summary rides in
+the returned outcome instead of a persisted report, so the atomic
+replacement is the final fallible filesystem operation.
 
 # Errors
 

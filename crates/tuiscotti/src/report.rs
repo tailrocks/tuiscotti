@@ -414,7 +414,6 @@ fn encode_href_segment(raw: &[u8]) -> String {
             | b','
             | b';'
             | b'='
-            | b':'
             | b'@' => out.push(byte as char),
             _ => {
                 out.push('%');
