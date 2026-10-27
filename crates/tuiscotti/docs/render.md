@@ -1,6 +1,6 @@
 # Module
 
-Offline rendering of a saved sample (GOAL Section 16).
+Offline rendering of a saved sample for the `render` command.
 
 [`render_sample`] extracts the stored PNG from an image sample, or
 re-renders a state-only sample through the built-in profile, or writes
@@ -8,7 +8,7 @@ a static `.html` page embedding the image — selected by the `--out`
 extension. Nothing here starts an application: the input is saved
 bytes, and the output is one file write. The CLI boundary owns
 argument parsing and process exit codes; every failure here keeps
-its typed shape and Section 16.3 code through [`RenderError::code`].
+its typed shape and CLI error code through [`RenderError::code`].
 
 # `RenderError`
 
@@ -56,7 +56,7 @@ The filesystem failure.
 
 # code
 
-The stable Section 16.3 machine code for this failure.
+The stable CLI machine code for this failure.
 
 # `RenderOutcome`
 

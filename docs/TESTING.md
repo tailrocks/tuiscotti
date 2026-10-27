@@ -1,12 +1,13 @@
 # Tests and CI
 
 Two shipping crates, one functional suite: `nextest` runs the integration tests. No custom
-test runner, no fixture workspace, no `xtask`, no unit tests, no
-examples. The suite is `functional` in `crates/tuiscotti-cli/tests/`
+test runner, no fixture workspace, no `xtask`, no unit tests. The
+maintained example (`crates/tuiscotti/examples/hello.rs`, walked
+through in [FIRST-SUCCESS.md](FIRST-SUCCESS.md)) is the only
+example target. The suite is `functional` in `crates/tuiscotti-cli/tests/`
 (4 tests, listed below); it exercises the shipped CLI binary and the
 public library API end to end through real files and real processes.
-Historical per-suite counts from retired suites are kept under
-"Result vintages" and must not be quoted for the current tree.
+Retired suites are recorded under "Result vintages" as history only.
 
 ## Layout
 
@@ -63,14 +64,12 @@ mutation in parallel tests. No sleeps to hide races.
 
 ## Result vintages
 
-Retired suites (deleted in the Apache-2.0/functional-suite refactor;
-kept here as history, not quoted for the current tree): V01
-(167/167); B7 asset relocation (`samples` 20 → 21, 168/168);
-qual-stack-r2 re-pin + approval-port merge + exit-code repair (HEAD
-`883c9b1`, 201/201 in default and `CI=true` lanes); qual-stack-r3
-re-pin + round-2 fixes (HEAD `49453af`, 205/205 in default and
-`CI=true` lanes). Re-run the suite at HEAD before quoting counts in
-reviews or packets.
+Retired suites (deleted in the functional-suite refactor; kept here
+as history, not quoted for the current tree): V01; B7 asset
+relocation (`samples` 20 → 21); qual-stack-r2 re-pin + approval-port
+merge + exit-code repair (HEAD `883c9b1`, default and `CI=true`
+lanes); qual-stack-r3 re-pin + round-2 fixes (HEAD `49453af`,
+default and `CI=true` lanes).
 
 ## CI wiring
 
@@ -90,7 +89,7 @@ end-to-end by the `functional` suite in the CLI crate.
 Gates run everywhere; approval happens only on a human workstation.
 There is no flag or variable that approves — `ApprovalStore::accept`
 and `tuiscotti accept` explicitly refuse when `CI` is set in the
-environment.
+environment (canonical rule: [SNAPSHOTS.md](SNAPSHOTS.md)).
 
 Notes:
 

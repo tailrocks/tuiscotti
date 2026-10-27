@@ -1,7 +1,6 @@
 # Architecture
 
-Head: D07 on `goal/tui-test-extension`. Two shipping crates, one
-workspace, no internal engine.
+Two shipping crates, one workspace, no internal engine.
 
 ## Workspace
 

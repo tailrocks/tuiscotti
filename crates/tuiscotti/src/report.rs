@@ -199,7 +199,7 @@ impl std::error::Error for IndexError {
 }
 
 impl IndexError {
-    #[doc = "The stable Section 16.3 machine code: every index failure is `IO`."]
+    #[doc = "The stable CLI machine code: every index failure is `IO`."]
     #[must_use]
     pub const fn code(&self) -> &'static str {
         "IO"

@@ -277,7 +277,7 @@ impl ApproveError {
 }
 
 #[must_use]
-#[doc = "The Section 16.3 code for one validated sample failure."]
+#[doc = "The stable machine code for one validated sample failure, shared with the CLI map."]
 pub fn sample_code(source: &SampleError) -> &'static str {
     match source {
         SampleError::TooLarge { .. }

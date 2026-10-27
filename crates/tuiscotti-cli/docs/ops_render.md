@@ -4,7 +4,7 @@
 
 The typed [`tuiscotti::render_sample`] operation does the work; this
 handler only reads the sample file with a bounded read and maps the
-outcome to the Section 16.3 result. The `--out` extension is validated
+outcome to the `tuiscotti.cli.v1` result. The `--out` extension is validated
 by a clap parser before this runs (exit 2 with no JSON result), so
 every failure below is operational and exits 3.
 

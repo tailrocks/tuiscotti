@@ -1,6 +1,6 @@
 # `json_out`
 
-Section 16.3 JSON result: one object plus a newline on stdout.
+CLI JSON result (`tuiscotti.cli.v1`): one object plus a newline on stdout.
 
 The emission rules live here so every command shares them: stdout
 carries exactly one JSON line (or one human summary line without
@@ -13,7 +13,7 @@ Schema identifier for every CLI result object.
 
 ## `EncodedPath`
 
-A native path encoded without loss, per Section 16.3.
+A native path encoded without loss, per the CLI result schema.
 
 Correctly encoded Unicode paths use `utf8`. Other Unix paths carry
 the native bytes as standard padded Base64 (`unix-bytes-base64`).
@@ -25,7 +25,7 @@ Encode a native path without loss and without unwrapping UTF-8.
 
 ## `CliResult`
 
-One Section 16.3 result object, fields in schema order.
+One `tuiscotti.cli.v1` result object, fields in schema order.
 
 `baseline_sha256` is a 64-character lowercase digest, `"missing"`,
 or null when the command has no baseline result. `reason` carries

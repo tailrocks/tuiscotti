@@ -97,9 +97,9 @@ with [`ApproveError::CiApprovalForbidden`]. Each approval call is its own
 explicit opt-in through its digest arguments; nothing unfreezes a root
 persistently.
 
-Error codes (GOAL Section 16.3): there is no `INVALID_DIGEST` code.
+Error codes (CLI result codes): there is no `INVALID_DIGEST` code.
 Malformed digest arguments report `INVALID_SAMPLE`; every other
-failure reports its Section 16.3 code, mapped per failure shape in
+failure reports its CLI error code, mapped per failure shape in
 [`ApproveError::code`] (unsupported schemas, resource limits, image
 errors, unknown profiles, render failures, missing glyphs, stale
 digests, inconsistent samples, lock timeouts, store paths, and I/O
@@ -278,7 +278,7 @@ failure precedes the baseline read.
 
 The stable machine code for this failure, shared with the CLI map.
 
-Every Section 16.3 code is producible here and maps 1:1 with its
+Every CLI error code is producible here and maps 1:1 with its
 failure shape: malformed digest arguments are `INVALID_SAMPLE`
 (there is no `INVALID_DIGEST` code), and sample, image, profile,
 render, stale, lock, path, and filesystem failures keep their own
@@ -302,7 +302,7 @@ held instead of no observed baseline.
 
 # fn `sample_code`
 
-The Section 16.3 code for one validated sample failure.
+The CLI error code for one validated sample failure.
 
 Resource exhaustion (`TooLarge`, `DimensionTooLarge`, `RgbaTooLarge`)
 is `RESOURCE_LIMIT`; an unknown sample schema is `UNSUPPORTED_SCHEMA`;

@@ -11,13 +11,6 @@
   "separateMajorMinor": true,
   "packageRules": [
     {
-      "description": "Terminal backend boundary: termpane updates always land alone for focused review.",
-      "matchManagers": ["cargo"],
-      "matchDepNames": ["termpane"],
-      "groupName": "termpane backend",
-      "automerge": false
-    },
-    {
       "description": "Renderer/font/codec stack: pixel-sensitive, review together but apart from low-risk batches.",
       "matchManagers": ["cargo"],
       "matchDepNames": ["image", "image-compare", "fontdue"],

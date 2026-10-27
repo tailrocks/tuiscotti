@@ -11,14 +11,15 @@ Global shape: `tuiscotti [--json] <COMMAND>` with
 stdout; diagnostics stay on stderr); otherwise only clap's
 `-h/--help` and `-V/--version` exist.
 
-Exit codes (GOAL 16.2): `0` for a pass or a successful offline
-operation; `1` for a missing baseline or a differing sample; `2` for
-invalid arguments (clap usage errors exit 2 with no JSON result, as
-does `--out` extension rejection on `render` and malformed-digest
+Exit codes: `0` for a pass or a successful offline operation;
+`1` for a missing baseline or a differing sample; `2` for invalid
+arguments (clap usage errors exit 2 with no JSON result, as does
+`--out` extension rejection on `render` and malformed-digest
 arguments on `accept`); `3` for file, format, profile, rendering,
-approval, or I/O failures. Error codes follow the section-16.3 table
-(`INVALID_SAMPLE`, `INVALID_STORE_PATH`, `INVALID_IMAGE`,
-`UNKNOWN_PROFILE`, `MISSING_GLYPH`, `IO`, …).
+approval, or I/O failures. Error codes (`INVALID_SAMPLE`,
+`INVALID_STORE_PATH`, `INVALID_IMAGE`, `UNKNOWN_PROFILE`,
+`MISSING_GLYPH`, `IO`, …) travel in the `tuiscotti.cli.v1` JSON
+object with `--json`, or on stderr otherwise.
 
 ## Commands
 

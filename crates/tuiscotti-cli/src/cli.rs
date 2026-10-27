@@ -57,7 +57,7 @@ pub(crate) struct Cli {
     #[arg(
         long,
         global = true,
-        help = "Emit the machine-readable Section 16.3 result object on stdout"
+        help = "Emit the machine-readable CLI result object (tuiscotti.cli.v1) on stdout"
     )]
     pub(crate) json: bool,
 

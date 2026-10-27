@@ -166,7 +166,7 @@ The filesystem failure.
 
 # code
 
-The stable Section 16.3 machine code: every index failure is `IO`.
+The stable CLI machine code: every index failure is `IO`.
 
 # `write_report_index`
 

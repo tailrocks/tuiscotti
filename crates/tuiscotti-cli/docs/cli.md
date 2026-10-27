@@ -25,9 +25,9 @@ pass. Rejections are clap usage errors (exit 2 with no JSON result).
 
 Offline `tuiscotti`: check, accept, render, and report saved samples.
 
-Emit the machine-readable Section 16.3 result object on stdout.
+Emit the machine-readable CLI result object (`tuiscotti.cli.v1`) on stdout.
 
-Exactly the four Section 16 commands: no aliases, no live execution.
+Exactly the four offline commands: no aliases, no live execution.
 
 Compare a saved sample against its baseline without starting an
 application or writing a baseline.
@@ -64,6 +64,6 @@ Output HTML path.
 
 Dispatch a parsed [`Cli`] to its handler; returns the exit code.
 
-Every command keeps the shape Section 16.4 requires: the global
+Every command keeps the required shape: the global
 `--json` flag, the four subcommands with their exact flags, and no
 hidden aliases.

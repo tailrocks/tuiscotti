@@ -14,7 +14,7 @@ became `tuiscotti-*`; machine-protocol brand fields
 likewise. The "Before" column and the history sections below keep
 the old names as history (marked; not current surfaces). The machine
 protocol and its brand fields were removed at D07 with the
-section-3.3 crates; no `tuiscotti.toml` config surface exists on this
+old layered crates; no `tuiscotti.toml` config surface exists on this
 branch (see [migration/removals.md](migration/removals.md)).
 
 ## Layout after D07 (head `da3d9ae`)
@@ -29,7 +29,7 @@ The workspace moved from a single crate (`src/`, `tests/`,
 | `tests/visual/approved` | Removed at D07; baselines are per-test `<name>.tui.json` files managed by `FrozenStore` / `tuiscotti accept` |
 | `tests/fixtures/*` | Removed at D07 with `tuiscotti-fixtures` |
 | `tests/snapshots/*` | Removed at D07 with `tuiscotti-fixtures` |
-| `examples/01–08` | `crates/tuiscotti/examples/01–05` (plus `common/`) |
+| `examples/01–08` | Removed as a set; the 0.4.0 branch adds one maintained example, `crates/tuiscotti/examples/hello.rs` (`cargo run -p tuiscotti --example hello`) |
 | `tuisnap::…` paths | `tuiscotti::…` paths (binary renamed in G8; see above) |
 
 Rust imports change (`tuisnap::` → `tuiscotti::`); the move itself
@@ -61,7 +61,7 @@ here were renamed in G8 (see above).
 | `tuisnap::ratatui_shot::{widget_frame, draw_frame}` | `tuiscotti::view::{capture_view, snapshot_from_buffer}` (pure-view capture through a Ratatui `TestBackend`; no child or PTY) |
 | `tuisnap::Baseline` | `tuiscotti::check::FrozenStore` |
 | `PtySession` / `run_once(argv, opts, sends)` | Upstream `tui_test::{Session, Engine}` used directly from application test code (no downstream session wrapper); waits fail on timeout instead of returning `false` |
-| `tools/*.py` helpers (`subset_fonts.py`, `test_migration.py`, `migrate_fixture_v3.py`) | Gone with `tools/`; font subsets are committed under `assets/fonts/` (see `assets/fonts/FONTS.md`) |
+| `tools/*.py` helpers (`subset_fonts.py`, `test_migration.py`, `migrate_fixture_v3.py`) | Gone with `tools/`; font bytes are committed under `crates/tuiscotti/fonts/` (see [LIMITATIONS.md](LIMITATIONS.md); `assets/fonts/` holds reference-only files, see `assets/fonts/FONTS.md`) |
 | Vendored `vt100` fork, `vendor/termlens`, `termpane` git dependency, `portable-pty` + `alacritty_terminal` bridge | PTY engine is upstream `tui-test-rs` `0.1.1` (provisional pinned fork per D-R02-1, never a direct downstream PTY dep); `portable-pty` + `alacritty_terminal` remain only transitively through `tui-test-rs`; `vt100` and `termpane` are gone entirely |
 | Hand-rolled SGR replay parser, `ansi::replay_raw`, `tuisnap::pty`, `tuisnap::termlens` re-export | Deleted with no replacement; samples carry canonical state plus decoded RGBA, and all live behavior is upstream-owned (see [API.md](API.md)) |
 | `Locator::count_at_least(n)` (unbound) | Removed in P4 from the pre-D07 tree; locators are upstream-owned since D06 — no `Locator` type exists downstream (application tests drive `tui_test` directly) |

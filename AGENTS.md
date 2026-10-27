@@ -1,39 +1,90 @@
-# Rules
+# Tuiscotti working agreement
 
-Shared working agreement: keep this section byte-identical across projects. Project-specific rules live under `## This project` below.
+Two crates, one job: `crates/tuiscotti` is a pure-view library
+(Ratatui buffer capture plus versioned visual samples, frozen checks,
+approval transactions, and static evidence reports) and
+`crates/tuiscotti-cli` is the offline `tuiscotti` binary
+(`check` / `accept` / `render` / `report`). Live sessions, input,
+locators, waits, capture, rendering, and pixel comparison belong to
+upstream `tui-test-rs`; this repo consumes them and never re-exports
+them. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-- No legacy code. Finish every migration: remove old paths completely — no compatibility shims, aliases, or deprecation periods. Breaking changes are preferred.
-- Research project: unsafe, breaking changes expected, never production-ready. Break things when needed; deliver fast.
-- Verification gates: verify from the repo root before committing or merging. Run tests with cargo nextest, never cargo test.
-- No comments in code. Code is the source of truth; a comment creates ambiguity about what is right, code or comment. Keep a comment only when functionality requires it: SPDX license headers for REUSE compliance, clap `#[command]`/`#[arg]` help text and similar string literals consumed by tools, parser directives such as Dockerfile `# syntax=`, and machine-generated files that the repo's own generators verify byte-identical. Never keep explanatory, TODO, or SAFETY comments; when code seems to need explanation, rewrite the code instead.
-- Judge correctness, consistency, and project fit. Never defer a known-wrong state for ROI, cost, effort, or edge cases.
-- Stop only when the required change is proven impossible with the available tools or model. When uncertain, inspect, test, and measure first.
-- Before fixing a bug, identify why the architecture permitted it and whether the same structure permits related bugs. Prefer fixes that remove the enabling condition; use a symptom-layer patch only when the root fix is proven infeasible or belongs in a separate change, and name the deferred root cause.
-- Delegate first: use subagents for parallel research, implementation, review, and independent verification. Resolve ambiguity autonomously from evidence and project docs.
-- Commit verified changes frequently; push regularly. Prefer one branch; add another only for safe isolation.
-- Before every PR merge, read all reviews, comments, replies, and unresolved or outdated threads. Use independent subagents to verify findings against code, tests, docs, and recorded decisions.
-- For accepted feedback: fix, verify, commit, push, and reply with the fixing commit URL before resolving. For rejected feedback: reply with evidence and rationale before resolving. Re-fetch feedback at the final head SHA. Merge only with zero unaddressed feedback and all required checks and approvals satisfied. Only explicit, PR-specific human authorization permits ignoring identified feedback.
-- Keep instructions lean; explanations, plans, and progress belong in documentation, not here.
-- Tests are not forbidden. Write them only where these rules require: to prove required functionality works and keeps working.
-- Never write a test without a reviewed plan first: state what behavior it proves, which real positive and negative scenarios it covers, and why existing tests cannot cover it.
-- Prefer fewer high-signal tests over many narrow ones. Never write a test for coverage numbers or KPIs, and never judge a suite by count or coverage %.
-- Test integration-first through public APIs asserting resulting state, not interaction sequences; test internals only for pure logic unreachable observably; forbid mirror-logic assertions and unreviewed snapshots.
-- Never mock owned code. Doubles and fakes are permitted only at unowned external I/O (network, clock, filesystem, OS) behind interfaces you own; if a small change breaks many doubles, consolidate toward real coverage.
-- A red test must name broken user-observable behavior, never a reshaped abstraction or bad double; a red from reshaping or a bad double means fix the test, and analyze an expected behavior change before updating its tests.
-- When an issue escapes, do not just append a test; analyze why current tests missed it and rethink coverage conceptually (seek independent review for significant escapes) before writing or refactoring the test.
-- Keep a test only if observed red on broken code and green on fixed code. Keep tests hermetic and deterministic (seeded randomness, fake clocks, no live network); quarantine flakes at once; never skip, weaken, edit, or delete a test just to go green.
-- Run narrow tests per change and the full relevant suite before done; keep the loop fast enough to run every time.
+## Boundaries
 
-## This project (tuiscotti)
+- The library holds no PTY, renderer, engine, or approval-adapter
+  dependency, and the workspace defines no cargo features. Anything
+  that starts a child process or opens a terminal device lives
+  upstream, not here.
+- `FrozenStore::check` never writes baselines; only `accept` writes
+  them, and only as an atomic upsert after re-verification.
+- Approval is workstation-only. `ApprovalStore::accept` and
+  `tuiscotti accept` refuse whenever `CI` is set in the environment.
+- Determinism: same frame + same pinned profile + same vendored font
+  bytes = byte-identical PNGs. No system fonts, no wall-clock time in
+  artifacts (provenance timestamps excepted), no unordered maps in
+  canonical output.
+- Neither crate names `portable-pty`, `alacritty_terminal`, or
+  `termpane` as a direct dependency (workspace, target-specific, or
+  dev); they remain permitted only transitively through `tui-test-rs`.
+- Baseline layout, test-ID grammar, and the gate-to-suffix pairing
+  (`state-and-pixels` IDs end in `pixels-<os>-<arch>`) are load-bearing:
+  see [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) before touching them.
 
-- Docs entry points: [README.md](README.md),
-  [CONTRIBUTING.md](CONTRIBUTING.md), [docs/](docs/ARCHITECTURE.md).
-- Verification: run `/Users/donbeave/.local/bin/disk-check` before every
-  build or test; run all Cargo through
-  `/Users/donbeave/.local/bin/rust-build-guard -- mise exec -- cargo …`
-  with `cargo nextest run`, never `cargo test`. Sign every commit
-  (`git commit -s`, Alexey Zhokhov <alexey@zhokhov.com>).
-- Public API carries rustdoc: the recorded API contract requires
-  documented public items, so rustdoc on public items is a correctness
-  requirement here, not an explanatory comment. Keep inline code
-  comments out; rewrite unclear code instead.
+## Reference locations
+
+- Behavior contract: [docs/API.md](docs/API.md),
+  [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md),
+  [docs/CLI.md](docs/CLI.md).
+- History: [docs/MIGRATION.md](docs/MIGRATION.md) and
+  [docs/migration/](docs/migration/) (frozen records, not live
+  guidance). When they disagree with the tree, the tree wins.
+- Decisions: [docs/DECISIONS.md](docs/DECISIONS.md). Record new
+  decisions there; never rewrite frozen history in place.
+
+## Commands (portable, from the repo root)
+
+```sh
+cargo fetch --locked          # warm the registry; everything after runs offline
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked --offline -- -D warnings
+cargo nextest run --workspace --locked --offline        # integration suite
+cargo test --doc -p tuiscotti --locked --offline       # doctests (nextest cannot run these)
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
+```
+
+The toolchain is pinned (`rust-toolchain.toml`, edition 2024) and the
+tools are pinned (`mise.toml`); `cargo` on PATH may be the repo's
+shim and behaves identically. Never use plain `cargo test` for the
+integration suite; use `cargo nextest run`.
+
+## Generated files
+
+`.github/workflows/`, the shared actions under `.github/actions/`,
+and `.github/velnor/task-execution-manifest-v1.json` are generated by
+Velnor Actions from [.velnor/config.toml](.velnor/config.toml). Never
+hand-edit generated paths; change the config and regenerate. The
+`Check generated files` CI job diffs the tree against regeneration,
+so a hand edit fails CI by design.
+
+## Verification and reporting
+
+- Run the gates above from the repo root before pushing, and rerun
+  the affected lanes after every change to behavior, tests, or docs.
+- Every `docs/*.md` + `README.md` relative link you touch must resolve
+  in the tree; reviewers re-check links on doc diffs.
+- `README.md` fences are the contract: a behavior change ships with
+  the README update in the same commit.
+- Sign every commit (`git commit -s`): the `-s` flag appends a
+  `Signed-off-by` trailer carrying your configured committer identity
+  (Developer Certificate of Origin sign-off).
+- Open a PR when ready and merge only with every required check green
+  and zero unaddressed review threads at the final head SHA.
+
+## Docs convention
+
+Module documentation lives in `crates/*/docs/*.md`, included from
+the source via `#![doc = include_str!("../docs/<mod>.md")]`. Keep the
+long-form explanation there. Inline comments are for rationale the
+code cannot carry itself: safety and portability reasons, lint-directive
+reasons, and provenance. Do not narrate what the code says, and do
+not leave TODOs or phase markers; rewrite unclear code instead.
