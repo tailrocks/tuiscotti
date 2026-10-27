@@ -417,6 +417,23 @@ fn phase_direct_dep_rules(candidates: &Path) {
     dep_rule_dotted_tables(&dir);
     dep_rule_errors(&dir);
     phase_direct_dep_parser_forms(&dir);
+    phase_direct_dep_type_errors(&dir);
+}
+
+fn phase_direct_dep_type_errors(dir: &Path) {
+    let mut seq = 500;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
+    case(
+        Some(DEP_WS_ALIAS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty = {{ workspace = \"true\" }}\n"
+        )),
+        2,
+    );
+    case(Some("workspace = 7\n"), Some(DEP_CRATE), 2);
 }
 
 fn phase_direct_dep_parser_forms(dir: &Path) {

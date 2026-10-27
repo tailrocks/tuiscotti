@@ -28,11 +28,11 @@ fn run(workspace: &Path, crate_manifest: &Path) -> Result<bool, ()> {
 
 fn workspace_names(ws: &toml::Table) -> Result<HashMap<String, String>, ()> {
     let mut names = HashMap::new();
-    let Some(deps) = ws
-        .get("workspace")
-        .and_then(toml::Value::as_table)
-        .and_then(|table| table.get("dependencies"))
-    else {
+    let Some(workspace) = ws.get("workspace") else {
+        return Ok(names);
+    };
+    let workspace = workspace.as_table().ok_or(())?;
+    let Some(deps) = workspace.get("dependencies") else {
         return Ok(names);
     };
     let table = deps.as_table().ok_or(())?;
@@ -90,8 +90,10 @@ fn resolve(alias: &str, spec: &toml::Value, ws: &HashMap<String, String>) -> Res
         return Ok(alias.to_string());
     }
     let table = spec.as_table().ok_or(())?;
-    if table.get("workspace").and_then(toml::Value::as_bool) == Some(true) {
-        return ws.get(alias).cloned().ok_or(());
+    if let Some(inherit) = table.get("workspace") {
+        if inherit.as_bool().ok_or(())? {
+            return ws.get(alias).cloned().ok_or(());
+        }
     }
     if let Some(package) = table.get("package") {
         return Ok(package.as_str().ok_or(())?.to_string());
