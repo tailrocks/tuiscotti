@@ -66,9 +66,9 @@ and pixel comparison. Application test code uses its Rust API
 re-export it. tuiscotti consumes upstream snapshots
 (`TerminalSnapshot`), converts Ratatui views into them, and runs
 the offline compare-and-approve workflow on the result. The
-dependency is a committed `[patch.crates-io]` pin to the
-maintained fork until the upstream registry release carrying the
-required snapshot and offline-render APIs is adopted; see
+dependency is the `tuiscotti-tui-test 0.2.0` registry release
+(renamed fork carrying the required snapshot and offline-render
+APIs; lib name `tui_test`); see
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
 [docs/LIMITATIONS.md](docs/LIMITATIONS.md). How the two sides split
 is summarized in [docs/COMPARISON.md](docs/COMPARISON.md).
@@ -132,8 +132,8 @@ sample (`cargo run -p tuiscotti --example hello -- <out.tui.json>
 `check`, `accept`, `render`, and `report` never spawn a child, open
 a terminal device, or touch the network. Samples are read from
 files with bounded reads (64 MiB). "Transitive dependencies" is a
-different statement: the build closure includes upstream
-`tui-test-rs` and its registry dependencies (PTY, font, image
+different statement: the build closure includes
+`tuiscotti-tui-test` and its registry dependencies (PTY, font, image
 crates), because the offline renderer and the snapshot model live
 there. Those crates execute only when application test code opens a
 live session or when approval re-renders an image sample; the four

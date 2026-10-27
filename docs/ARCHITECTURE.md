@@ -25,11 +25,10 @@ policy permits. Direct and transitive `tui-test` dependencies are
 listed separately.
 
 `Cargo.lock`: 278 packages. Workspace-local packages: exactly two —
-`tuiscotti` and `tuiscotti-cli` — plus the patched `tui-test-rs`
-(committed `[patch.crates-io]` to the maintained donbeave/tui-test
-fork, pinned to the full reviewed SHA; removed when the upstream
-registry release carrying the required APIs is adopted). No
-`termpane` package exists anywhere in the graph.
+`tuiscotti` and `tuiscotti-cli`. The snapshot/render/pixel APIs come
+from the `tuiscotti-tui-test 0.2.0` registry release (renamed fork;
+lib name `tui_test`); no `[patch.crates-io]` entry and no git
+dependency remains. No `termpane` package exists anywhere in the graph.
 
 Direct dependencies of `tuiscotti` (normal): `base64`, `fs2`
 (approval locking), `image` (PNG decode), `ratatui` (view capture),
@@ -40,8 +39,8 @@ Direct dependencies of `tuiscotti-cli` (normal): `base64`, `clap`,
 `image`, `serde`, `serde_json`, `tui-test-rs`, `tuiscotti`.
 Dev-only extras: `sha2`, `tempfile`.
 
-Transitive `tui-test` dependencies (direct deps of the patched
-`tui-test-rs`, all registry): `alacritty_terminal`, `anyhow`,
+Transitive `tui-test` dependencies (direct deps of
+`tuiscotti-tui-test`, all registry): `alacritty_terminal`, `anyhow`,
 `base64`, `bitflags`, `compact_str`, `dirs`, `flate2`, `fontdb`,
 `gif`, `libc`, `png`, `portable-pty` (the permitted PTY path),
 `regex`, `rustybuzz`, `serde`, `serde_json`, `sha2`, `tiny-skia`,

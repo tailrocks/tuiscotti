@@ -2122,9 +2122,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "tui-test-rs"
-version = "0.1.1"
-source = "git+https://github.com/donbeave/tui-test?rev=3887a75dee4463ce0122c37eb278ab7ebb71aeaf#3887a75dee4463ce0122c37eb278ab7ebb71aeaf"
+name = "tuiscotti"
+version = "0.4.0"
+dependencies = [
+ "base64 0.23.1",
+ "fs2",
+ "image",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "tuiscotti-tui-test",
+]
+
+[[package]]
+name = "tuiscotti-cli"
+version = "0.4.0"
+dependencies = [
+ "base64 0.23.1",
+ "clap",
+ "image",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "toml",
+ "tuiscotti",
+ "tuiscotti-tui-test",
+]
+
+[[package]]
+name = "tuiscotti-tui-test"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e1e3dcd3f914c6b71af120cfac0d82aade62c1b145c58b409685f277980b76a"
 dependencies = [
  "alacritty_terminal",
  "anyhow",
@@ -2149,38 +2182,6 @@ dependencies = [
  "unicode-properties",
  "unicode-width",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "tuiscotti"
-version = "0.4.0"
-dependencies = [
- "base64 0.23.1",
- "fs2",
- "image",
- "ratatui",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "tui-test-rs",
-]
-
-[[package]]
-name = "tuiscotti-cli"
-version = "0.4.0"
-dependencies = [
- "base64 0.23.1",
- "clap",
- "image",
- "ratatui",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "tempfile",
- "toml",
- "tui-test-rs",
- "tuiscotti",
 ]
 
 [[package]]

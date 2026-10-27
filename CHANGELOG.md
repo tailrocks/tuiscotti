@@ -22,31 +22,22 @@ First public release. Two crates, one offline binary:
   commands — `check`, `accept`, `render`, `report`. Approval refuses
   before any write whenever the `CI` variable is set, in any form.
 
-### Registry blocker (why `[patch.crates-io]` is still pinned)
+### Registry blocker (resolved: `tuiscotti-tui-test 0.2.0` adopted)
 
-Both crates build against snapshot/render/pixel APIs that exist only
-on the maintained `tui-test` fork pin (`rev 3887a75…`; upstream
-`microsoft/tui-test` at the same `0.1.1` version number lacks them,
-and crates.io carries only `tui-test-rs 0.1.1`). The workspace
-`[patch.crates-io]` entry is workspace-local and is ignored for
-downstream consumers, so a registry publish of `tuiscotti 0.4.0`
-today would resolve `tui-test-rs ^0.1.1` to the upstream release and
-fail to build downstream. Do **not** publish until upstream merges
-the fork APIs and ships a new `tui-test-rs` registry release; then
-drop the `[patch]` section and re-verify with the checks below.
+Both crates build against snapshot/render/pixel APIs that upstream
+`microsoft/tui-test` (`tui-test-rs 0.1.1`) does not carry. The
+maintained fork is now published as the renamed registry crate
+`tuiscotti-tui-test 0.2.0` (lib name still `tui_test`), and the
+workspace `[patch.crates-io]` git pin is removed: both crates depend
+on `tuiscotti-tui-test 0.2.0` from crates.io like any other registry
+dependency, so downstream consumers resolve the same release with no
+extra pin. Remaining follow-up (R02) is switching the dependency name
+back to upstream `tui-test-rs` once its registry release carries the
+required APIs; `use tui_test::...` imports are unaffected either way.
 
 ### Source-install setup
 
-Until the blocker clears, downstream crates must resolve
-`tui-test-rs` to the same fork commit. Add to the consuming
-workspace root (`Cargo.toml`):
-
-```toml
-[patch.crates-io]
-tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "3887a75dee4463ce0122c37eb278ab7ebb71aeaf" }
-```
-
-then depend on the git source (path dependencies work only inside
+Depend on the git source (path dependencies work only inside
 this workspace):
 
 ```toml

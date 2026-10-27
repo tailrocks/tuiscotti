@@ -15,11 +15,12 @@ test = false
 
 [dependencies]
 # Pure-view execution. Live sessions, input, locators, waits, capture,
-# rendering, and comparison all come from the upstream `tui-test-rs` snapshot
-# model; tuiscotti adds the Ratatui view conversion plus the sample, check,
+# rendering, and comparison all come from the `tuiscotti-tui-test` snapshot
+# model (registry release of the maintained fork; lib name `tui_test`);
+# tuiscotti adds the Ratatui view conversion plus the sample, check,
 # approval, and report workflow around it. No PTY, renderer, engine, or
 # approval-adapter dependency remains downstream.
-tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
+tuiscotti-tui-test = { version = "0.2.0", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 # D02 sample format: canonical JSON, digests, PNG decoding for evidence.
 base64.workspace = true
 # D04 approval locking: OS file locks on the stable lock file.

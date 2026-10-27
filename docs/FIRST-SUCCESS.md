@@ -34,10 +34,9 @@ cargo fetch --locked        # warm the registry cache for offline builds
 cargo build --locked --offline
 ```
 
-The `tui-test-rs` dependency resolves through the committed
-`[patch.crates-io]` pin (`rev = "3887a75dee4463ce0122c37eb278ab7ebb71aeaf"`).
-That pin is workspace-local: downstream crates need their own pin
-(see "Downstream crates" below).
+The `tuiscotti-tui-test` dependency is a plain crates.io release
+(`0.2.0`, lib name `tui_test`): downstream crates resolve the same
+release with no pin (see "Downstream crates" below).
 
 All CLI commands below run from the workspace root with disjoint,
 persistent directories. Pick a fresh location outside the repo so
@@ -340,12 +339,12 @@ processes, PTY sessions, input, locators, waits, live capture,
 rendering, pixel comparison — is owned by upstream `tui-test`
 (`tui-test-rs`) and called directly from application test code;
 tuiscotti does not wrap or re-export it. The workspace depends on
-the provisional fork pin until the upstream registry release
-carries the required snapshot and offline-render APIs (see
+the `tuiscotti-tui-test 0.2.0` registry release (renamed fork
+carrying the required snapshot and offline-render APIs; see
 `docs/ARCHITECTURE.md` and `docs/LIMITATIONS.md`).
 
-Exact supported surface at the pinned fork
-(`donbeave/tui-test`, rev `3887a75`), verified against its tree:
+Exact supported surface at `tuiscotti-tui-test 0.2.0`,
+verified against its published tree:
 
 - sessions: `tui_test::Session::new(name)`,
   `open(OpenOptions)`, `run(RunOptions)`, `close()`,
@@ -366,7 +365,7 @@ Exact supported surface at the pinned fork
   `terminal::cell::Attrs`
 
 Pseudocode (shape only — check names and signatures against the
-`tui-test` tree at your pin before compiling):
+`tuiscotti-tui-test 0.2.0` docs before compiling):
 
 ```rust,ignore
 let session = tui_test::Session::new("smoke");
@@ -383,17 +382,17 @@ let sample = tuiscotti::sample::Sample::with_pixels(
 // then FrozenStore::check / accept exactly as in steps 2-5
 ```
 
-## 10. Downstream crates: validate outside the workspace patch
+## 10. Downstream crates: no pin needed
 
-`[patch.crates-io]` is workspace-root-only: it does not propagate
-to downstream consumers. A downstream crate needs its own pin
-until the upstream registry release lands. Verified with a
-scratch crate outside the workspace depending on `tuiscotti` by
-path plus its own fork pin: `cargo run --offline` builds and a
-`FrozenStore::check` against a fresh store reports `is_pass=false`
-as expected. Delete the `[patch.crates-io]` section from that
-scratch crate and the build fails against crates.io `tui-test-rs`
-0.1.1, which lacks the fork-only APIs tuiscotti consumes:
+There is no `[patch.crates-io]` section anymore: downstream crates
+depend on `tuiscotti` (path or git) plus `tuiscotti-tui-test 0.2.0`
+from crates.io and resolve the same release with no extra pin.
+Verified with a scratch crate outside the workspace depending on
+`tuiscotti` by path plus the registry release: `cargo run
+--offline` builds and a `FrozenStore::check` against a fresh store
+reports `is_pass=false` as expected. (Against crates.io
+`tui-test-rs` 0.1.1 the build fails — it lacks the fork-only APIs
+tuiscotti consumes:
 
 ```text
 error[E0432]: unresolved imports `tui_test::PinnedFontError`, `tui_test::RenderError`, `tui_test::render_snapshot_png`
@@ -401,9 +400,8 @@ error[E0432]: unresolved import `tui_test::pixel`
 error[E0432]: unresolved imports `tui_test::SnapshotCell`, `tui_test::TerminalSnapshot`
 ...
 ```
+)
 
-So: keep the fork pin in downstream manifests (path or git
-dependency on `tuiscotti` plus the same `[patch.crates-io]` rev),
-run `cargo fetch --locked` before going offline, and re-run
+So: run `cargo fetch --locked` before going offline, and re-run
 steps 1-5 from this page in the downstream repo to confirm the
 workflow end to end.

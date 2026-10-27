@@ -30,12 +30,12 @@ The suite runs the shipped CLI binary in fresh temporary stores. It checks selec
 
 ## Running the suite
 
-Every command below works from a clean checkout: the `tui-test-rs`
-dependency is the committed `[patch.crates-io]` git pin in `Cargo.toml`
-(`rev = "3887a75dee4463ce0122c37eb278ab7ebb71aeaf"`, locked in
-`Cargo.lock`), so no untracked `.cargo/config.toml`, `--config` flag,
-or registry access is needed (`cargo fetch --locked` warms the cache
-for `--offline` builds):
+Every command below works from a clean checkout: the
+`tuiscotti-tui-test` dependency is a plain crates.io release (`0.2.0`,
+locked in `Cargo.lock`), so no untracked `.cargo/config.toml`,
+`--config` flag, `[patch.crates-io]` entry, or extra registry access
+is needed (`cargo fetch --locked` warms the cache for `--offline`
+builds):
 
 ```sh
 cargo nextest run --workspace --locked --offline
