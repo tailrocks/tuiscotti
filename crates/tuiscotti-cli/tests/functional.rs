@@ -265,7 +265,55 @@ fn invalid_input() {
     assert_eq!(parse_json_line(&out.stdout)["error_code"], "RESOURCE_LIMIT");
     phase_usage_errors(&candidates, &sample, &baselines, &lane);
     phase_direct_dep_rules(&candidates);
+    #[cfg(unix)]
+    approval_refuses_symlink_lock_without_external_write();
     assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
+}
+
+#[cfg(unix)]
+fn approval_refuses_symlink_lock_without_external_write() {
+    let lane = open_lane();
+    let root = case_dir("approval-lock-regular");
+    let baselines = root.path().join("baselines");
+    let candidates = root.path().join("candidates");
+    make_dir(&baselines);
+    make_dir(&candidates);
+    let lock = baselines.join(".tuiscotti-approval.lock");
+    write_bytes(&lock, b"held");
+    let candidate = candidates.join("regular.tui.json");
+    write_bytes(
+        &candidate,
+        &log_sample(&pixel_test_id("approval-lock-regular"), 30, 0, 8),
+    );
+    let digest = sha256_file(&candidate);
+    let (code, _) = accept_candidate(&candidate, digest.as_str(), "missing", &baselines, &lane);
+    assert_eq!(code, 0);
+    assert_eq!(baseline_samples(&baselines).len(), 1);
+    assert!(lock.is_file());
+    assert_eq!(std::fs::read(&lock).unwrap_or_default(), b"held");
+    let root = case_dir("approval-lock-symlink");
+    let baselines = root.path().join("baselines");
+    let candidates = root.path().join("candidates");
+    let outside = root.path().join("outside");
+    make_dir(&baselines);
+    make_dir(&candidates);
+    make_dir(&outside);
+    let target = outside.join("external.lock");
+    let link = baselines.join(".tuiscotti-approval.lock");
+    assert!(std::os::unix::fs::symlink(&target, &link).is_ok());
+    let candidate = candidates.join("candidate.tui.json");
+    write_bytes(
+        &candidate,
+        &log_sample(&pixel_test_id("approval-lock-symlink"), 30, 0, 8),
+    );
+    let digest = sha256_file(&candidate);
+    let (code, stdout) =
+        accept_candidate(&candidate, digest.as_str(), "missing", &baselines, &lane);
+    assert_eq!(code, 3);
+    assert_eq!(parse_json_line(&stdout)["error_code"], "INVALID_STORE_PATH");
+    assert!(!target.exists());
+    assert_eq!(baseline_samples(&baselines), [] as [std::path::PathBuf; 0]);
+    assert!(std::fs::symlink_metadata(&link).is_ok_and(|meta| meta.file_type().is_symlink()));
 }
 
 const DEP_CRATE: &str =
