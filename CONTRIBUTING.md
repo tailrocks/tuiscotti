@@ -115,7 +115,7 @@ job fails on any divergence, including hand edits.
 
 ## Release prep
 
-`0.4.0` is published (`tuiscotti` and `tuiscotti-cli` on crates.io,
+`0.4.0` will be published (`tuiscotti` and `tuiscotti-cli` on crates.io,
 facade first and `tuiscotti-cli` second since the binary depends on
 the facade).
 The fork-only snapshot/render APIs ship in the `tuiscotti-tui-test`

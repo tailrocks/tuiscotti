@@ -3,9 +3,9 @@
 All notable changes to the `tuiscotti` and `tuiscotti-cli` crates are
 documented here. Versions follow Semantic Versioning.
 
-## 0.4.0 — 2026-10-27
+## 0.4.0 (pending publication)
 
-> Published to [crates.io](https://crates.io/crates/tuiscotti)
+> On publication the crates will be at [crates.io](https://crates.io/crates/tuiscotti)
 > and [docs.rs](https://docs.rs/tuiscotti). Install with
 > `cargo add tuiscotti@0.4`, or grab the binary with
 > `cargo install tuiscotti-cli@0.4.0` (see
