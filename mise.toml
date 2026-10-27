@@ -40,7 +40,7 @@ run = [
 [tasks.ci-no-default-graph]
 description = "Pty-free negative guard: tuiscotti has no DIRECT portable-pty/alacritty_terminal/termpane dep (they stay permitted as upstream-transitive via tui-test-rs), and the pure-view path starts no child process or device"
 run = [
-  'sh scripts/check_direct_dependencies.sh --workspace Cargo.toml --crate crates/tuiscotti/Cargo.toml',
+  "cargo nextest run --locked -p tuiscotti-cli --test functional -E 'test(=invalid_input)'",
   'grep -rE "Command::new|Stdio::|openpty|/dev/(pts|tty|ptmx)|std::process::Command" crates/tuiscotti/src/view.rs && exit 1 || true',
 ]
 

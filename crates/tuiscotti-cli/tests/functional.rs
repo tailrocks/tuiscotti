@@ -6,6 +6,8 @@ use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::{Position, Rect};
 use tuiscotti::view::{ViewError, ViewSettings, snapshot_from_buffer};
 
+#[path = "functional/dependencies.rs"]
+mod dependencies;
 #[path = "functional/helpers.rs"]
 mod helpers;
 
@@ -413,6 +415,43 @@ fn phase_direct_dep_rules(candidates: &Path) {
     dep_rule_string_forms(&dir);
     dep_rule_dotted_tables(&dir);
     dep_rule_errors(&dir);
+    phase_direct_dep_parser_forms(&dir);
+}
+
+fn phase_direct_dep_parser_forms(dir: &Path) {
+    let mut seq = 400;
+    let mut case = |workspace: Option<&str>, crate_toml: Option<&str>, want: i32| {
+        seq += 1;
+        dep_case(dir, seq, workspace, crate_toml, want);
+    };
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[target.'cfg(unix)']\ndependencies = {{ \"portable-pty\" = \"0.9\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_WS_ALIAS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty.\"workspace\" = true\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty = {{ package = '''portable-pty''', version = \"0.9\" }}\n"
+        )),
+        1,
+    );
+    case(
+        Some(DEP_BARE_WS),
+        Some(
+            "[package]\nname = \"tuiscotti\"\nname = \"tuiscotti-duplicate\"\nversion = \"0.2.0\"\nedition = \"2024\"\n[dependencies]\nok = \"1.0\"\n",
+        ),
+        2,
+    );
 }
 
 fn dep_rule_flat_tables(dir: &Path) {
