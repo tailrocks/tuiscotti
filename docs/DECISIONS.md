@@ -264,3 +264,15 @@ multiple locales) drove eight durable design refinements:
   subprocess tests document the two-part deterministic clock/tick
   environment + semantic-wait pattern ([LIMITATIONS.md](LIMITATIONS.md),
   [TESTING.md](TESTING.md)).
+
+## 15. cargo-deny advisory ignores and the provisional fork source
+
+`deny.toml` carries advisory ignores `RUSTSEC-2026-0206` (`rustybuzz`
+unmaintained; transitive via the tui-test-rs fork pin, no safe upgrade,
+ecosystem successor is `skrifa`) and `RUSTSEC-2026-0192` (`ttf-parser`
+unmaintained, same migration path via fontdb/rustybuzz). Remove both
+when shaping migrates off rustybuzz. The only permitted git source is
+the maintained donbeave/tui-test fork (provisional `[patch.crates-io]`
+until upstream merges and a registry release exists); source validation
+stays deny-by-default. Rationale lives here because `deny.toml`
+contains no prose comments: cargo-deny consumes only the IDs and URLs.

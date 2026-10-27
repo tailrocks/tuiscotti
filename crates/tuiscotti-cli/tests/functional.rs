@@ -334,6 +334,13 @@ fn dep_rule_flat_tables(dir: &Path) {
         0,
     );
     case(Some(DEP_WS_ALIAS), Some(DEP_CRATE), 0);
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty = {{ package = 'portable-pty', version = '0.9' }}\n"
+        )),
+        1,
+    );
 }
 
 fn dep_rule_dotted_tables(dir: &Path) {
@@ -358,6 +365,13 @@ fn dep_rule_dotted_tables(dir: &Path) {
         Some(DEP_BARE_WS),
         Some("dependencies.ok.version = \"1.0\"\n"),
         0,
+    );
+    case(
+        Some("workspace.dependencies.pty = { package = \"portable-pty\", version = \"0.9\" }\n"),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\npty.workspace = true\n"
+        )),
+        1,
     );
 }
 

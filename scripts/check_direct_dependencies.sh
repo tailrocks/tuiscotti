@@ -33,15 +33,25 @@ function table_get(table_text, field,    rest, val) {
         val = substr(rest, 2, RLENGTH - 2)
         return val
     }
+    if (match(rest, "^\x27[^\x27]*\x27")) {
+        val = substr(rest, 2, RLENGTH - 2)
+        return val
+    }
     if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
     return ""
 }
-function strip_comment(line,    out, i, c, in_str, esc) {
+function strip_comment(line,    out, i, c, in_str, in_lit, esc) {
     out = ""
     in_str = 0
+    in_lit = 0
     esc = 0
     for (i = 1; i <= length(line); i++) {
         c = substr(line, i, 1)
+        if (in_lit) {
+            if (c == "\x27") in_lit = 0
+            out = out c
+            continue
+        }
         if (esc) {
             out = out c
             esc = 0
@@ -52,8 +62,13 @@ function strip_comment(line,    out, i, c, in_str, esc) {
             esc = 1
             continue
         }
-        if (c == "\"") {
+        if (c == "\"" && !in_lit) {
             in_str = !in_str
+            out = out c
+            continue
+        }
+        if (c == "\x27" && !in_str) {
+            in_lit = 1
             out = out c
             continue
         }
@@ -134,7 +149,7 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         rest = ""
         if (file_index == 1 && k ~ /^workspace\.dependencies\./) {
             prefix = "workspace.dependencies"
-            rest = substr(k, 25)
+            rest = substr(k, 24)
         } else if (file_index == 2 && k ~ /^target\.[^.]+\.(dependencies|dev-dependencies|build-dependencies)\./) {
             t = k
             sub(/^target\.[^.]+\./, "", t)
@@ -175,7 +190,7 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         rest = trim(substr(eff, RSTART + RLENGTH))
         if (rest ~ /^\{/) {
             record_ws(key, table_get(rest, "package"))
-        } else if (rest ~ /^"/) {
+        } else if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
             record_ws(key, "")
         } else {
             parse_error("invalid TOML in workspace manifest")
@@ -201,11 +216,13 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         }
         next
     }
-    if (rest ~ /^"/) {
+    if (rest ~ /^"/ || substr(rest, 1, 1) == "\x27") {
         if (alias != key) {
             val = rest
-            sub(/^"/, "", val)
-            sub(/".*$/, "", val)
+            q = substr(val, 1, 1)
+            val = substr(val, 2)
+            i = index(val, q)
+            if (i > 0) val = substr(val, 1, i - 1)
             record_dep(alias, "direct", val)
         } else {
             record_dep(key, "direct", key)
