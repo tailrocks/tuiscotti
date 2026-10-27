@@ -36,11 +36,12 @@ features = []
 target = "host"
 
 [stacks.rust.release]
-enabled = false
+enabled = true
 manifest_path = "Cargo.toml"
-packages = []
+packages = ["tuiscotti", "tuiscotti-cli"]
 publishable_workspace = false
 environment = "release"
+registry = "crates-io"
 release_pr = true
 tag_name = "{{ package }}-v{{ version }}"
 

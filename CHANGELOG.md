@@ -3,12 +3,13 @@
 All notable changes to the `tuiscotti` and `tuiscotti-cli` crates are
 documented here. Versions follow Semantic Versioning.
 
-## 0.4.0 — Unreleased (not yet published to crates.io or docs.rs)
+## 0.4.0 — 2026-10-27
 
-> Status: prepared on the release branch, **not published yet**.
-> Nothing below is installable from a registry until the 0.4.0
-> publish lands. Use the [source-install setup](#source-install-setup)
-> to try it from git in the meantime.
+> Published to [crates.io](https://crates.io/crates/tuiscotti)
+> and [docs.rs](https://docs.rs/tuiscotti). Install with
+> `cargo add tuiscotti@0.4`, or grab the binary with
+> `cargo install tuiscotti-cli@0.4.0` (see
+> [Install from the registry](#install-from-the-registry)).
 
 First public release. Two crates, one offline binary:
 
@@ -35,21 +36,23 @@ extra pin. Remaining follow-up (R02) is switching the dependency name
 back to upstream `tui-test-rs` once its registry release carries the
 required APIs; `use tui_test::...` imports are unaffected either way.
 
-### Source-install setup
+### Install from the registry
 
-Depend on the git source (path dependencies work only inside
-this workspace):
+Depend on the published crate:
 
 ```toml
 [dependencies]
-tuiscotti = { git = "https://github.com/tailrocks/tuiscotti", rev = "<published-0.4.0-sha>" }
+tuiscotti = "0.4"
 ```
 
-Build the CLI binary from a workspace checkout instead of
-`cargo install` from a registry:
+or add it on the command line:
 
 ```sh
-cargo fetch --locked # warm the registry for offline builds
-cargo build --locked --offline -p tuiscotti-cli
-cargo install --path crates/tuiscotti-cli --locked --offline --root <dir>
+cargo add tuiscotti@0.4
+```
+
+Install the CLI binary from the registry:
+
+```sh
+cargo install tuiscotti-cli@0.4.0 --locked
 ```
