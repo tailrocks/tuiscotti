@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/profile.md")]
+#![doc = include_str!("../docs/profile.md")]
 use std::fmt::{Display, Formatter};
 use std::sync::OnceLock;
 

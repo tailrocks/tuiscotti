@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/view.md")]
+#![doc = include_str!("../docs/view.md")]
 use std::fmt::{Display, Formatter};
 
 use ratatui::buffer::{Buffer, CellWidth};

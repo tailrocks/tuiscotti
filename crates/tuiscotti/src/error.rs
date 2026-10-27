@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/error.md")]
+#![doc = include_str!("../docs/error.md")]
 use std::fmt::{Display, Formatter};
 
 #[doc = "Fallible-operation result over the facade Error."]

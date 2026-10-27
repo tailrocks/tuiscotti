@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/ops_render.md")]
+#![doc = include_str!("../docs/ops_render.md")]
 use std::path::Path;
 
 use tuiscotti::render_sample;

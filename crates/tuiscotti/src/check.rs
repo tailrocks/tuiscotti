@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/check.md")]
+#![doc = include_str!("../docs/check.md")]
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::path::{Path, PathBuf};

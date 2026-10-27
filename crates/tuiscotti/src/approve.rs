@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/approve.md")]
+#![doc = include_str!("../docs/approve.md")]
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io::Write as _;

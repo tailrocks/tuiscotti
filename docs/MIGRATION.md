@@ -80,8 +80,9 @@ here were renamed in G8 (see above).
    `alacritty_terminal` are transitive through `tui-test-rs` only.
    See [DECISIONS.md](DECISIONS.md).
 
-MSRV history: 1.97 during the early prototype window; current pin is
-1.98.1 (`rust-toolchain.toml`).
+MSRV history: 1.97 during the early prototype window, 1.98.1
+through the D07 migration; current pin is 1.99.1
+(`rust-toolchain.toml`).
 
 ## Behavior changes in P1–P8 (7,550-scenario visual suite refinements)
 

@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/cli.md")]
+#![doc = include_str!("../docs/cli.md")]
 use std::path::PathBuf;
 
 use clap::builder::{PathBufValueParser, TypedValueParser as _};

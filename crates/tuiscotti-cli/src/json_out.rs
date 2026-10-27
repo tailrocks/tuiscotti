@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/json_out.md")]
+#![doc = include_str!("../docs/json_out.md")]
 use std::path::Path;
 
 use base64::Engine as _;

@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/render.md")]
+#![doc = include_str!("../docs/render.md")]
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 

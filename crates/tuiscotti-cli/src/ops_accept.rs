@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/ops_accept.md")]
+#![doc = include_str!("../docs/ops_accept.md")]
 use std::path::Path;
 
 use tuiscotti::approve::{ApprovalStore, ApproveError};

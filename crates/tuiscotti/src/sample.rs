@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/sample.md")]
+#![doc = include_str!("../docs/sample.md")]
 use std::fmt::{Display, Formatter};
 use std::io::Read as _;
 

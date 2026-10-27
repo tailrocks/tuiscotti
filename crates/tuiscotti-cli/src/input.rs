@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/input.md")]
+#![doc = include_str!("../docs/input.md")]
 use std::fs;
 use std::io::Read as _;
 use std::path::Path;

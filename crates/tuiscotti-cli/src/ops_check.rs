@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/ops_check.md")]
+#![doc = include_str!("../docs/ops_check.md")]
 use std::path::Path;
 
 use tuiscotti::approve::sample_code;

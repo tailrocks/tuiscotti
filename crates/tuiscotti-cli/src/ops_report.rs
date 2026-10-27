@@ -1,4 +1,4 @@
-#[doc = include_str!("../docs/ops_report.md")]
+#![doc = include_str!("../docs/ops_report.md")]
 use std::path::Path;
 
 use tuiscotti::write_report_index;
