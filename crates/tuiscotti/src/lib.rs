@@ -1,33 +1,20 @@
-//! tuiscotti: offline visual-regression workflow for Ratatui views.
-//!
-//! A pure-view test renders an application view in the test process through
-//! [`view`] (no shell, child process, PTY, daemon, or terminal session) and
-//! checks the resulting [`sample`] against frozen baselines with [`check`].
-//! New or changed samples pass explicit digest-arbitrated review in
-//! [`approve`]; [`report`] renders static HTML evidence. [`error`] unifies
-//! the fallible operations of these five modules.
-//!
-//! Live terminal tests use `tui_test::Session` directly from application
-//! test code. tuiscotti ships no session, locator engine, input API,
-//! operation enum, renderer, or approval adapter, and it does not re-export
-//! the upstream API: small conversion functions at the visual boundary
-//! ([`view::capture_view`], [`view::snapshot_from_buffer`]) are the only
-//! bridge between a Ratatui view and the upstream snapshot model.
-
+#![doc = include_str!("../docs/lib.md")]
+#[doc = "Explicit digest-arbitrated review for new or changed samples."]
 pub mod approve;
+#[doc = "Frozen-baseline checks of rendered samples."]
 pub mod check;
+#[doc = "Facade error unifying every fallible operation."]
 pub mod error;
+#[doc = "Offline rendering of saved samples."]
 pub mod render;
+#[doc = "Static HTML comparison reports and evidence index."]
 pub mod report;
+#[doc = "Saved sample construction and validation."]
 pub mod sample;
+#[doc = "Pure-view rendering of application views in the test process."]
 pub mod view;
 
-/// Render profile selecting the pinned upstream raster policy and fonts.
-///
-/// The registry file keeps its packet name `profile.rs`; the module is
-/// `render_profile` so the name records that the profile describes the
-/// upstream pinned renderer, not a downstream renderer (D07 removed the
-/// local glyph rasterizer and general image renderer).
+#[doc = "Render profile selecting the pinned upstream raster policy and fonts."]
 #[path = "profile.rs"]
 pub mod render_profile;
 

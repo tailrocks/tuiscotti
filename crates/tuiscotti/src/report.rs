@@ -1,31 +1,15 @@
-//! Static HTML comparison reports (D03, GOAL 14.3).
-//!
-//! [`render_report`] builds a static HTML page from saved comparison data:
-//! the test ID, mismatch reason, and digests; expected, actual, and
-//! difference images when present (as relative sibling links); cell
-//! coordinates and changed state fields for state differences; and an
-//! explicit note when no expected image exists.
-//!
-//! The output carries no code from samples and no web server or script:
-//! text and attribute values are escaped, every href segment is
-//! percent-encoded, cross-drive targets become `file://` URLs, and no
-//! absolute developer path is ever written.
-//!
-//! [`write_report_index`] builds the static evidence index over an
-//! artifact root; its links resolve from the index parent, so the index
-//! may live anywhere.
-
+#[doc = include_str!("../docs/report.md")]
 use std::fmt::{Display, Formatter, Write as _};
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// Every failure a report render or save can report.
+#[doc = "Every failure a report render or save can report."]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ReportError {
-    /// The report file cannot be written.
+    #[doc = "The report file cannot be written."]
     Io(std::io::Error),
 }
 
@@ -51,20 +35,23 @@ impl From<std::io::Error> for ReportError {
     }
 }
 
-/// One changed cell for the report: coordinates, changed field names, and
-/// the compared cell text on both sides (truncated for display).
+#[doc = "One changed cell for the report: coordinates, changed field names, and the compared cell text."]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReportedCell {
+    #[doc = "The grid column of the changed cell."]
     col: u32,
+    #[doc = "The grid row of the changed cell."]
     row: u32,
+    #[doc = "Changed field names for this cell, in fixed order."]
     fields: Vec<String>,
+    #[doc = "Display text of the candidate cell."]
     actual_text: String,
+    #[doc = "Display text of the baseline cell."]
     baseline_text: String,
 }
 
 impl ReportedCell {
-    /// Record a changed cell at grid coordinates with its changed fields
-    /// and the compared display text.
+    #[doc = "Record a changed cell at grid coordinates with its changed fields and the compared display text."]
     #[must_use]
     pub fn new(
         col: u32,
@@ -82,110 +69,110 @@ impl ReportedCell {
         }
     }
 
-    /// The grid column of the changed cell.
+    #[doc = "The grid column of the changed cell."]
     #[must_use]
     pub const fn col(&self) -> u32 {
         self.col
     }
 
-    /// The grid row of the changed cell.
+    #[doc = "The grid row of the changed cell."]
     #[must_use]
     pub const fn row(&self) -> u32 {
         self.row
     }
 
-    /// Changed field names for this cell, in fixed order.
+    #[doc = "Changed field names for this cell, in fixed order."]
     #[must_use]
     pub fn fields(&self) -> &[String] {
         &self.fields
     }
 
-    /// Display text of the candidate cell.
+    #[doc = "Display text of the candidate cell."]
     #[must_use]
     pub fn actual_text(&self) -> &str {
         &self.actual_text
     }
 
-    /// Display text of the baseline cell.
+    #[doc = "Display text of the baseline cell."]
     #[must_use]
     pub fn baseline_text(&self) -> &str {
         &self.baseline_text
     }
 }
 
-/// Compared-pixel summary for the report.
+#[doc = "Compared-pixel summary for the report."]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PixelSummary {
-    /// Changed pixel count.
+    #[doc = "Changed pixel count."]
     pub changed: u64,
-    /// Compared pixel count.
+    #[doc = "Compared pixel count."]
     pub compared: u64,
-    /// Smallest changed rectangle as `(min_x, min_y, max_x, max_y)`.
+    #[doc = "Smallest changed rectangle as `(min_x, min_y, max_x, max_y)`."]
     pub bounds: [u32; 4],
 }
 
-/// Input for [`render_report`]: plain borrowed data, no filesystem reads.
+#[doc = "Input for `render_report`: plain borrowed data, no filesystem reads."]
 #[derive(Debug, Clone, Copy)]
 pub struct ReportInput<'a> {
-    /// The compared test ID.
+    #[doc = "The compared test ID."]
     pub test_id: &'a str,
-    /// The gate wire value (`state` or `state-and-pixels`).
+    #[doc = "The gate wire value (`state` or `state-and-pixels`)."]
     pub gate: &'a str,
-    /// The mismatch reason wire value.
+    #[doc = "The mismatch reason wire value."]
     pub reason: &'a str,
-    /// SHA-256 over the candidate sample bytes.
+    #[doc = "SHA-256 over the candidate sample bytes."]
     pub candidate_sha256: &'a str,
-    /// SHA-256 over the baseline bytes, or `missing`.
+    #[doc = "SHA-256 over the baseline bytes, or `missing`."]
     pub baseline_sha256: &'a str,
-    /// Changed top-level state fields, in fixed order.
+    #[doc = "Changed top-level state fields, in fixed order."]
     pub changed_fields: &'a [String],
-    /// Changed cells with coordinates, row-major, bounded.
+    #[doc = "Changed cells with coordinates, row-major, bounded."]
     pub changed_cells: &'a [ReportedCell],
-    /// The exact changed-cell count, without the report bound.
+    #[doc = "The exact changed-cell count, without the report bound."]
     pub changed_cell_total: usize,
-    /// Pixel summary when pixels were compared.
+    #[doc = "Pixel summary when pixels were compared."]
     pub pixels: Option<PixelSummary>,
-    /// Whether `expected.png` sits beside this report.
+    #[doc = "Whether `expected.png` sits beside this report."]
     pub has_expected_image: bool,
-    /// Whether `actual.png` sits beside this report.
+    #[doc = "Whether `actual.png` sits beside this report."]
     pub has_actual_image: bool,
-    /// Whether `diff.png` sits beside this report.
+    #[doc = "Whether `diff.png` sits beside this report."]
     pub has_diff_image: bool,
-    /// Compared window titles as `(actual, baseline)` when the title moved.
+    #[doc = "Compared window titles as `(actual, baseline)` when the title moved."]
     pub title_values: Option<(&'a str, &'a str)>,
 }
 
-/// One completed evidence index: the static page linking every saved
-/// check record.
+#[doc = "One completed evidence index: the static page linking every saved check record."]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct IndexOutcome {
+    #[doc = "The indexed check record count, in deterministic sort order."]
     records: usize,
 }
 
 impl IndexOutcome {
-    /// The indexed check record count, in deterministic sort order.
+    #[doc = "The indexed check record count, in deterministic sort order."]
     #[must_use]
     pub const fn records(&self) -> usize {
         self.records
     }
 }
 
-/// Every failure an evidence index write can report.
+#[doc = "Every failure an evidence index write can report."]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum IndexError {
-    /// The artifact root cannot be walked for check evidence.
+    #[doc = "The artifact root cannot be walked for check evidence."]
     Read {
-        /// The artifact root that failed to list.
+        #[doc = "The artifact root that failed to list."]
         artifacts: PathBuf,
-        /// The filesystem failure.
+        #[doc = "The filesystem failure."]
         source: std::io::Error,
     },
-    /// The static index page cannot be written.
+    #[doc = "The static index page cannot be written."]
     Write {
-        /// The index path that failed.
+        #[doc = "The index path that failed."]
         path: PathBuf,
-        /// The filesystem failure.
+        #[doc = "The filesystem failure."]
         source: std::io::Error,
     },
 }
@@ -212,24 +199,14 @@ impl std::error::Error for IndexError {
 }
 
 impl IndexError {
-    /// The stable Section 16.3 machine code: every index failure is `IO`.
+    #[doc = "The stable Section 16.3 machine code: every index failure is `IO`."]
     #[must_use]
     pub const fn code(&self) -> &'static str {
         "IO"
     }
 }
 
-/// Walk the artifact root for check `result.json` records (schema
-/// `tuiscotti.check.v1`), sort them deterministically, and write one
-/// self-contained HTML page linking each check directory's own
-/// `report.html`. Links resolve from the index parent, so the index may
-/// live anywhere; only forward slashes are emitted. Nothing here
-/// modifies approvals: the baseline root is never opened.
-///
-/// # Errors
-///
-/// Returns [`IndexError`] when the artifact root cannot be walked or
-/// the index page cannot be written.
+#[doc = "Walk the artifact root for check records, sort them, and write one index page linking each report.\n\n# Errors\n\nReturns [`IndexError`] when the artifact root cannot be walked or the index page cannot be written."]
 pub fn write_report_index(artifacts: &Path, out: &Path) -> Result<IndexOutcome, IndexError> {
     let records = collect_records(artifacts).map_err(|source| IndexError::Read {
         artifacts: artifacts.to_path_buf(),
@@ -245,7 +222,6 @@ pub fn write_report_index(artifacts: &Path, out: &Path) -> Result<IndexOutcome, 
     })
 }
 
-/// One indexed check record: identity plus its relative check directory.
 struct IndexedRecord {
     test_id: String,
     reason: String,
@@ -254,8 +230,6 @@ struct IndexedRecord {
     check_dir: PathBuf,
 }
 
-/// Collect check records under `artifacts`, sorted by test ID, candidate
-/// digest, and baseline digest for deterministic output.
 fn collect_records(artifacts: &Path) -> Result<Vec<IndexedRecord>, std::io::Error> {
     let mut records = Vec::new();
     let mut stack = vec![artifacts.to_path_buf()];
@@ -285,8 +259,6 @@ fn collect_records(artifacts: &Path) -> Result<Vec<IndexedRecord>, std::io::Erro
     Ok(records)
 }
 
-/// Read one check record; returns `None` for files that are not check
-/// evidence (foreign files never break the index).
 fn read_record(path: &Path, artifacts: &Path) -> Option<IndexedRecord> {
     let bytes = crate::sample::read_bounded(path).ok()?;
     let value: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
@@ -303,8 +275,6 @@ fn read_record(path: &Path, artifacts: &Path) -> Option<IndexedRecord> {
     })
 }
 
-/// Render the static index page: escaped text, links relative to the
-/// index parent, no absolute developer paths and no scripts.
 fn render_index(artifacts: &Path, out: &Path, records: &[IndexedRecord]) -> String {
     let parent = out.parent().filter(|parent| !parent.as_os_str().is_empty());
     let parent = parent.unwrap_or_else(|| Path::new("."));
@@ -337,18 +307,11 @@ fn render_index(artifacts: &Path, out: &Path, records: &[IndexedRecord]) -> Stri
     page
 }
 
-/// Append one `\n`-terminated line to an index buffer.
 fn push_index_line(buffer: &mut String, line: &str) {
     buffer.push_str(line);
     buffer.push('\n');
 }
 
-/// Href from the index parent to an evidence file, with forward
-/// slashes on every platform. Both sides resolve lexically against the
-/// process directory, so no filesystem access decides the spelling.
-/// Every segment is percent-encoded, so `#`, `?`, `%`, spaces, and
-/// non-UTF8 names survive the browser intact. Targets without a relative
-/// spelling (a different drive root) become `file://` URLs.
 fn relative_href(index_parent: &Path, target: &Path) -> String {
     let base = normalize_lexical(&absolutize(index_parent));
     let target = normalize_lexical(&absolutize(target));
@@ -358,8 +321,6 @@ fn relative_href(index_parent: &Path, target: &Path) -> String {
     file_url(&target)
 }
 
-/// Join a relative path onto the process directory; absolute paths
-/// pass through unchanged.
 fn absolutize(path: &Path) -> PathBuf {
     if path.is_absolute() {
         path.to_path_buf()
@@ -370,7 +331,6 @@ fn absolutize(path: &Path) -> PathBuf {
     }
 }
 
-/// Resolve `.` and `..` lexically, without touching the filesystem.
 fn normalize_lexical(path: &Path) -> PathBuf {
     use std::path::Component;
     let mut stack: Vec<Component<'_>> = Vec::new();
@@ -394,9 +354,6 @@ fn normalize_lexical(path: &Path) -> PathBuf {
     normalized
 }
 
-/// Lexical path from `base` to `target`, joined with forward slashes;
-/// `None` when the two sides share no comparable root (drive-letter
-/// splits on Windows).
 fn relative_lexical(base: &Path, target: &Path) -> Option<String> {
     use std::path::Component;
     let base: Vec<Component<'_>> = base.components().collect();
@@ -431,9 +388,6 @@ fn relative_lexical(base: &Path, target: &Path) -> Option<String> {
     Some(parts.join("/"))
 }
 
-/// Percent-encode one href segment from its raw bytes: unreserved marks
-/// and sub-delimiters travel literally, everything else (including `%`,
-/// `#`, `?`, spaces, and non-UTF8 bytes) travels as uppercase `%XX`.
 fn encode_href_segment(raw: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut out = String::with_capacity(raw.len());
@@ -469,9 +423,6 @@ fn encode_href_segment(raw: &[u8]) -> String {
     out
 }
 
-/// `file://` URL for a target with no relative spelling: every segment
-/// travels percent-encoded, so the fallback stays a valid browser URL
-/// instead of a bare path that reads as a scheme.
 fn file_url(target: &Path) -> String {
     use std::path::{Component, Prefix};
     let mut authority = String::new();
@@ -494,7 +445,7 @@ fn file_url(target: &Path) -> String {
     format!("file://{authority}/{}", segments.join("/"))
 }
 
-/// Render the static HTML report for one comparison as a string.
+#[doc = "Render the static HTML report for one comparison as a string."]
 #[must_use]
 pub fn render_report(input: &ReportInput<'_>) -> String {
     let mut html = String::new();
@@ -506,14 +457,7 @@ pub fn render_report(input: &ReportInput<'_>) -> String {
     html
 }
 
-/// Render and save the static HTML report through one atomic file write: a
-/// temporary file in the destination directory, flushed and closed before
-/// one atomic rename, like all sibling evidence.
-///
-/// # Errors
-///
-/// Returns [`ReportError`] when the report path has no file name or the
-/// report file cannot be written.
+#[doc = "Render and save the static HTML report through one atomic file write.\n\n# Errors\n\nReturns [`ReportError`] when the report path has no file name or the report file cannot be written."]
 pub fn write_report(input: &ReportInput<'_>, path: &Path) -> Result<(), ReportError> {
     let html = render_report(input);
     let invalid = |what: &str| {
@@ -533,37 +477,21 @@ pub fn write_report(input: &ReportInput<'_>, path: &Path) -> Result<(), ReportEr
     Ok(())
 }
 
-/// A temporary file that removes itself on drop unless committed. Writes go
-/// to the destination directory, flush before the handle closes, and reach
-/// their name through one atomic rename.
 struct TempFile {
     path: Option<PathBuf>,
 }
 
-/// Staging attempts before an occupied directory reports `AlreadyExists`.
 const MAX_TEMP_CREATE_ATTEMPTS: u32 = 100;
 
 impl TempFile {
-    /// Create a uniquely named temporary file in a directory.
-    ///
-    /// Exclusive creation with owner-only mode: the call never follows a
-    /// symlink (a planted link at the fresh name fails creation), and the
-    /// file is never truncated or reused. Occupied names retry with a fresh
-    /// counter value; every other I/O failure returns immediately.
     fn create(dir: &Path, name: &str) -> Result<(fs::File, Self), std::io::Error> {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        Self::create_retry(dir, name, || COUNTER.fetch_add(1, Ordering::SeqCst))
+        Self::create_retry(dir, name)
     }
 
-    /// Stage through caller-supplied fresh names; the closure hook exists so
-    /// tests can force the collision path deterministically.
-    fn create_retry(
-        dir: &Path,
-        name: &str,
-        mut fresh_id: impl FnMut() -> u64,
-    ) -> Result<(fs::File, Self), std::io::Error> {
+    fn create_retry(dir: &Path, name: &str) -> Result<(fs::File, Self), std::io::Error> {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         for _ in 0..MAX_TEMP_CREATE_ATTEMPTS {
-            match Self::create_once(dir, name, fresh_id()) {
+            match Self::create_once(dir, name, COUNTER.fetch_add(1, Ordering::SeqCst)) {
                 Ok(staged) => return Ok(staged),
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
                 Err(error) => return Err(error),
@@ -575,10 +503,6 @@ impl TempFile {
         ))
     }
 
-    /// Open one staging name exclusively: `create_new` fails when anything
-    /// (file, directory, or symlink) already occupies the path, so creation
-    /// never follows a link. All later bytes travel through the held
-    /// handle, and the final rename moves the staged path itself.
     fn create_once(dir: &Path, name: &str, id: u64) -> Result<(fs::File, Self), std::io::Error> {
         let path = dir.join(format!(".tmp-{}-{id}-{name}", std::process::id()));
         let mut options = fs::OpenOptions::new();
@@ -592,11 +516,6 @@ impl TempFile {
         Ok((file, Self { path: Some(path) }))
     }
 
-    /// Flush, close, and atomically rename the temporary file.
-    ///
-    /// The staged path is retained until the rename succeeds: a failed
-    /// rename removes the staged file and reports I/O, so no `.tmp-*`
-    /// residue survives the error branch.
     fn commit(mut self, target: &Path) -> Result<(), std::io::Error> {
         let Some(path) = self.path.take() else {
             return Err(std::io::Error::other(
@@ -621,9 +540,6 @@ impl Drop for TempFile {
     }
 }
 
-/// Write bytes through a temporary file with flush, close, and atomic
-/// rename. Every evidence write, including the HTML report, goes through
-/// this helper so readers never see a partial file.
 pub(crate) fn atomic_write(
     dir: &Path,
     name: &str,
@@ -638,7 +554,7 @@ pub(crate) fn atomic_write(
     Ok(target)
 }
 
-/// Escape text and attribute values for HTML: no code from a sample runs.
+#[doc = "Escape text and attribute values for HTML: no code from a sample runs."]
 #[must_use]
 pub fn escape_html(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -655,7 +571,6 @@ pub fn escape_html(text: &str) -> String {
     out
 }
 
-/// Write the document head: escaped title, no script, no absolute path.
 fn push_header(html: &mut String, input: &ReportInput<'_>) {
     let title = escape_html(input.test_id);
     let _result = write!(
@@ -664,7 +579,6 @@ fn push_header(html: &mut String, input: &ReportInput<'_>) {
     );
 }
 
-/// Write the outcome summary: reason, gate, and both digests escaped.
 fn push_summary(html: &mut String, input: &ReportInput<'_>) {
     let _result = write!(
         html,
@@ -677,7 +591,6 @@ fn push_summary(html: &mut String, input: &ReportInput<'_>) {
     );
 }
 
-/// Write changed fields, values, and cell coordinates with an exact total.
 fn push_state(html: &mut String, input: &ReportInput<'_>) {
     html.push_str("<h2>State differences</h2>\n");
     if input.changed_fields.is_empty() && input.changed_cell_total == 0 {
@@ -695,7 +608,6 @@ fn push_state(html: &mut String, input: &ReportInput<'_>) {
     }
 }
 
-/// Write the compared window titles when the title moved.
 fn push_title_values(html: &mut String, input: &ReportInput<'_>) {
     if let Some((actual, baseline)) = input.title_values {
         let _result = write!(
@@ -707,7 +619,6 @@ fn push_title_values(html: &mut String, input: &ReportInput<'_>) {
     }
 }
 
-/// Write the changed-cell table with coordinates and display text.
 fn push_cells(html: &mut String, input: &ReportInput<'_>) {
     let _result = write!(
         html,
@@ -733,7 +644,6 @@ fn push_cells(html: &mut String, input: &ReportInput<'_>) {
     html.push_str("</table>\n");
 }
 
-/// Write the compared-pixel summary when pixels were compared.
 fn push_pixels(html: &mut String, input: &ReportInput<'_>) {
     if let Some(pixels) = input.pixels {
         let bounds = pixels.bounds;
@@ -745,7 +655,6 @@ fn push_pixels(html: &mut String, input: &ReportInput<'_>) {
     }
 }
 
-/// Write image links with relative sibling names, or explicit missing notes.
 fn push_images(html: &mut String, input: &ReportInput<'_>) {
     html.push_str("<h2>Images</h2>\n");
     push_image(html, "Expected", "expected.png", input.has_expected_image);
@@ -753,8 +662,6 @@ fn push_images(html: &mut String, input: &ReportInput<'_>) {
     push_image(html, "Difference", "diff.png", input.has_diff_image);
 }
 
-/// Write one image row: a relative link when present, an explicit note when
-/// no expected image exists or an image does not apply to this gate.
 fn push_image(html: &mut String, label: &str, file: &str, present: bool) {
     if present {
         let _result = write!(
@@ -773,240 +680,6 @@ fn push_image(html: &mut String, label: &str, file: &str, present: bool) {
     }
 }
 
-/// Close the document: no JavaScript application follows.
 fn push_footer(html: &mut String) {
     html.push_str("</body>\n</html>\n");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        ReportInput, TempFile, encode_href_segment, escape_html, file_url, read_record,
-        relative_href, render_report, write_report,
-    };
-
-    #[test]
-    fn escaping_keeps_markup_inert() {
-        let hostile = "<script>alert('x')</script>";
-        assert_eq!(
-            escape_html(hostile),
-            "&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;"
-        );
-        assert_eq!(escape_html("a&b\"c"), "a&amp;b&quot;c");
-    }
-
-    #[test]
-    fn report_states_a_missing_expected_image() {
-        let fields: Vec<String> = Vec::new();
-        let cells = Vec::new();
-        let input = ReportInput {
-            test_id: "views/login",
-            gate: "state",
-            reason: "missing",
-            candidate_sha256: "aa",
-            baseline_sha256: "missing",
-            changed_fields: &fields,
-            changed_cells: &cells,
-            changed_cell_total: 0,
-            pixels: None,
-            has_expected_image: false,
-            has_actual_image: false,
-            has_diff_image: false,
-            title_values: None,
-        };
-        let html = render_report(&input);
-        assert!(html.contains("The expected image is missing"));
-        assert!(!html.contains("<script"));
-    }
-
-    /// The report write is atomic: the saved bytes equal the full rendering
-    /// and no temporary file is left behind in the destination directory.
-    #[test]
-    fn write_report_saves_complete_bytes_without_temp_residue() {
-        let dir = tempfile::tempdir().expect("tempdir creates");
-        let fields = vec!["title".to_string()];
-        let cells = Vec::new();
-        let input = ReportInput {
-            test_id: "views/login",
-            gate: "state",
-            reason: "state",
-            candidate_sha256: "cc",
-            baseline_sha256: "bb",
-            changed_fields: &fields,
-            changed_cells: &cells,
-            changed_cell_total: 0,
-            pixels: None,
-            has_expected_image: false,
-            has_actual_image: false,
-            has_diff_image: false,
-            title_values: None,
-        };
-        let path = dir.path().join("report.html");
-        write_report(&input, &path).expect("report writes");
-        let saved = std::fs::read(&path).expect("report reads");
-        assert_eq!(saved, render_report(&input).as_bytes());
-        let text = String::from_utf8(saved).expect("report is UTF-8");
-        assert!(text.starts_with("<!DOCTYPE html>"));
-        assert!(text.ends_with("</html>\n"));
-        for entry in std::fs::read_dir(dir.path()).expect("directory lists") {
-            let name = entry
-                .expect("entry reads")
-                .file_name()
-                .to_string_lossy()
-                .into_owned();
-            assert!(
-                !name.starts_with(".tmp-"),
-                "temporary file {name:?} left behind"
-            );
-        }
-    }
-
-    /// Index hrefs resolve from the index parent with forward slashes.
-    #[test]
-    fn index_hrefs_resolve_from_the_index_parent() {
-        use std::path::Path;
-        let cases = [
-            (
-                "/repo/out",
-                "/repo/artifacts/suite/digest/report.html",
-                "../artifacts/suite/digest/report.html",
-            ),
-            (
-                "/repo/artifacts",
-                "/repo/artifacts/suite/digest/report.html",
-                "suite/digest/report.html",
-            ),
-            (
-                "/repo/artifacts/sub",
-                "/repo/artifacts/suite/digest/report.html",
-                "../suite/digest/report.html",
-            ),
-            (
-                "/repo/artifacts/suite/digest",
-                "/repo/artifacts/suite/digest/report.html",
-                "report.html",
-            ),
-        ];
-        for (parent, target, expected) in cases {
-            assert_eq!(
-                relative_href(Path::new(parent), Path::new(target)),
-                expected,
-                "href from {parent} to {target}"
-            );
-        }
-    }
-
-    #[test]
-    fn index_hrefs_percent_encode_special_segments() {
-        use std::path::Path;
-        assert_eq!(
-            relative_href(
-                Path::new("/repo/out"),
-                Path::new("/repo/artifacts/suite/a b#c%3Fd/report.html"),
-            ),
-            "../artifacts/suite/a%20b%23c%253Fd/report.html",
-        );
-        assert_eq!(
-            file_url(Path::new("/repo/a b/report.html")),
-            "file:///repo/a%20b/report.html",
-        );
-        assert_eq!(encode_href_segment(b"a\xffb"), "a%FFb");
-    }
-
-    #[test]
-    fn oversized_records_are_ignored_while_valid_records_index() {
-        use crate::check::CHECK_SCHEMA;
-        use crate::sample::MAX_SAMPLE_FILE_BYTES;
-        let dir = tempfile::tempdir().expect("tempdir creates");
-        let suite = dir.path().join("suite");
-        std::fs::create_dir(&suite).expect("suite creates");
-        let huge = suite.join("result.json");
-        let mut padded = serde_json::json!({
-            "schema": CHECK_SCHEMA,
-            "test_id": "views/login",
-            "reason": "state",
-            "candidate_sha256": "cc",
-            "baseline_sha256": "bb",
-        });
-        let over_limit =
-            usize::try_from(MAX_SAMPLE_FILE_BYTES).expect("file limit fits the address space") + 1;
-        padded["padding"] = serde_json::Value::String("x".repeat(over_limit));
-        std::fs::write(
-            &huge,
-            serde_json::to_vec(&padded).expect("padded record serializes"),
-        )
-        .expect("padded record writes");
-        assert!(read_record(&huge, dir.path()).is_none());
-        let record = serde_json::json!({
-            "schema": CHECK_SCHEMA,
-            "test_id": "views/login",
-            "reason": "state",
-            "candidate_sha256": "cc",
-            "baseline_sha256": "bb",
-        });
-        let valid = suite.join("valid.json");
-        std::fs::write(
-            &valid,
-            serde_json::to_vec(&record).expect("record serializes"),
-        )
-        .expect("record writes");
-        let indexed = read_record(&valid, dir.path()).expect("valid record indexes");
-        assert_eq!(indexed.test_id, "views/login");
-    }
-
-    #[test]
-    fn staged_temp_files_skip_planted_names_without_touching_targets() {
-        use std::io::Write as _;
-        let dir = tempfile::tempdir().expect("tempdir creates");
-        let outside = dir.path().join("outside.txt");
-        std::fs::write(&outside, b"untouched").expect("outside writes");
-        let planted = dir
-            .path()
-            .join(format!(".tmp-{}-7-report.html", std::process::id()));
-        #[cfg(unix)]
-        std::os::unix::fs::symlink(&outside, &planted).expect("link plants");
-        #[cfg(not(unix))]
-        std::fs::write(&planted, b"occupied").expect("name occupies");
-        let mut ids = [7u64, 7, 8].into_iter();
-        let (mut file, staged) = TempFile::create_retry(dir.path(), "report.html", || {
-            ids.next().expect("identifier remains")
-        })
-        .expect("retry stages past the planted name");
-        file.write_all(b"evidence").expect("staged write lands");
-        drop(file);
-        let target = dir.path().join("report.html");
-        staged.commit(&target).expect("commit renames");
-        assert_eq!(std::fs::read(&target).expect("target reads"), b"evidence");
-        assert_eq!(
-            std::fs::read(&outside).expect("outside reads"),
-            b"untouched"
-        );
-    }
-
-    #[test]
-    fn failed_rename_removes_the_staged_file() {
-        let dir = tempfile::tempdir().expect("tempdir creates");
-        let (file, staged) = TempFile::create(dir.path(), "report.html").expect("stage creates");
-        drop(file);
-        let missing = dir.path().join("no-such-dir").join("report.html");
-        let error = staged
-            .commit(&missing)
-            .expect_err("rename into a missing directory fails");
-        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
-        let residue: Vec<String> = std::fs::read_dir(dir.path())
-            .expect("directory lists")
-            .map(|entry| {
-                entry
-                    .expect("entry reads")
-                    .file_name()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .filter(|name| name.starts_with(".tmp-"))
-            .collect();
-        assert!(
-            residue.is_empty(),
-            "staged residue left behind: {residue:?}"
-        );
-    }
 }

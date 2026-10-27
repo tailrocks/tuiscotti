@@ -25,9 +25,9 @@ tempfile = "3.27"
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.98"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/tailrocks/tui-snap"
+rust-version = "1.99.1"
+license = "Apache-2.0"
+repository = "https://github.com/tailrocks/tuiscotti"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

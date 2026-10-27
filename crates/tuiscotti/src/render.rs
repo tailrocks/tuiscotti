@@ -1,13 +1,4 @@
-//! Offline rendering of a saved sample (GOAL Section 16).
-//!
-//! [`render_sample`] extracts the stored PNG from an image sample, or
-//! re-renders a state-only sample through the built-in profile, or writes
-//! a static `.html` page embedding the image — selected by the `--out`
-//! extension. Nothing here starts an application: the input is saved
-//! bytes, and the output is one file write. The CLI boundary owns
-//! argument parsing and process exit codes; every failure here keeps
-//! its typed shape and Section 16.3 code through [`RenderError::code`].
-
+#[doc = include_str!("../docs/render.md")]
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -19,32 +10,32 @@ use crate::render_profile::{PROFILE_NAME, ProfileError, resolve_profile};
 use crate::report::escape_html;
 use crate::sample::{Sample, SampleError};
 
-/// Every failure an offline sample render can report.
+#[doc = "Every failure an offline sample render can report."]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum RenderError {
-    /// The output path carries neither a `.png` nor an `.html` extension.
+    #[doc = "The output path carries neither a `.png` nor an `.html` extension."]
     UnsupportedExtension {
-        /// The rejected output path, for the diagnostic.
+        #[doc = "The rejected output path, for the diagnostic."]
         path: PathBuf,
     },
-    /// The sample bytes fail [`Sample`] validation.
+    #[doc = "The sample bytes fail `Sample` validation."]
     Sample(SampleError),
-    /// A stored image sample carries PNG bytes that do not validate.
+    #[doc = "A stored image sample carries PNG bytes that do not validate."]
     StoredImage {
-        /// What the stored PNG broke.
+        #[doc = "What the stored PNG broke."]
         detail: String,
     },
-    /// A state-only sample names a render profile that cannot be used.
+    #[doc = "A state-only sample names a render profile that cannot be used."]
     Profile(ProfileError),
-    /// The upstream renderer refuses a state-only sample snapshot.
+    #[doc = "The upstream renderer refuses a state-only sample snapshot."]
     Render {
-        /// The upstream rejection, with its source chain.
+        #[doc = "The upstream rejection, with its source chain."]
         source: UpstreamRenderError,
     },
-    /// A filesystem failure outside sample validation.
+    #[doc = "A filesystem failure outside sample validation."]
     Io {
-        /// The filesystem failure.
+        #[doc = "The filesystem failure."]
         source: std::io::Error,
     },
 }
@@ -91,7 +82,7 @@ impl From<std::io::Error> for RenderError {
 }
 
 impl RenderError {
-    /// The stable Section 16.3 machine code for this failure.
+    #[doc = "The stable Section 16.3 machine code for this failure."]
     #[must_use]
     pub fn code(&self) -> &'static str {
         match self {
@@ -113,52 +104,46 @@ impl RenderError {
     }
 }
 
-/// One completed offline render: the reviewed bytes written to one file.
+#[doc = "One completed offline render: the reviewed bytes written to one file."]
 #[derive(Debug, Clone)]
 pub struct RenderOutcome {
+    #[doc = "The rendered test ID."]
     test_id: String,
+    #[doc = "SHA-256 over the rendered sample bytes."]
     candidate_sha256: String,
+    #[doc = "The render profile for a rendered state-only sample, else `None`."]
     reason: Option<String>,
+    #[doc = "The written output file."]
     output_path: PathBuf,
 }
 
 impl RenderOutcome {
-    /// The rendered test ID.
+    #[doc = "The rendered test ID."]
     #[must_use]
     pub fn test_id(&self) -> &str {
         &self.test_id
     }
 
-    /// SHA-256 over the rendered sample bytes.
+    #[doc = "SHA-256 over the rendered sample bytes."]
     #[must_use]
     pub fn candidate_sha256(&self) -> &str {
         &self.candidate_sha256
     }
 
-    /// The render profile for a rendered state-only sample, else `None`.
+    #[doc = "The render profile for a rendered state-only sample, else `None`."]
     #[must_use]
     pub fn reason(&self) -> Option<&str> {
         self.reason.as_deref()
     }
 
-    /// The written output file.
+    #[doc = "The written output file."]
     #[must_use]
     pub fn output_path(&self) -> &Path {
         &self.output_path
     }
 }
 
-/// Render saved sample bytes to `out` and return the outcome.
-///
-/// A `.png` output holds the validated stored image, or the state-only
-/// re-render; an `.html` output embeds it in a static page. Any other
-/// extension is rejected before the bytes are read.
-///
-/// # Errors
-///
-/// Returns [`RenderError`] for unsupported extensions, invalid samples,
-/// stored-image failures, unknown profiles, renderer refusals, and I/O
-/// failures.
+#[doc = "Render saved sample bytes to `out` and return the outcome.\n\n# Errors\n\nReturns `RenderError` for unsupported extensions, invalid samples, stored-image failures, unknown profiles, renderer refusals, and I/O failures."]
 pub fn render_sample(sample_bytes: &[u8], out: &Path) -> Result<RenderOutcome, RenderError> {
     if !wants_png(out) && !wants_html(out) {
         return Err(RenderError::UnsupportedExtension {
@@ -190,18 +175,14 @@ pub fn render_sample(sample_bytes: &[u8], out: &Path) -> Result<RenderOutcome, R
     })
 }
 
-/// True for the `.png` output extension.
 fn wants_png(out: &Path) -> bool {
     out.extension().and_then(OsStr::to_str) == Some("png")
 }
 
-/// True for the `.html` output extension.
 fn wants_html(out: &Path) -> bool {
     out.extension().and_then(OsStr::to_str) == Some("html")
 }
 
-/// Write the rendered bytes: raw PNG for `.png`, a static embedding
-/// page for `.html`.
 fn write_output(
     out: &Path,
     sample: &Sample,
@@ -222,9 +203,6 @@ fn write_output(
     Ok(())
 }
 
-/// One static HTML page for a rendered sample with its PNG embedded as
-/// a data URI: no external files, no absolute paths, deterministic
-/// output for one input.
 fn render_page(
     sample: &Sample,
     profile: &str,
@@ -240,8 +218,6 @@ fn render_page(
     )
 }
 
-/// Decode and validate a stored sample PNG: the Base64 decodes, the
-/// image parses, and the decoded dimensions match the recorded ones.
 fn decode_stored_png(encoded: &str, width: u32, height: u32) -> Result<Vec<u8>, String> {
     let raw = base64::engine::general_purpose::STANDARD
         .decode(encoded.as_bytes())
@@ -259,7 +235,6 @@ fn decode_stored_png(encoded: &str, width: u32, height: u32) -> Result<Vec<u8>, 
     Ok(raw)
 }
 
-/// Render a state-only sample through the built-in profile.
 fn render_state_only(sample: &Sample) -> Result<Vec<u8>, RenderError> {
     let profile = resolve_profile(PROFILE_NAME).map_err(RenderError::Profile)?;
     let rendered = tui_test::render_snapshot_png(sample.snapshot(), &profile.render_options())
@@ -267,7 +242,6 @@ fn render_state_only(sample: &Sample) -> Result<Vec<u8>, RenderError> {
     Ok(rendered.png().to_vec())
 }
 
-/// Name the output path in a write failure, keeping the error kind.
 fn write_error(out: &Path, source: &std::io::Error) -> std::io::Error {
     std::io::Error::new(
         source.kind(),
@@ -275,8 +249,6 @@ fn write_error(out: &Path, source: &std::io::Error) -> std::io::Error {
     )
 }
 
-/// Decoded PNG dimensions for the HTML page; zero when undecodable
-/// (the PNG path already validated, so this never fails there).
 fn image_dimensions(png: &[u8]) -> (u32, u32) {
     match image::load_from_memory(png) {
         Ok(parsed) => {

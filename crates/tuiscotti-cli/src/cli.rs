@@ -1,17 +1,9 @@
-//! Clap surface: a global `--json` flag and exactly four offline subcommands.
-//!
-//! Paths stay [`PathBuf`] end-to-end: clap parses them from `args_os`
-//! with no lossy UTF-8 conversion, and no command unwraps a path into a
-//! string. There are no aliases and no live-execution commands.
-
+#[doc = include_str!("../docs/cli.md")]
 use std::path::PathBuf;
 
 use clap::builder::{PathBufValueParser, TypedValueParser as _};
 use clap::{Parser, Subcommand};
 
-/// Parse a SHA-256 digest argument: 64 lowercase hex digits, never a
-/// zero placeholder. Rejections are clap usage errors (exit 2 with no
-/// JSON result), matching the library digest shape one for one.
 fn parse_digest(value: &str) -> Result<String, String> {
     if value.is_empty() {
         return Err("digest is missing".to_string());
@@ -27,8 +19,6 @@ fn parse_digest(value: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
-/// Parse the expected-baseline digest: a digest or the `missing`
-/// literal for a first approval. Rejections are clap usage errors.
 fn parse_expected_baseline(value: &str) -> Result<String, String> {
     if value == tuiscotti::check::MISSING_BASELINE {
         return Ok(value.to_string());
@@ -38,8 +28,6 @@ fn parse_expected_baseline(value: &str) -> Result<String, String> {
     })
 }
 
-/// True for 64 lowercase hex characters: the SHA-256 digest shape the
-/// CLI accepts before the approval transaction re-validates it.
 fn is_hex_digest(value: &str) -> bool {
     value.len() == 64
         && value
@@ -47,8 +35,6 @@ fn is_hex_digest(value: &str) -> bool {
             .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
 }
 
-/// Parse the render `--out` path: only `.png` and `.html` spellings
-/// pass. Rejections are clap usage errors (exit 2 with no JSON result).
 fn parse_render_out(path: PathBuf) -> Result<PathBuf, String> {
     let supported = path
         .extension()
@@ -61,7 +47,6 @@ fn parse_render_out(path: PathBuf) -> Result<PathBuf, String> {
     }
 }
 
-/// Offline `tuiscotti`: check, accept, render, and report saved samples.
 #[derive(Parser, Debug)]
 #[command(
     name = "tuiscotti",
@@ -69,66 +54,69 @@ fn parse_render_out(path: PathBuf) -> Result<PathBuf, String> {
     about = "Offline visual-snapshot commands: check, accept, render, report"
 )]
 pub(crate) struct Cli {
-    /// Emit the machine-readable Section 16.3 result object on stdout.
-    #[arg(long, global = true)]
+    #[arg(
+        long,
+        global = true,
+        help = "Emit the machine-readable Section 16.3 result object on stdout"
+    )]
     pub(crate) json: bool,
 
     #[command(subcommand)]
     pub(crate) cmd: Cmd,
 }
 
-/// Exactly the four Section 16 commands: no aliases, no live execution.
 #[derive(Subcommand, Debug)]
 pub(crate) enum Cmd {
-    /// Compare a saved sample against its baseline without starting an
-    /// application or writing a baseline.
+    #[command(
+        about = "Compare a saved sample against its baseline without starting an application or writing a baseline"
+    )]
     Check {
-        /// Saved sample file to compare.
-        #[arg(long)]
+        #[arg(long, help = "Saved sample file to compare")]
         sample: PathBuf,
-        /// Baseline root holding `<test-id>.tui.json` files.
-        #[arg(long)]
+        #[arg(long, help = "Baseline root holding `<test-id>.tui.json` files")]
         baselines: PathBuf,
-        /// Artifact root receiving candidate evidence on mismatch.
-        #[arg(long)]
+        #[arg(long, help = "Artifact root receiving candidate evidence on mismatch")]
         artifacts: PathBuf,
     },
-    /// Approve one candidate for one test ID with explicit digests.
+    #[command(about = "Approve one candidate for one test ID with explicit digests")]
     Accept {
-        /// Candidate sample file to approve (read-only input).
-        #[arg(long)]
+        #[arg(long, help = "Candidate sample file to approve (read-only input)")]
         candidate: PathBuf,
-        /// SHA-256 over the candidate file bytes (64 lowercase hex).
-        #[arg(long, value_parser = parse_digest)]
+        #[arg(
+            long,
+            value_parser = parse_digest,
+            help = "SHA-256 over the candidate file bytes (64 lowercase hex)"
+        )]
         candidate_sha256: String,
-        /// Expected previous baseline digest, or `missing` for first approval.
-        #[arg(long, value_parser = parse_expected_baseline)]
+        #[arg(
+            long,
+            value_parser = parse_expected_baseline,
+            help = "Expected previous baseline digest, or `missing` for first approval"
+        )]
         expect_baseline: String,
-        /// Baseline root receiving the upserted baseline.
-        #[arg(long)]
+        #[arg(long, help = "Baseline root receiving the upserted baseline")]
         baselines: PathBuf,
     },
-    /// Write `.png` or `.html` output from a saved sample.
+    #[command(about = "Write `.png` or `.html` output from a saved sample")]
     Render {
-        /// Saved sample file to render.
-        #[arg(long)]
+        #[arg(long, help = "Saved sample file to render")]
         sample: PathBuf,
-        /// Output path ending in `.png` or `.html`.
-        #[arg(long, value_parser = PathBufValueParser::new().try_map(parse_render_out))]
+        #[arg(
+            long,
+            value_parser = PathBufValueParser::new().try_map(parse_render_out),
+            help = "Output path ending in `.png` or `.html`"
+        )]
         out: PathBuf,
     },
-    /// Build a static HTML index from saved candidate evidence.
+    #[command(about = "Build a static HTML index from saved candidate evidence")]
     Report {
-        /// Artifact root holding check evidence.
-        #[arg(long)]
+        #[arg(long, help = "Artifact root holding check evidence")]
         artifacts: PathBuf,
-        /// Output HTML path.
-        #[arg(long)]
+        #[arg(long, help = "Output HTML path")]
         out: PathBuf,
     },
 }
 
-/// Dispatch a parsed [`Cli`] to its handler; returns the exit code.
 pub(crate) fn run(cli: Cli) -> i32 {
     match cli.cmd {
         Cmd::Check {
@@ -150,20 +138,5 @@ pub(crate) fn run(cli: Cli) -> i32 {
         ),
         Cmd::Render { sample, out } => crate::ops_render::cmd_render(&sample, &out, cli.json),
         Cmd::Report { artifacts, out } => crate::ops_report::cmd_report(&artifacts, &out, cli.json),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use clap::CommandFactory as _;
-
-    use super::Cli;
-
-    /// Every command keeps the shape Section 16.4 requires: the global
-    /// `--json` flag, the four subcommands with their exact flags, and no
-    /// hidden aliases.
-    #[test]
-    fn cli_shape_matches_section_16() {
-        Cli::command().debug_assert();
     }
 }

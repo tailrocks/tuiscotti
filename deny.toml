@@ -3,7 +3,17 @@
 # ratatui 0.30 migrated from `paste` to `pastey` and bumped `lru` to >=0.18.2,
 # eliminating both `RUSTSEC-2024-0436` (`paste` unmaintained) and the older
 # `lru` 0.12.x unsoundness advisories (`RUSTSEC-2026-0002` / `-0253`).
-ignore = []
+ignore = [
+    # RUSTSEC-2026-0206: `rustybuzz` is unmaintained (maintainer-abandoned;
+    # the ecosystem successor is `skrifa`). Transitive via the provisional
+    # tui-test-rs fork pin; no safe upgrade exists. Remove when the upstream
+    # fork migrates shaping off rustybuzz.
+    "RUSTSEC-2026-0206",
+    # RUSTSEC-2026-0192: `ttf-parser` is unmaintained (same skrifa
+    # migration). Transitive via fontdb/rustybuzz in the fork pin. Remove
+    # together with RUSTSEC-2026-0206.
+    "RUSTSEC-2026-0192",
+]
 
 [bans]
 multiple-versions = "warn"

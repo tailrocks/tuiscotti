@@ -1,0 +1,369 @@
+#![doc = "End-to-end functional suite for the shipped tuiscotti binary."]
+use std::path::{Path, PathBuf};
+
+use image::GenericImageView as _;
+
+#[path = "functional/helpers.rs"]
+mod helpers;
+
+use helpers::{
+    ChildEnv, baseline_samples, case_dir, ci_lane, decode_png, exit_code, log_sample, make_dir,
+    open_lane, parse_json_line, pixel_test_id, report_file_name, run_cli, sha256_bytes,
+    sha256_file, utf8, walk_files, write_bytes,
+};
+#[derive(Debug)]
+struct WorkflowDirs {
+    _root: tempfile::TempDir,
+    baselines: PathBuf,
+    artifacts: PathBuf,
+    candidates: PathBuf,
+}
+
+fn workflow_dirs() -> WorkflowDirs {
+    let root = case_dir("live-workflow");
+    let baselines = root.path().join("baselines");
+    let artifacts = root.path().join("artifacts");
+    let candidates = root.path().join("candidates");
+    for dir in [&baselines, &artifacts, &candidates] {
+        make_dir(dir);
+    }
+    WorkflowDirs {
+        _root: root,
+        baselines,
+        artifacts,
+        candidates,
+    }
+}
+
+fn check_sample(
+    sample: &Path,
+    baselines: &Path,
+    artifacts: &Path,
+    env: &ChildEnv<'_>,
+) -> (i32, serde_json::Value) {
+    let args = [
+        "check",
+        "--sample",
+        utf8(sample),
+        "--baselines",
+        utf8(baselines),
+        "--artifacts",
+        utf8(artifacts),
+        "--json",
+    ];
+    let out = run_cli(&args, env);
+    (exit_code(&out), parse_json_line(&out.stdout))
+}
+
+fn accept_candidate(
+    candidate: &Path,
+    candidate_sha256: &str,
+    expect_baseline: &str,
+    baselines: &Path,
+    env: &ChildEnv<'_>,
+) -> (i32, Vec<u8>) {
+    let args = [
+        "accept",
+        "--candidate",
+        utf8(candidate),
+        "--candidate-sha256",
+        candidate_sha256,
+        "--expect-baseline",
+        expect_baseline,
+        "--baselines",
+        utf8(baselines),
+        "--json",
+    ];
+    let out = run_cli(&args, env);
+    (exit_code(&out), out.stdout)
+}
+
+#[test]
+fn live_workflow() {
+    let dirs = workflow_dirs();
+    let lane = ci_lane();
+    let open = open_lane();
+    let live_id = pixel_test_id("live-workflow");
+    let candidate_v1 = dirs.candidates.join("v1.tui.json");
+    write_bytes(&candidate_v1, &log_sample(&live_id, 30, 0, 8));
+    let (code, body) = check_sample(&candidate_v1, &dirs.baselines, &dirs.artifacts, &lane);
+    assert_eq!(code, 1);
+    assert_eq!(body["status"], "missing");
+    assert_eq!(body["baseline_sha256"], "missing");
+    assert_eq!(walk_files(&dirs.baselines), [] as [std::path::PathBuf; 0]);
+    let sha_v1 = sha256_file(&candidate_v1);
+    let (code, _) = accept_candidate(&candidate_v1, &sha_v1, "missing", &dirs.baselines, &open);
+    assert_eq!(code, 0);
+    let stored = baseline_samples(&dirs.baselines);
+    assert_eq!(stored.len(), 1);
+    assert_eq!(sha256_file(&stored[0]), sha_v1);
+    let (code, body) = check_sample(&candidate_v1, &dirs.baselines, &dirs.artifacts, &lane);
+    assert_eq!(code, 0);
+    assert_eq!(body["status"], "pass");
+    assert_eq!(body["baseline_sha256"], sha_v1);
+    let candidate_v2 = dirs.candidates.join("v2.tui.json");
+    write_bytes(&candidate_v2, &log_sample(&live_id, 30, 1, 8));
+    let (code, body) = check_sample(&candidate_v2, &dirs.baselines, &dirs.artifacts, &lane);
+    assert_eq!(code, 1);
+    assert_eq!(body["status"], "different");
+    let report_name = report_file_name(&body);
+    assert!(walk_files(&dirs.artifacts).iter().any(|path| {
+        path.file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .is_some_and(|name| name == report_name)
+    }));
+    let candidate_v3 = dirs.candidates.join("v3.tui.json");
+    write_bytes(&candidate_v3, &log_sample(&live_id, 40, 1, 8));
+    let (code, _) = check_sample(&candidate_v3, &dirs.baselines, &dirs.artifacts, &lane);
+    assert_eq!(code, 1);
+    phase_render_report(&dirs, &candidate_v2, &report_name, &live_id, &lane);
+}
+
+fn phase_render_report(
+    dirs: &WorkflowDirs,
+    candidate: &Path,
+    report_name: &str,
+    live_id: &str,
+    lane: &ChildEnv<'_>,
+) {
+    let png = dirs.candidates.join("v2.png");
+    let out = run_cli(
+        &[
+            "render",
+            "--sample",
+            utf8(candidate),
+            "--out",
+            utf8(&png),
+            "--json",
+        ],
+        lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let png_bytes = std::fs::read(&png).unwrap_or_default();
+    let png_image = decode_png(&png_bytes);
+    assert_eq!(png_image.dimensions(), (300, 160));
+    let html = dirs.candidates.join("v2.html");
+    let out = run_cli(
+        &[
+            "render",
+            "--sample",
+            utf8(candidate),
+            "--out",
+            utf8(&html),
+            "--json",
+        ],
+        lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let html_text = std::fs::read_to_string(&html).unwrap_or_default();
+    assert!(html_text.contains("<!DOCTYPE html>"));
+    assert!(html_text.contains(live_id));
+    assert!(html_text.contains("data:image/png;base64,"));
+    let index = dirs.candidates.join("index.html");
+    let out = run_cli(
+        &[
+            "report",
+            "--artifacts",
+            utf8(&dirs.artifacts),
+            "--out",
+            utf8(&index),
+            "--json",
+        ],
+        lane,
+    );
+    assert_eq!(exit_code(&out), 0);
+    let index_text = std::fs::read_to_string(&index).unwrap_or_default();
+    assert!(index_text.contains(report_name));
+}
+
+#[test]
+fn invalid_input() {
+    const OVERSIZED: usize = 64 * 1024 * 1024 + 1;
+    let root = case_dir("invalid-input");
+    let baselines = root.path().join("baselines");
+    let artifacts = root.path().join("artifacts");
+    let candidates = root.path().join("candidates");
+    make_dir(&candidates);
+    let lane = ci_lane();
+    let sample = candidates.join("good.tui.json");
+    write_bytes(
+        &sample,
+        &log_sample(&pixel_test_id("invalid-input"), 30, 0, 8),
+    );
+    let missing = candidates.join("absent.tui.json");
+    let out = run_cli(
+        &[
+            "check",
+            "--sample",
+            utf8(&missing),
+            "--baselines",
+            utf8(&baselines),
+            "--artifacts",
+            utf8(&artifacts),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 3);
+    assert_eq!(parse_json_line(&out.stdout)["error_code"], "IO");
+    let corrupt = candidates.join("corrupt.tui.json");
+    write_bytes(&corrupt, b"{\"schema\": \"tuiscotti.sample.v9\"}");
+    let out = run_cli(
+        &[
+            "check",
+            "--sample",
+            utf8(&corrupt),
+            "--baselines",
+            utf8(&baselines),
+            "--artifacts",
+            utf8(&artifacts),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 3);
+    assert!(parse_json_line(&out.stdout)["error_code"].is_string());
+    let huge = candidates.join("huge.tui.json");
+    write_bytes(&huge, &vec![b'x'; OVERSIZED]);
+    let out = run_cli(
+        &[
+            "check",
+            "--sample",
+            utf8(&huge),
+            "--baselines",
+            utf8(&baselines),
+            "--artifacts",
+            utf8(&artifacts),
+            "--json",
+        ],
+        &lane,
+    );
+    assert_eq!(exit_code(&out), 3);
+    assert_eq!(parse_json_line(&out.stdout)["error_code"], "RESOURCE_LIMIT");
+    phase_usage_errors(&candidates, &sample, &baselines, &lane);
+    assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
+}
+
+fn phase_usage_errors(candidates: &Path, sample: &Path, baselines: &Path, lane: &ChildEnv<'_>) {
+    let out = run_cli(
+        &[
+            "accept",
+            "--candidate",
+            utf8(sample),
+            "--candidate-sha256",
+            "xyz",
+            "--expect-baseline",
+            "missing",
+            "--baselines",
+            utf8(baselines),
+            "--json",
+        ],
+        lane,
+    );
+    assert_eq!(exit_code(&out), 2);
+    assert_eq!(out.stdout, [] as [u8; 0]);
+    let bad_out = candidates.join("render.bad");
+    let out = run_cli(
+        &[
+            "render",
+            "--sample",
+            utf8(sample),
+            "--out",
+            utf8(&bad_out),
+            "--json",
+        ],
+        lane,
+    );
+    assert_eq!(exit_code(&out), 2);
+    assert_eq!(out.stdout, [] as [u8; 0]);
+}
+
+#[test]
+fn ci_refuses_approval() {
+    let candidate_bytes = log_sample(&pixel_test_id("ci-refuses-approval"), 30, 0, 8);
+    let digest = sha256_bytes(&candidate_bytes);
+    for (name, vars, remove_ci, expect_code) in [
+        ("unset", &[][..], true, 0),
+        ("empty", &[("CI", "")][..], false, 3),
+        ("false-value", &[("CI", "false")][..], false, 3),
+        ("true-value", &[("CI", "true")][..], false, 3),
+    ] {
+        let root = case_dir(name);
+        let baselines = root.path().join("baselines");
+        make_dir(&baselines);
+        let candidate = root.path().join("candidate.tui.json");
+        write_bytes(&candidate, &candidate_bytes);
+        let env = ChildEnv {
+            vars,
+            remove_ci,
+            close_stdout: false,
+        };
+        let (code, stdout) =
+            accept_candidate(&candidate, digest.as_str(), "missing", &baselines, &env);
+        assert_eq!(code, expect_code);
+        if expect_code == 0 {
+            assert_eq!(baseline_samples(&baselines).len(), 1);
+        } else {
+            assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
+            assert_eq!(
+                parse_json_line(&stdout)["error_code"],
+                "CI_APPROVAL_FORBIDDEN"
+            );
+        }
+    }
+}
+
+#[test]
+fn closed_stdout() {
+    let root = case_dir("closed-stdout");
+    let baselines = root.path().join("baselines");
+    let artifacts = root.path().join("artifacts");
+    let candidates = root.path().join("candidates");
+    for dir in [&baselines, &artifacts, &candidates] {
+        make_dir(dir);
+    }
+    let good = candidates.join("good.tui.json");
+    write_bytes(
+        &good,
+        &log_sample(&pixel_test_id("closed-stdout"), 30, 0, 8),
+    );
+    let digest = sha256_file(&good);
+    let (code, _) = accept_candidate(&good, digest.as_str(), "missing", &baselines, &open_lane());
+    assert_eq!(code, 0);
+    let pass_env = ChildEnv {
+        vars: &[("CI", "true")],
+        remove_ci: false,
+        close_stdout: true,
+    };
+    let out = run_cli(
+        &[
+            "check",
+            "--sample",
+            utf8(&good),
+            "--baselines",
+            utf8(&baselines),
+            "--artifacts",
+            utf8(&artifacts),
+            "--json",
+        ],
+        &pass_env,
+    );
+    assert_eq!(exit_code(&out), 0);
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("panicked"));
+    let absent = candidates.join("absent.tui.json");
+    let out = run_cli(
+        &[
+            "check",
+            "--sample",
+            utf8(&absent),
+            "--baselines",
+            utf8(&baselines),
+            "--artifacts",
+            utf8(&artifacts),
+            "--json",
+        ],
+        &pass_env,
+    );
+    assert_eq!(exit_code(&out), 3);
+    assert!(!String::from_utf8_lossy(&out.stderr).contains("panicked"));
+}

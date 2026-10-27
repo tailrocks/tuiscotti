@@ -96,4 +96,4 @@ stay removed: they appear only in the migration record under
 
 ## License
 
-MIT OR Apache-2.0 — see [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE). Bundled fonts keep their own licenses under `crates/tuiscotti/fonts/`.

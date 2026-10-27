@@ -1,41 +1,4 @@
-//! Versioned visual samples binding a snapshot to its evidence (D02, GOAL 13.1/13.3).
-//!
-//! One sample is one UTF-8 JSON file with the schema [`SAMPLE_SCHEMA`]
-//! (`tuiscotti.sample.v1`) and this field structure, in this order:
-//!
-//! ```text
-//! schema
-//! test_id
-//! gate
-//! snapshot            # public upstream serialization, row-major cells
-//! render_contract     # null for a state sample without an image
-//! image               # null for a state sample without an image
-//!   format            # "png"
-//!   width
-//!   height
-//!   png_sha256
-//!   rgba_sha256
-//!   png_base64
-//! observation
-//! ```
-//!
-//! The `snapshot` field uses the public upstream [`TerminalSnapshot`]
-//! serialization unchanged. Types are explicit everywhere: no unstructured
-//! maps. Unknown fields are rejected, as are unsupported schemas.
-//!
-//! Comparison rules (comparison itself is D03; this module supplies the
-//! primitives): the compared state is the gate, the snapshot without its
-//! observation metadata, the render contract, and the decoded RGBA pixels.
-//! Test IDs, file encodings, and sample-level observation are addressing
-//! and evidence metadata: they change the candidate ID but never the
-//! compared state. The candidate ID is the SHA-256 of the sample file bytes.
-//!
-//! Resource limits (GOAL 8.4) apply before allocation or rendering:
-//! encoded sample file 64 MiB (bounded reads), one sample 1,000,000 cells,
-//! one cell string 4,096 UTF-8 bytes, decoded RGBA 256 MiB with decoded
-//! image dimension validation before allocation, one image dimension 32,768
-//! pixels, test ID 240 ASCII bytes with 64 ASCII bytes per segment.
-
+#[doc = include_str!("../docs/sample.md")]
 use std::fmt::{Display, Formatter};
 use std::io::Read as _;
 
@@ -51,37 +14,27 @@ use tui_test::{
 use crate::render_profile::{PROFILE_NAME, Profile, platform_key};
 use crate::report::atomic_write;
 
-/// Sample schema identifier. Only this value parses.
+#[doc = "Sample schema identifier. Only this value parses."]
 pub const SAMPLE_SCHEMA: &str = "tuiscotti.sample.v1";
 
-/// Schema version of the downstream render contract in samples.
+#[doc = "Schema version of the downstream render contract in samples."]
 pub const CONTRACT_VERSION: u32 = 1;
 
-/// Encoded sample file limit: 64 MiB, enforced with bounded reads.
+#[doc = "Encoded sample file limit: 64 MiB, enforced with bounded reads."]
 pub const MAX_SAMPLE_FILE_BYTES: u64 = 64 * 1024 * 1024;
-/// Cells in one sample.
+#[doc = "Cells in one sample."]
 pub const MAX_SAMPLE_CELLS: usize = 1_000_000;
-/// UTF-8 bytes in one cell string.
+#[doc = "UTF-8 bytes in one cell string."]
 pub const MAX_CELL_TEXT_BYTES: usize = 4_096;
-/// Decoded RGBA byte limit: 256 MiB, validated before allocation.
+#[doc = "Decoded RGBA byte limit: 256 MiB, validated before allocation."]
 pub const MAX_RGBA_BYTES: u64 = 256 * 1024 * 1024;
-/// One image dimension limit: 32,768 pixels.
+#[doc = "One image dimension limit: 32,768 pixels."]
 pub const MAX_IMAGE_DIM: u32 = 32_768;
-/// Test ID length limit: 240 ASCII bytes.
+#[doc = "Test ID length limit: 240 ASCII bytes."]
 pub const MAX_TEST_ID_BYTES: usize = 240;
-/// One test ID segment limit: 64 ASCII bytes.
+#[doc = "One test ID segment limit: 64 ASCII bytes."]
 pub const MAX_TEST_ID_SEGMENT_BYTES: usize = 64;
 
-/// Read one evidence file through a shared bounded read: bytes past
-/// [`MAX_SAMPLE_FILE_BYTES`] fail as a resource limit instead of loading,
-/// so no evidence read can exhaust memory before validation runs.
-/// A missing file maps to `Ok(None)` so callers keep the
-/// missing-versus-unreadable distinction; every other I/O failure is `Io`.
-///
-/// # Errors
-///
-/// Returns [`SampleError::TooLarge`] when the file passes the limit and
-/// [`SampleError::Io`] when it cannot be read.
 pub(crate) fn read_bounded_optional(
     path: &std::path::Path,
 ) -> Result<Option<Vec<u8>>, SampleError> {
@@ -105,12 +58,6 @@ pub(crate) fn read_bounded_optional(
     Ok(Some(bytes))
 }
 
-/// Read one evidence file that must exist through the shared bounded read.
-///
-/// # Errors
-///
-/// Returns [`SampleError::Io`] for a missing or unreadable file and
-/// [`SampleError::TooLarge`] when the file passes the limit.
 pub(crate) fn read_bounded(path: &std::path::Path) -> Result<Vec<u8>, SampleError> {
     match read_bounded_optional(path)? {
         Some(bytes) => Ok(bytes),
@@ -123,118 +70,117 @@ pub(crate) fn read_bounded(path: &std::path::Path) -> Result<Vec<u8>, SampleErro
     }
 }
 
-/// Every failure a sample operation can report, with sources retained.
 #[derive(Debug)]
+#[doc = "Every failure a sample operation can report, with sources retained."]
 #[non_exhaustive]
 pub enum SampleError {
-    /// The encoded file passes the 64 MiB limit.
+    #[doc = "The encoded file passes the 64 MiB limit."]
     TooLarge {
-        /// What was measured.
+        #[doc = "What was measured."]
         what: &'static str,
-        /// The rejected byte count.
+        #[doc = "The rejected byte count."]
         bytes: u64,
-        /// The accepted limit.
+        #[doc = "The accepted limit."]
         limit: u64,
     },
-    /// A test ID breaks its shape rules.
+    #[doc = "A test ID breaks its shape rules."]
     InvalidTestId {
-        /// What the test ID broke.
+        #[doc = "What the test ID broke."]
         detail: String,
     },
-    /// A gate and its evidence disagree, or a test ID and gate disagree.
+    #[doc = "A gate and its evidence disagree, or a test ID and gate disagree."]
     GateMismatch {
-        /// What disagreed.
+        #[doc = "What disagreed."]
         detail: String,
     },
-    /// The schema identifier is not the supported sample schema.
+    #[doc = "The schema identifier is not the supported sample schema."]
     UnsupportedSchema {
-        /// The rejected schema value.
+        #[doc = "The rejected schema value."]
         version: String,
     },
-    /// The encoded sample carries a field the schema does not define.
+    #[doc = "The encoded sample carries a field the schema does not define."]
     UnknownField {
-        /// The upstream serde report, kept verbatim.
+        #[doc = "The upstream serde report, kept verbatim."]
         detail: String,
     },
-    /// The encoded envelope is not valid JSON for this schema.
+    #[doc = "The encoded envelope is not valid JSON for this schema."]
     InvalidFormat {
-        /// The decoding failure.
+        #[doc = "The decoding failure."]
         source: serde_json::Error,
     },
-    /// The embedded snapshot fails upstream validation.
+    #[doc = "The embedded snapshot fails upstream validation."]
     InvalidSnapshot {
-        /// The upstream validation report, kept verbatim.
+        #[doc = "The upstream validation report, kept verbatim."]
         detail: String,
     },
-    /// An image dimension passes its limit.
+    #[doc = "An image dimension passes its limit."]
     DimensionTooLarge {
-        /// The rejected width.
+        #[doc = "The rejected width."]
         width: u32,
-        /// The rejected height.
+        #[doc = "The rejected height."]
         height: u32,
-        /// The accepted per-dimension limit.
+        #[doc = "The accepted per-dimension limit."]
         limit: u32,
     },
-    /// Decoded RGBA bytes pass the 256 MiB limit.
+    #[doc = "Decoded RGBA bytes pass the 256 MiB limit."]
     RgbaTooLarge {
-        /// The rejected byte count.
+        #[doc = "The rejected byte count."]
         bytes: u64,
-        /// The accepted limit.
+        #[doc = "The accepted limit."]
         limit: u64,
     },
-    /// Claimed image dimensions disagree with decoded PNG dimensions.
+    #[doc = "Claimed image dimensions disagree with decoded PNG dimensions."]
     DimensionMismatch {
-        /// What disagreed.
+        #[doc = "What disagreed."]
         detail: String,
     },
-    /// Upstream pixel comparison reports changed pixels without a
-    /// difference image.
+    #[doc = "Upstream pixel comparison reports changed pixels without a difference image."]
     MissingDifferenceImage {
-        /// What the comparison reported.
+        #[doc = "What the comparison reported."]
         detail: String,
     },
-    /// The embedded PNG does not decode as 8-bit RGBA.
+    #[doc = "The embedded PNG does not decode as 8-bit RGBA."]
     PngInvalid {
-        /// What decoding found.
+        #[doc = "What decoding found."]
         detail: String,
     },
-    /// PNG decoding failed.
+    #[doc = "PNG decoding failed."]
     PngDecode {
-        /// The decoding failure.
+        #[doc = "The decoding failure."]
         source: image::ImageError,
     },
-    /// Embedded base64 does not decode.
+    #[doc = "Embedded base64 does not decode."]
     Base64Invalid {
-        /// The decoding failure.
+        #[doc = "The decoding failure."]
         source: base64::DecodeError,
     },
-    /// A recorded digest disagrees with recomputed bytes.
+    #[doc = "A recorded digest disagrees with recomputed bytes."]
     DigestMismatch {
-        /// Which digest disagreed (`png_sha256` or `rgba_sha256`).
+        #[doc = "Which digest disagreed (`png_sha256` or `rgba_sha256`)."]
         field: &'static str,
-        /// The recorded value.
+        #[doc = "The recorded value."]
         expected: String,
-        /// The recomputed value.
+        #[doc = "The recomputed value."]
         actual: String,
     },
-    /// The upstream renderer refused the snapshot.
+    #[doc = "The upstream renderer refused the snapshot."]
     Render {
-        /// The upstream rejection, with its source chain.
+        #[doc = "The upstream rejection, with its source chain."]
         source: RenderError,
     },
-    /// The upstream pinned raster policy is not the recorded strict policy.
+    #[doc = "The upstream pinned raster policy is not the recorded strict policy."]
     UnexpectedPolicy {
-        /// The policy the render recorded.
+        #[doc = "The policy the render recorded."]
         policy: String,
     },
-    /// The downstream contract version is not the supported one.
+    #[doc = "The downstream contract version is not the supported one."]
     UnsupportedContract {
-        /// The rejected contract version.
+        #[doc = "The rejected contract version."]
         version: u32,
     },
-    /// Filesystem failure while reading or writing a sample file.
+    #[doc = "Filesystem failure while reading or writing a sample file."]
     Io {
-        /// The filesystem failure.
+        #[doc = "The filesystem failure."]
         source: std::io::Error,
     },
 }
@@ -329,18 +275,18 @@ impl From<RenderError> for SampleError {
     }
 }
 
-/// The comparison policy a sample carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[doc = "The comparison policy a sample carries."]
 pub enum Gate {
-    /// Compare the full canonical state only.
+    #[doc = "Compare the full canonical state only."]
     State,
-    /// Compare canonical state plus render contract and decoded RGBA pixels.
+    #[doc = "Compare canonical state plus render contract and decoded RGBA pixels."]
     StateAndPixels,
 }
 
 impl Gate {
-    /// The wire value: `state` or `state-and-pixels`.
+    #[doc = "The wire value: `state` or `state-and-pixels`."]
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -350,8 +296,8 @@ impl Gate {
     }
 }
 
-/// The schema identifier as an explicit type: only [`SAMPLE_SCHEMA`] parses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc = "The schema identifier as an explicit type: only [`SAMPLE_SCHEMA`] parses."]
 pub struct SampleSchema;
 
 impl serde::Serialize for SampleSchema {
@@ -373,24 +319,23 @@ impl<'de> serde::Deserialize<'de> for SampleSchema {
     }
 }
 
-/// Sample-level observation: evidence metadata that never joins the compared
-/// state. Different observation gives a different candidate ID with equal
-/// visual state.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
+#[doc = "Sample-level observation: evidence metadata that never joins the compared state."]
 pub struct Observation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[doc = "The reviewer note, when present."]
     note: Option<String>,
 }
 
 impl Observation {
-    /// Empty observation.
+    #[doc = "Empty observation."]
     #[must_use]
     pub const fn empty() -> Self {
         Self { note: None }
     }
 
-    /// Observation carrying a reviewer note.
+    #[doc = "Observation carrying a reviewer note."]
     #[must_use]
     pub fn noted(note: impl Into<String>) -> Self {
         Self {
@@ -398,123 +343,132 @@ impl Observation {
         }
     }
 
-    /// The reviewer note, when present.
+    #[doc = "The reviewer note, when present."]
     #[must_use]
     pub fn note(&self) -> Option<&str> {
         self.note.as_deref()
     }
 }
 
-/// One image in a sample: encoded PNG bytes plus digests over the encoding
-/// and over the decoded pixels.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
+#[doc = "One image in a sample: encoded PNG bytes plus digests over the encoding and over the decoded pixels."]
 pub struct SampleImage {
+    #[doc = "The image format; only PNG exists."]
     format: ImageFormat,
+    #[doc = "Decoded image width in pixels."]
     width: u32,
+    #[doc = "Decoded image height in pixels."]
     height: u32,
+    #[doc = "SHA-256 over the encoded PNG bytes."]
     png_sha256: String,
+    #[doc = "SHA-256 over the decoded RGBA pixels (row-major, 8 bits per channel)."]
     rgba_sha256: String,
+    #[doc = "The encoded PNG bytes."]
     png_base64: String,
 }
 
 impl SampleImage {
-    /// The image format; only PNG exists.
+    #[doc = "The image format; only PNG exists."]
     #[must_use]
     pub const fn format(&self) -> ImageFormat {
         self.format
     }
 
-    /// Decoded image width in pixels.
+    #[doc = "Decoded image width in pixels."]
     #[must_use]
     pub const fn width(&self) -> u32 {
         self.width
     }
 
-    /// Decoded image height in pixels.
+    #[doc = "Decoded image height in pixels."]
     #[must_use]
     pub const fn height(&self) -> u32 {
         self.height
     }
 
-    /// SHA-256 over the encoded PNG bytes.
+    #[doc = "SHA-256 over the encoded PNG bytes."]
     #[must_use]
     pub fn png_sha256(&self) -> &str {
         &self.png_sha256
     }
 
-    /// SHA-256 over the decoded RGBA pixels (row-major, 8 bits per channel).
+    #[doc = "SHA-256 over the decoded RGBA pixels (row-major, 8 bits per channel)."]
     #[must_use]
     pub fn rgba_sha256(&self) -> &str {
         &self.rgba_sha256
     }
 
-    /// The encoded PNG bytes.
+    #[doc = "The encoded PNG bytes."]
     #[must_use]
     pub fn png_base64(&self) -> &str {
         &self.png_base64
     }
 }
 
-/// Image formats a sample can carry. Only PNG exists: no pixel-only or
-/// masked variants exist in this goal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[doc = "Image formats a sample can carry. Only PNG exists."]
 pub enum ImageFormat {
-    /// Portable Network Graphics, 8-bit RGBA.
+    #[doc = "Portable Network Graphics, 8-bit RGBA."]
     Png,
 }
 
-/// One font entry in a downstream render contract.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
+#[doc = "One font entry in a downstream render contract."]
 pub struct ContractFont {
+    #[doc = "SHA-256 over the style slot, face index, and bytes of the face."]
     digest: String,
+    #[doc = "The face index inside its bytes."]
     face_index: u32,
+    #[doc = "Whether the face serves the bold style slot."]
     bold: bool,
+    #[doc = "Whether the face serves the italic style slot."]
     italic: bool,
+    #[doc = "The position of the face in the profile fallback order."]
     fallback_position: usize,
 }
 
 impl ContractFont {
-    /// SHA-256 over the style slot, face index, and bytes of the face.
+    #[doc = "SHA-256 over the style slot, face index, and bytes of the face."]
     #[must_use]
     pub fn digest(&self) -> &str {
         &self.digest
     }
 
-    /// The face index inside its bytes.
+    #[doc = "The face index inside its bytes."]
     #[must_use]
     pub const fn face_index(&self) -> u32 {
         self.face_index
     }
 
-    /// Whether the face serves the bold style slot.
+    #[doc = "Whether the face serves the bold style slot."]
     #[must_use]
     pub const fn bold(&self) -> bool {
         self.bold
     }
 
-    /// Whether the face serves the italic style slot.
+    #[doc = "Whether the face serves the italic style slot."]
     #[must_use]
     pub const fn italic(&self) -> bool {
         self.italic
     }
 
-    /// The position of the face in the profile fallback order.
+    #[doc = "The position of the face in the profile fallback order."]
     #[must_use]
     pub const fn fallback_position(&self) -> usize {
         self.fallback_position
     }
 }
 
-/// Cursor visibility recorded in a render contract.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[doc = "Cursor visibility recorded in a render contract."]
 pub enum CursorPhase {
-    /// The cursor was drawn: the snapshot does not hide it.
+    #[doc = "The cursor was drawn: the snapshot does not hide it."]
     Shown,
-    /// The cursor was hidden or clipped out of the capture.
+    #[doc = "The cursor was hidden or clipped out of the capture."]
     Hidden,
 }
 
@@ -527,56 +481,43 @@ impl From<tui_test::CursorPhase> for CursorPhase {
     }
 }
 
-/// The renderer, font, geometry, and color settings that produced an image.
-///
-/// Structural validation (no font resolution) accepts a historical contract
-/// that parses under this schema; rendering and approval re-rendering
-/// resolve the profile by name instead. Style slots, fallback order, font
-/// digests with face indices, geometry, palette digest, cursor phase, and
-/// the platform key are all recorded here.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
+#[doc = "The renderer, font, geometry, and color settings that produced an image."]
 pub struct RenderContract {
+    #[doc = "The logical profile name the image was rendered with."]
     profile: String,
+    #[doc = "The downstream contract schema version."]
     contract_version: u32,
+    #[doc = "The renderer crate version that produced the image."]
     renderer_version: String,
+    #[doc = "The raster policy version: `pinned-v1` for strict renders."]
     raster_policy: String,
+    #[doc = "The pinned fonts in fallback order."]
     fonts: Vec<ContractFont>,
+    #[doc = "The cell width in pixels."]
     cell_width: f32,
+    #[doc = "The cell height in pixels."]
     cell_height: f32,
+    #[doc = "The grid font size in pixels."]
     font_size: f32,
+    #[doc = "The text baseline from the top of each cell in pixels."]
     baseline: f32,
+    #[doc = "The output scale factor."]
     scale: f64,
+    #[doc = "Whether a title bar was drawn."]
     title_bar: bool,
+    #[doc = "SHA-256 over the resolved palette and default colors."]
     palette_digest: String,
+    #[doc = "Whether the cursor was drawn."]
     cursor_phase: CursorPhase,
+    #[doc = "The blink intent kept from the snapshot state."]
     blink: Option<bool>,
+    #[doc = "The `<os>-<arch>` platform the image was rendered on."]
     platform_key: String,
 }
 
 impl RenderContract {
-    /// Build the recorded render contract from a resolved profile and a
-    /// fresh upstream render: the single typed constructor for recorded
-    /// render identity.
-    ///
-    /// [`Sample::with_pixels`] records through it, and approval re-rendering
-    /// rebuilds the expected identity through it, so creation and
-    /// verification cannot disagree on profile, contract version, renderer
-    /// version, raster policy, fonts, geometry, scale, title bar, palette
-    /// digest, cursor phase, blink, or platform.
-    ///
-    /// The pinned-profile gate lives here deliberately, not beside the
-    /// approval field comparison: the comparison checks recorded identity
-    /// against re-rendered identity, both derived from the recorded profile,
-    /// so a self-consistent non-pinned identity would pass it. Only this
-    /// constructor (and the single-profile registry behind
-    /// `resolve_profile`) pins creation and verification to
-    /// [`PROFILE_NAME`].
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when the profile is not the pinned profile
-    /// or the upstream render records a foreign raster policy.
     pub(crate) fn from_rendered(
         profile: &Profile,
         rendered: &RenderedPng,
@@ -624,113 +565,113 @@ impl RenderContract {
         })
     }
 
-    /// The logical profile name the image was rendered with.
+    #[doc = "The logical profile name the image was rendered with."]
     #[must_use]
     pub fn profile(&self) -> &str {
         &self.profile
     }
 
-    /// The downstream contract schema version.
+    #[doc = "The downstream contract schema version."]
     #[must_use]
     pub const fn contract_version(&self) -> u32 {
         self.contract_version
     }
 
-    /// The renderer crate version that produced the image.
+    #[doc = "The renderer crate version that produced the image."]
     #[must_use]
     pub fn renderer_version(&self) -> &str {
         &self.renderer_version
     }
 
-    /// The raster policy version: `pinned-v1` for strict renders.
+    #[doc = "The raster policy version: `pinned-v1` for strict renders."]
     #[must_use]
     pub fn raster_policy(&self) -> &str {
         &self.raster_policy
     }
 
-    /// The pinned fonts in fallback order.
+    #[doc = "The pinned fonts in fallback order."]
     #[must_use]
     pub fn fonts(&self) -> &[ContractFont] {
         &self.fonts
     }
 
-    /// The cell width in pixels.
+    #[doc = "The cell width in pixels."]
     #[must_use]
     pub const fn cell_width(&self) -> f32 {
         self.cell_width
     }
 
-    /// The cell height in pixels.
+    #[doc = "The cell height in pixels."]
     #[must_use]
     pub const fn cell_height(&self) -> f32 {
         self.cell_height
     }
 
-    /// The grid font size in pixels.
+    #[doc = "The grid font size in pixels."]
     #[must_use]
     pub const fn font_size(&self) -> f32 {
         self.font_size
     }
 
-    /// The text baseline from the top of each cell in pixels.
+    #[doc = "The text baseline from the top of each cell in pixels."]
     #[must_use]
     pub const fn baseline(&self) -> f32 {
         self.baseline
     }
 
-    /// The output scale factor.
+    #[doc = "The output scale factor."]
     #[must_use]
     pub const fn scale(&self) -> f64 {
         self.scale
     }
 
-    /// Whether a title bar was drawn.
+    #[doc = "Whether a title bar was drawn."]
     #[must_use]
     pub const fn title_bar(&self) -> bool {
         self.title_bar
     }
 
-    /// SHA-256 over the resolved palette and default colors.
+    #[doc = "SHA-256 over the resolved palette and default colors."]
     #[must_use]
     pub fn palette_digest(&self) -> &str {
         &self.palette_digest
     }
 
-    /// Whether the cursor was drawn.
+    #[doc = "Whether the cursor was drawn."]
     #[must_use]
     pub const fn cursor_phase(&self) -> CursorPhase {
         self.cursor_phase
     }
 
-    /// The blink intent kept from the snapshot state.
+    #[doc = "The blink intent kept from the snapshot state."]
     #[must_use]
     pub const fn blink(&self) -> Option<bool> {
         self.blink
     }
 
-    /// The `<os>-<arch>` platform the image was rendered on.
+    #[doc = "The `<os>-<arch>` platform the image was rendered on."]
     #[must_use]
     pub fn platform_key(&self) -> &str {
         &self.platform_key
     }
 }
 
-/// One versioned visual sample: a snapshot bound to its visual evidence.
-///
-/// Fields stay private; constructors and accessors are the whole surface.
-/// Field order in the file is the declaration order below and never changes.
-///
-/// There is no derived `Deserialize`: the manual implementation below runs
-/// the same complete validation as [`Sample::from_bytes`], so the serde
-/// path can never bypass gate pairing or digest checks.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[doc = "One versioned visual sample: a snapshot bound to its visual evidence."]
 pub struct Sample {
+    #[doc = "The schema identifier (always [`SAMPLE_SCHEMA`])."]
     schema: SampleSchema,
+    #[doc = "The test ID this sample was constructed for."]
     test_id: String,
+    #[doc = "The comparison policy this sample carries."]
     gate: Gate,
+    #[doc = "The embedded snapshot."]
     snapshot: TerminalSnapshot,
+    #[doc = "The render contract, present only for `state-and-pixels`."]
     render_contract: Option<RenderContract>,
+    #[doc = "The image evidence, present only for `state-and-pixels`."]
     image: Option<SampleImage>,
+    #[doc = "The observation metadata, excluded from the compared state."]
     observation: Observation,
 }
 
@@ -741,9 +682,6 @@ impl<'de> serde::Deserialize<'de> for Sample {
     }
 }
 
-/// Private wire mirror with a deferred snapshot: lets classification tell
-/// an envelope failure (unknown field, bad gate) apart from a snapshot
-/// validation failure with one parse. The only way to a [`Sample`].
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SampleWire {
@@ -757,11 +695,7 @@ struct SampleWire {
 }
 
 impl Sample {
-    /// Build a state sample: serialize the snapshot without rendering.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when the test ID breaks its shape rules.
+    #[doc = "Build a state sample: serialize the snapshot without rendering.\n\n# Errors\n\nReturns [`SampleError`] when the test ID breaks its shape rules."]
     pub fn state(
         test_id: &str,
         snapshot: TerminalSnapshot,
@@ -779,17 +713,7 @@ impl Sample {
         })
     }
 
-    /// Build a state-and-pixels sample: render the immutable snapshot
-    /// through the profile, then validate the image before returning.
-    ///
-    /// The snapshot is never re-captured during rendering: the caller-held
-    /// snapshot is the single input to both serialization and rendering.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when the test ID breaks its shape rules,
-    /// when the upstream renderer refuses the snapshot, or when the
-    /// returned image fails validation.
+    #[doc = "Build a state-and-pixels sample: render the immutable snapshot through the profile, then validate the image before returning.\n\n# Errors\n\nReturns [`SampleError`] when the test ID breaks its shape rules, when the upstream renderer refuses the snapshot, or when the returned image fails validation."]
     pub fn with_pixels(
         test_id: &str,
         snapshot: &TerminalSnapshot,
@@ -834,57 +758,49 @@ impl Sample {
         Ok(sample)
     }
 
-    /// The schema identifier (always [`SAMPLE_SCHEMA`]).
+    #[doc = "The schema identifier (always [`SAMPLE_SCHEMA`])."]
     #[must_use]
     pub const fn schema(&self) -> SampleSchema {
         self.schema
     }
 
-    /// The test ID this sample was constructed for.
+    #[doc = "The test ID this sample was constructed for."]
     #[must_use]
     pub fn test_id(&self) -> &str {
         &self.test_id
     }
 
-    /// The comparison policy this sample carries.
+    #[doc = "The comparison policy this sample carries."]
     #[must_use]
     pub const fn gate(&self) -> Gate {
         self.gate
     }
 
-    /// The embedded snapshot.
+    #[doc = "The embedded snapshot."]
     #[must_use]
     pub fn snapshot(&self) -> &TerminalSnapshot {
         &self.snapshot
     }
 
-    /// The render contract, present only for `state-and-pixels`.
+    #[doc = "The render contract, present only for `state-and-pixels`."]
     #[must_use]
     pub fn render_contract(&self) -> Option<&RenderContract> {
         self.render_contract.as_ref()
     }
 
-    /// The image evidence, present only for `state-and-pixels`.
+    #[doc = "The image evidence, present only for `state-and-pixels`."]
     #[must_use]
     pub fn image(&self) -> Option<&SampleImage> {
         self.image.as_ref()
     }
 
-    /// The observation metadata, excluded from the compared state.
+    #[doc = "The observation metadata, excluded from the compared state."]
     #[must_use]
     pub const fn observation(&self) -> &Observation {
         &self.observation
     }
 
-    /// Serialize to canonical file bytes: declaration field order, stable
-    /// upstream snapshot order, row-major cells. Validates before
-    /// serializing, then enforces the file limit, so only valid samples
-    /// ever reach the wire.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when the sample fails validation, when
-    /// serialization fails, or when the bytes pass the file limit.
+    #[doc = "Serialize to canonical file bytes: declaration field order, stable upstream snapshot order, row-major cells.\n\n# Errors\n\nReturns [`SampleError`] when the sample fails validation, when serialization fails, or when the bytes pass the file limit."]
     pub fn to_bytes(&self) -> Result<Vec<u8>, SampleError> {
         self.validate_structure()?;
         self.validate_image_bytes()?;
@@ -894,15 +810,7 @@ impl Sample {
         Ok(bytes)
     }
 
-    /// Parse and validate encoded file bytes without font resolution.
-    ///
-    /// Structural validation only: test ID, gate pairing, contract version,
-    /// image dimensions (before allocation), PNG decoding, and both
-    /// digests. Historical contracts pass without resolving their fonts.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] for every rejected input; see its variants.
+    #[doc = "Parse and validate encoded file bytes without font resolution.\n\n# Errors\n\nReturns [`SampleError`] for every rejected input; see its variants."]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, SampleError> {
         check_file_size(bytes)?;
         let probe: serde_json::Value = serde_json::from_slice(bytes).map_err(|error| {
@@ -937,14 +845,6 @@ impl Sample {
         Self::from_wire(envelope)
     }
 
-    /// Build a validated sample from one parsed wire envelope: the single
-    /// construction path shared by [`Sample::from_bytes`] and the manual
-    /// [`serde::Deserialize`] implementation, so no parse path can bypass
-    /// structural or image validation.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] for every rejected input; see its variants.
     fn from_wire(envelope: SampleWire) -> Result<Self, SampleError> {
         preflight_snapshot_wire(&envelope.snapshot)?;
         let snapshot: TerminalSnapshot =
@@ -967,27 +867,12 @@ impl Sample {
         Ok(sample)
     }
 
-    /// Read a sample file with a bounded read: bytes past the file limit
-    /// are never loaded.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when the file is unreadable, too large, or
-    /// fails [`Sample::from_bytes`] validation.
+    #[doc = "Read a sample file with a bounded read: bytes past the file limit are never loaded.\n\n# Errors\n\nReturns [`SampleError`] when the file is unreadable, too large, or fails [`Sample::from_bytes`] validation."]
     pub fn from_file(path: &std::path::Path) -> Result<Self, SampleError> {
         Self::from_bytes(&read_bounded(path)?)
     }
 
-    /// Serialize and write one sample file through one atomic file write: a
-    /// temporary file in the destination directory, flushed and closed
-    /// before one atomic rename, like all sibling evidence. Readers never
-    /// see a partial file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when serialization fails, when the sample
-    /// path has no parent directory or file name, or when the write fails.
-    /// A partial write is a failure, never a success value.
+    #[doc = "Serialize and write one sample file through one atomic file write: a temporary file in the destination directory, flushed and closed before one atomic rename.\n\n# Errors\n\nReturns [`SampleError`] when serialization fails, when the sample path has no parent directory or file name, or when the write fails. A partial write is a failure, never a success value."]
     pub fn save(&self, path: &std::path::Path) -> Result<(), SampleError> {
         let bytes = self.to_bytes()?;
         let invalid = |what: &str| SampleError::Io {
@@ -1007,22 +892,13 @@ impl Sample {
         Ok(())
     }
 
-    /// The candidate ID: SHA-256 over the sample file bytes.
-    ///
-    /// Different observation metadata gives a different candidate ID with
-    /// equal compared state; the ID is never the visual equality rule.
+    #[doc = "The candidate ID: SHA-256 over the sample file bytes."]
     #[must_use]
     pub fn candidate_id(bytes: &[u8]) -> String {
         sha256_hex(bytes)
     }
 
-    /// Digest over the compared state only: gate, snapshot without its
-    /// observation metadata, render contract, and decoded RGBA pixels.
-    /// Test ID, file encoding, and sample observation are excluded.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] when the embedded image fails to decode.
+    #[doc = "Digest over the compared state only: gate, snapshot without its observation metadata, render contract, and decoded RGBA pixels.\n\n# Errors\n\nReturns [`SampleError`] when the embedded image fails to decode."]
     pub fn state_digest(&self) -> Result<String, SampleError> {
         let mut hasher = Sha256::new();
         hasher.update(b"tuiscotti-state-v1");
@@ -1047,17 +923,7 @@ impl Sample {
         Ok(hex_bytes(&hasher.finalize()))
     }
 
-    /// Structural validation without font resolution: gate pairing, test
-    /// ID, contract version, grid limits, and cell text limits. Used both
-    /// after construction and at comparison time for historical contracts.
-    /// The pixels suffix checks against the stored contract identity, so a
-    /// sample recorded on another platform parses wherever its own ID and
-    /// contract agree; local capture still generates the current-platform
-    /// ID through [`Sample::with_pixels`].
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SampleError`] for every structural rejection.
+    #[doc = "Structural validation without font resolution: gate pairing, test ID, contract version, grid limits, and cell text limits.\n\n# Errors\n\nReturns [`SampleError`] for every structural rejection."]
     pub fn validate_structure(&self) -> Result<(), SampleError> {
         let current_platform;
         let pixels_platform = if let Some(contract) = &self.render_contract {
@@ -1117,7 +983,6 @@ impl Sample {
         Ok(())
     }
 
-    /// Decode the embedded image with pre-allocation dimension validation.
     fn decoded_pixels(image: &SampleImage) -> Result<(u32, u32, Vec<u8>), SampleError> {
         check_image_dims(image.width, image.height)?;
         let raw = base64::engine::general_purpose::STANDARD
@@ -1135,7 +1000,6 @@ impl Sample {
         Ok((width, height, pixels))
     }
 
-    /// Digest and dimension agreement between the image record and its bytes.
     fn validate_image_bytes(&self) -> Result<(), SampleError> {
         let Some(image) = &self.image else {
             return Ok(());
@@ -1165,17 +1029,6 @@ impl Sample {
     }
 }
 
-/// Validate a test ID for its gate: the Section 14.1 grammar plus the
-/// pixels suffix pairing against the expected platform identity. Callers
-/// capturing locally pass the current platform; saved-sample parsing passes
-/// the stored contract identity, so historical samples keep parsing off the
-/// platform that recorded them.
-///
-/// This is the single complete test-ID validator: construction
-/// ([`Sample::state`], [`Sample::with_pixels`]) and parsing
-/// ([`Sample::from_bytes`] through [`Sample::validate_structure`]) all run
-/// through it, and the frozen checker delegates its grammar-only check to
-/// [`validate_test_id_grammar`], so no second shape rule can drift.
 fn validate_test_id(test_id: &str, gate: Gate, pixels_platform: &str) -> Result<(), SampleError> {
     validate_test_id_grammar(test_id)?;
     let suffix = format!("/pixels-{pixels_platform}");
@@ -1206,22 +1059,6 @@ fn validate_test_id(test_id: &str, gate: Gate, pixels_platform: &str) -> Result<
     Ok(())
 }
 
-/// Validate a test ID against the Section 14.1 grammar on every platform:
-///
-/// ```text
-/// segment = [a-z0-9_-]{1,64}
-/// test_id = segment ("/" segment)*
-/// ```
-///
-/// Total length follows Section 8.4 (240 ASCII bytes). Absolute paths,
-/// empty segments, backslashes, and `.`/`..` segments are rejected without
-/// normalization. Windows device names (`con`, `prn`, `aux`, `nul`,
-/// `com1`-`com9`, `lpt1`-`lpt9`, case-insensitive, with or without an
-/// extension) are rejected as segments on all platforms.
-///
-/// # Errors
-///
-/// Returns [`SampleError::InvalidTestId`] for every rejected shape.
 pub(crate) fn validate_test_id_grammar(test_id: &str) -> Result<(), SampleError> {
     let invalid = |detail: &str| SampleError::InvalidTestId {
         detail: detail.to_string(),
@@ -1279,9 +1116,6 @@ pub(crate) fn validate_test_id_grammar(test_id: &str) -> Result<(), SampleError>
     Ok(())
 }
 
-/// True for Windows device names on any platform: `con`, `prn`, `aux`,
-/// `nul`, `com1`-`com9`, `lpt1`-`lpt9`, case-insensitive, with or without a
-/// dotted extension. The caller guarantees ASCII input.
 fn is_device_name(segment: &str) -> bool {
     let lower = segment.to_ascii_lowercase();
     let stem = match lower.split('.').next() {
@@ -1302,7 +1136,6 @@ fn is_device_name(segment: &str) -> bool {
     false
 }
 
-/// Enforce the encoded file limit on a loaded byte string.
 fn check_file_size(bytes: &[u8]) -> Result<(), SampleError> {
     let len = bytes.len() as u64;
     if len > MAX_SAMPLE_FILE_BYTES {
@@ -1315,7 +1148,6 @@ fn check_file_size(bytes: &[u8]) -> Result<(), SampleError> {
     Ok(())
 }
 
-/// Enforce grid and cell-count limits on numbers, before any allocation.
 fn check_grid_limits(cols: u32, rows: u32, cells: usize) -> Result<(), SampleError> {
     if cols == 0 || rows == 0 {
         return Err(SampleError::InvalidSnapshot {
@@ -1339,18 +1171,6 @@ fn check_grid_limits(cols: u32, rows: u32, cells: usize) -> Result<(), SampleErr
     Ok(())
 }
 
-/// Preflight the nested snapshot wire value with typed schema and limit
-/// checks before [`TerminalSnapshot`] deserialization.
-///
-/// Upstream snapshot failures arrive as one untyped serde string, which
-/// would flatten an unsupported schema or an over-limit grid into
-/// [`SampleError::InvalidSnapshot`]. The wire numbers are checked here
-/// instead — never by matching upstream message text — so those shapes
-/// keep [`SampleError::UnsupportedSchema`] and the resource-limit
-/// variants (and their `UNSUPPORTED_SCHEMA`/`RESOURCE_LIMIT` codes).
-/// Anything this preflight does not recognize stays for
-/// [`TerminalSnapshot`] deserialization, which still fails closed with
-/// [`SampleError::InvalidSnapshot`].
 fn preflight_snapshot_wire(value: &serde_json::Value) -> Result<(), SampleError> {
     preflight_snapshot_schema(value)?;
     preflight_snapshot_grid(value)?;
@@ -1359,11 +1179,6 @@ fn preflight_snapshot_wire(value: &serde_json::Value) -> Result<(), SampleError>
     Ok(())
 }
 
-/// Reject a nested snapshot wire schema other than the supported one.
-///
-/// A missing schema mirrors the upstream wire default (`0`), which the
-/// upstream build rejects; a present non-numeric schema stays for
-/// deserialization instead of inventing a version spelling.
 fn preflight_snapshot_schema(value: &serde_json::Value) -> Result<(), SampleError> {
     match value.get("schema") {
         None => Err(SampleError::UnsupportedSchema {
@@ -1379,10 +1194,6 @@ fn preflight_snapshot_schema(value: &serde_json::Value) -> Result<(), SampleErro
     }
 }
 
-/// Reject nested snapshot dimensions and cell counts past the limits.
-///
-/// Bounds come from the downstream limits, which match the upstream
-/// snapshot bounds one for one.
 fn preflight_snapshot_grid(value: &serde_json::Value) -> Result<(), SampleError> {
     let (Some(cols), Some(rows)) = (
         value.get("cols").and_then(serde_json::Value::as_u64),
@@ -1408,7 +1219,6 @@ fn preflight_snapshot_grid(value: &serde_json::Value) -> Result<(), SampleError>
     Ok(())
 }
 
-/// Reject nested snapshot cell text and links past the byte limits.
 fn preflight_snapshot_cells(value: &serde_json::Value) -> Result<(), SampleError> {
     let Some(cells) = value.get("cells").and_then(serde_json::Value::as_array) else {
         return Ok(());
@@ -1440,7 +1250,6 @@ fn preflight_snapshot_cells(value: &serde_json::Value) -> Result<(), SampleError
     Ok(())
 }
 
-/// Reject a nested snapshot window title past the byte limit.
 fn preflight_snapshot_title(value: &serde_json::Value) -> Result<(), SampleError> {
     if let Some(title) = value.get("title").and_then(serde_json::Value::as_str) {
         let bytes = title.len() as u64;
@@ -1455,7 +1264,6 @@ fn preflight_snapshot_title(value: &serde_json::Value) -> Result<(), SampleError
     Ok(())
 }
 
-/// Enforce image dimension limits on numbers, before any allocation.
 fn check_image_dims(width: u32, height: u32) -> Result<(), SampleError> {
     if width == 0 || height == 0 {
         return Err(SampleError::DimensionMismatch {
@@ -1485,8 +1293,6 @@ fn check_image_dims(width: u32, height: u32) -> Result<(), SampleError> {
     Ok(())
 }
 
-/// Check the decoded image against the snapshot grid with checked
-/// arithmetic: zero chrome means exactly `cols * cell` by `rows * cell`.
 fn check_grid_image(
     snapshot: &TerminalSnapshot,
     width: u32,
@@ -1516,10 +1322,6 @@ fn check_grid_image(
     Ok(())
 }
 
-/// Decode 8-bit RGBA PNG bytes with dimension validation before the pixel
-/// buffer is allocated. The caller checks header dimensions first through
-/// [`check_image_dims`]; this decoder reads the IHDR again from untrusted
-/// bytes and refuses anything that changed or is not RGBA8.
 fn decode_png_bounded(png: &[u8]) -> Result<(u32, u32, Vec<u8>), SampleError> {
     let decoder = image::codecs::png::PngDecoder::new(std::io::Cursor::new(png))
         .map_err(|source| SampleError::PngDecode { source })?;
@@ -1553,12 +1355,10 @@ fn decode_png_bounded(png: &[u8]) -> Result<(u32, u32, Vec<u8>), SampleError> {
     Ok((width, height, pixels))
 }
 
-/// SHA-256 hex over raw bytes.
 fn sha256_hex(bytes: &[u8]) -> String {
     hex_bytes(&Sha256::digest(bytes))
 }
 
-/// Lowercase hex over digest bytes.
 fn hex_bytes(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -1567,122 +1367,4 @@ fn hex_bytes(bytes: &[u8]) -> String {
         out.push(HEX[(byte & 15) as usize] as char);
     }
     out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{SampleError, preflight_snapshot_wire};
-    use crate::approve::sample_code;
-
-    /// One nested wire mutation plus its expected Section 16.3 code, if any.
-    type WireCase = (
-        &'static str,
-        Box<dyn Fn(&mut serde_json::Value)>,
-        Option<&'static str>,
-    );
-
-    /// A minimal nested snapshot wire value exercising the preflight.
-    fn wire() -> serde_json::Value {
-        serde_json::json!({
-            "schema": 1,
-            "cols": 4,
-            "rows": 2,
-            "cells": [{"text": "a"}, {"text": "b"}],
-            "title": null,
-        })
-    }
-
-    /// Nested schema and limit shapes keep their typed codes without any
-    /// message-text classification.
-    #[test]
-    fn snapshot_wire_preflight_keeps_typed_codes() {
-        let cases: Vec<WireCase> = vec![
-            ("supported schema", Box::new(|_| {}), None),
-            (
-                "future schema",
-                Box::new(|wire| wire["schema"] = serde_json::json!(999)),
-                Some("UNSUPPORTED_SCHEMA"),
-            ),
-            (
-                "missing schema",
-                Box::new(|wire| {
-                    wire.as_object_mut()
-                        .expect("wire is an object")
-                        .remove("schema");
-                }),
-                Some("UNSUPPORTED_SCHEMA"),
-            ),
-            (
-                "oversize dimensions",
-                Box::new(|wire| {
-                    wire["cols"] = serde_json::json!(40_000);
-                    wire["rows"] = serde_json::json!(1);
-                    wire["cells"] = serde_json::json!([]);
-                }),
-                Some("RESOURCE_LIMIT"),
-            ),
-            (
-                "oversize cell count",
-                Box::new(|wire| {
-                    wire["cols"] = serde_json::json!(2_000);
-                    wire["rows"] = serde_json::json!(2_000);
-                    wire["cells"] = serde_json::json!([]);
-                }),
-                Some("RESOURCE_LIMIT"),
-            ),
-            (
-                "oversize cell text",
-                Box::new(|wire| wire["cells"][0]["text"] = serde_json::json!("x".repeat(5_000))),
-                Some("RESOURCE_LIMIT"),
-            ),
-            (
-                "oversize cell link",
-                Box::new(|wire| {
-                    wire["cells"][0]["link_uri"] = serde_json::json!("y".repeat(5_000));
-                }),
-                Some("RESOURCE_LIMIT"),
-            ),
-            (
-                "oversize title",
-                Box::new(|wire| wire["title"] = serde_json::json!("t".repeat(70_000))),
-                Some("RESOURCE_LIMIT"),
-            ),
-        ];
-        for (name, mutate, expected) in cases {
-            let mut value = wire();
-            mutate(&mut value);
-            match (preflight_snapshot_wire(&value), expected) {
-                (Ok(()), None) => {}
-                (Err(error), Some(code)) => {
-                    assert_eq!(sample_code(&error), code, "{name} keeps {code}");
-                    assert!(
-                        !matches!(error, SampleError::InvalidSnapshot { .. }),
-                        "{name} never flattens to InvalidSnapshot"
-                    );
-                }
-                (outcome, _) => panic!("{name} misclassified: {outcome:?}"),
-            }
-        }
-    }
-
-    /// A non-numeric schema stays for deserialization, which fails closed
-    /// on its own; the preflight never invents a version spelling.
-    #[test]
-    fn snapshot_wire_preflight_ignores_unshaped_fields() {
-        let mut value = wire();
-        value["schema"] = serde_json::json!("v1");
-        assert!(
-            preflight_snapshot_wire(&value).is_ok(),
-            "unshaped schema stays for deserialization"
-        );
-        let mut value = wire();
-        value
-            .as_object_mut()
-            .expect("wire is an object")
-            .remove("cols");
-        assert!(
-            preflight_snapshot_wire(&value).is_ok(),
-            "missing dims stay for deserialization"
-        );
-    }
 }
