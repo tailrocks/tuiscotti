@@ -1,42 +1,41 @@
 #!/bin/sh
-# Deny direct PTY/engine dependencies in the tuiscotti library manifest.
-#
-# Text search cannot see through Cargo aliases: a crate manifest holding
-# only `pty.workspace = true` names no forbidden package, while the
-# workspace manifest maps that alias to `portable-pty`. This checker
-# reads both manifests and resolves every alias before deciding.
-#
-# Usage:
-#   check_direct_dependencies.sh --workspace Cargo.toml \
-#       --crate crates/tuiscotti/Cargo.toml
-#
-# Exit status: 0 allowed, 1 forbidden direct dependency, 2 input error.
-# Only single-line TOML entries are read; the repository keeps its
-# manifests and fixtures in that form.
-
-FORBIDDEN="portable-pty alacritty_terminal termpane"
-
-usage_error() {
-    echo "check_direct_dependencies: input error: $1" >&2
+if [ $# -ne 4 ]; then
+    echo "check_direct_dependencies: input error: want --workspace WS --crate CRATE" >&2
     exit 2
+fi
+if [ "$1" != "--workspace" ]; then
+    echo "check_direct_dependencies: input error: unknown argument: $1" >&2
+    exit 2
+fi
+if [ "$3" != "--crate" ]; then
+    echo "check_direct_dependencies: input error: unknown argument: $3" >&2
+    exit 2
+fi
+if [ ! -r "$2" ]; then
+    echo "check_direct_dependencies: input error: unreadable file: $2" >&2
+    exit 2
+fi
+if [ ! -r "$4" ]; then
+    echo "check_direct_dependencies: input error: unreadable file: $4" >&2
+    exit 2
+fi
+awk -v forbidden="portable-pty alacritty_terminal termpane" '
+function trim(s) {
+    sub(/^[ \t]+/, "", s)
+    sub(/[ \t]+$/, "", s)
+    return s
 }
-
-WORKSPACE=""
-CRATE=""
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --workspace) WORKSPACE="$2"; shift 2 ;;
-        --crate) CRATE="$2"; shift 2 ;;
-        *) usage_error "unknown argument: $1" ;;
-    esac
-done
-[ -n "$WORKSPACE" ] || usage_error "missing --workspace"
-[ -n "$CRATE" ] || usage_error "missing --crate"
-[ -r "$WORKSPACE" ] || usage_error "unreadable file: $WORKSPACE"
-[ -r "$CRATE" ] || usage_error "unreadable file: $CRATE"
-
-awk -v workspace_file="$WORKSPACE" -v crate_file="$CRATE" \
-    -v forbidden="$FORBIDDEN" '
+function table_get(table_text, field,    rest, val) {
+    rest = table_text
+    if (!match(rest, field "[ \t]*=")) return ""
+    rest = trim(substr(rest, RSTART + RLENGTH))
+    if (match(rest, /^"[^"]*"/)) {
+        val = substr(rest, 2, RLENGTH - 2)
+        return val
+    }
+    if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
+    return ""
+}
 function strip_comment(line,    out, i, c, in_str, esc) {
     out = ""
     in_str = 0
@@ -63,11 +62,6 @@ function strip_comment(line,    out, i, c, in_str, esc) {
     }
     return out
 }
-function trim(s) {
-    sub(/^[ \t]+/, "", s)
-    sub(/[ \t]+$/, "", s)
-    return s
-}
 function dep_section(name) {
     if (name == "dependencies") return 1
     if (name == "dev-dependencies") return 1
@@ -75,17 +69,27 @@ function dep_section(name) {
     if (name ~ /^target\..*\.(dependencies|dev-dependencies|build-dependencies)$/) return 1
     return 0
 }
-function table_get(table_text, field,    rest, val) {
-    rest = table_text
-    if (!match(rest, field "[ \t]*=")) return ""
-    rest = substr(rest, RSTART + RLENGTH)
-    rest = trim(rest)
-    if (match(rest, /^"[^"]*"/)) {
-        val = substr(rest, 2, RLENGTH - 2)
-        return val
+function record_ws(key, pkg) {
+    ws_name[key] = (pkg != "" ? pkg : key)
+}
+function record_dep(key, kind, name) {
+    n_dep++
+    dep_alias[n_dep] = key
+    dep_kind[n_dep] = kind
+    dep_name[n_dep] = name
+}
+function close_pending(    real) {
+    if (pend_key == "") return
+    if (pend_ws) {
+        record_ws(pend_key, pend_pkg)
+    } else if (pend_wstrue) {
+        record_dep(pend_key, "workspace", "")
+    } else {
+        real = (pend_pkg != "" ? pend_pkg : pend_key)
+        record_dep(pend_key, "direct", real)
     }
-    if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
-    return ""
+    pend_key = ""
+    pend_ws = 0
 }
 function parse_error(msg) {
     print "check_direct_dependencies: input error: " msg > "/dev/stderr"
@@ -95,68 +99,87 @@ function parse_error(msg) {
 BEGIN {
     n_forbidden = split(forbidden, wanted, " ")
     file_index = 0
+    section = ""
+    pend_key = ""
 }
 FNR == 1 { file_index++ }
 {
     line = trim(strip_comment($0))
     if (line == "") next
     if (line ~ /^\[.*\]$/) {
+        close_pending()
         section = substr(line, 2, length(line) - 2)
-        next
-    }
-    if (line ~ /^\[/) {
-        if (file_index == 1) parse_error("invalid TOML in " workspace_file)
-        else parse_error("invalid TOML in " crate_file)
-    }
-    if (file_index == 1) {
-        # Workspace manifest: only [workspace.dependencies] matters.
-        if (section != "workspace.dependencies") next
-        if (!match(line, /^[^=]+=/)) parse_error("invalid TOML in " workspace_file)
-        key = trim(substr(line, RSTART, RLENGTH - 1))
-        rest = trim(substr(line, RSTART + RLENGTH))
-        if (rest ~ /^\{/) {
-            pkg = table_get(rest, "package")
-            ws_name[key] = (pkg != "" ? pkg : key)
-        } else if (rest ~ /^"/) {
-            ws_name[key] = key
-        } else {
-            parse_error("invalid TOML in " workspace_file)
+        if (section ~ /(^|\.)(dependencies|dev-dependencies|build-dependencies)\.[^.]+$/) {
+            pend_key = section
+            sub(/^(.*\.)?(dependencies|dev-dependencies|build-dependencies)\./, "", pend_key)
+            pend_ws = (section ~ /^workspace\.dependencies\./) ? 1 : 0
+            pend_pkg = ""
+            pend_wstrue = 0
+            pend_file = file_index
         }
         next
     }
-    # Crate manifest: dependency sections, including target-specific ones.
-    if (!dep_section(section)) next
-    if (match(line, /^[^=.]+[ \t]*\.[ \t]*workspace[ \t]*=[ \t]*true[ \t]*$/)) {
-        key = trim(substr(line, 1, index(line, ".") - 1))
-        dep_alias[++n_dep] = key
-        dep_kind[n_dep] = "workspace"
+    if (line ~ /^\[/) {
+        if (file_index == 1) parse_error("invalid TOML in workspace manifest")
+        else parse_error("invalid TOML in crate manifest")
+    }
+    if (pend_key != "") {
+        if (!match(line, /^[^=]+=/)) {
+            if (file_index == 1) parse_error("invalid TOML in workspace manifest")
+            else parse_error("invalid TOML in crate manifest")
+        }
+        rest = trim(substr(line, RSTART + RLENGTH))
+        if (rest ~ /^\{/) {
+            pkg = table_get(rest, "package")
+            if (pkg != "") pend_pkg = pkg
+            if (table_get(rest, "workspace") == "true") pend_wstrue = 1
+        } else {
+            pkg = table_get(line, "package")
+            if (pkg != "") pend_pkg = pkg
+            if (table_get(line, "workspace") == "true") pend_wstrue = 1
+        }
         next
     }
-    if (!match(line, /^[^=]+=/)) parse_error("invalid TOML in " crate_file)
+    if (file_index == 1) {
+        if (section != "workspace.dependencies") next
+        if (!match(line, /^[^=]+=/)) parse_error("invalid TOML in workspace manifest")
+        key = trim(substr(line, RSTART, RLENGTH - 1))
+        rest = trim(substr(line, RSTART + RLENGTH))
+        if (rest ~ /^\{/) {
+            record_ws(key, table_get(rest, "package"))
+        } else if (rest ~ /^"/) {
+            record_ws(key, "")
+        } else {
+            parse_error("invalid TOML in workspace manifest")
+        }
+        next
+    }
+    if (!dep_section(section)) next
+    if (match(line, /^[^=.]+[ \t]*\.[ \t]*workspace[ \t]*=[ \t]*true[ \t]*$/)) {
+        record_dep(trim(substr(line, 1, index(line, ".") - 1)), "workspace", "")
+        next
+    }
+    if (!match(line, /^[^=]+=/)) parse_error("invalid TOML in crate manifest")
     key = trim(substr(line, RSTART, RLENGTH - 1))
     rest = trim(substr(line, RSTART + RLENGTH))
     if (rest ~ /^\{/) {
         if (table_get(rest, "workspace") == "true") {
-            dep_alias[++n_dep] = key
-            dep_kind[n_dep] = "workspace"
+            record_dep(key, "workspace", "")
         } else {
             pkg = table_get(rest, "package")
-            dep_alias[++n_dep] = key
-            dep_kind[n_dep] = "direct"
-            dep_name[n_dep] = (pkg != "" ? pkg : key)
+            record_dep(key, "direct", (pkg != "" ? pkg : key))
         }
         next
     }
     if (rest ~ /^"/) {
-        dep_alias[++n_dep] = key
-        dep_kind[n_dep] = "direct"
-        dep_name[n_dep] = key
+        record_dep(key, "direct", key)
         next
     }
-    parse_error("invalid TOML in " crate_file)
+    parse_error("invalid TOML in crate manifest")
 }
 END {
     if (bad) exit 2
+    close_pending()
     for (i = 1; i <= n_dep; i++) {
         if (dep_kind[i] == "workspace") {
             key = dep_alias[i]
@@ -177,4 +200,4 @@ END {
     }
     exit (found ? 1 : 0)
 }
-' "$WORKSPACE" "$CRATE"
+' "$2" "$4"

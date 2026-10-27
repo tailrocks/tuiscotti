@@ -311,6 +311,18 @@ fn phase_direct_dep_rules(candidates: &Path) {
         )),
         1,
     );
+    case(
+        Some(BARE_WS),
+        Some(&format!(
+            "{CRATE}[dependencies.pty]\npackage = \"portable-pty\"\nversion = \"0.9\"\n"
+        )),
+        1,
+    );
+    case(
+        Some(BARE_WS),
+        Some(&format!("{CRATE}[dependencies.ok]\nversion = \"1.0\"\n")),
+        0,
+    );
     case(Some(WS_ALIAS), Some(CRATE), 0);
     case(
         Some(BARE_WS),
