@@ -276,6 +276,11 @@ the maintained donbeave/tui-test fork (provisional `[patch.crates-io]`
 until upstream merges and a registry release exists); source validation
 stays deny-by-default. Rationale lives here because `deny.toml`
 contains no prose comments: cargo-deny consumes only the IDs and URLs.
+`MPL-2.0` is allowed solely for `option-ext` 0.2.0, pulled transitively
+via `dirs-sys <- dirs <- tui-test-rs` (unavoidable upstream dep of the
+provisional fork pin). Retire this entry only if the upstream dependency
+graph drops `option-ext` (e.g. dirs/tui-test-rs remove the dependency and
+`cargo deny check licenses` stays green without it).
 
 ## 16. Local-only mise gates
 
