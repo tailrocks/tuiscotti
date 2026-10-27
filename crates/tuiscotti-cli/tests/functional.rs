@@ -341,6 +341,13 @@ fn dep_rule_flat_tables(dir: &Path) {
         )),
         1,
     );
+    case(
+        Some(DEP_BARE_WS),
+        Some(&format!(
+            "{DEP_CRATE}[dependencies]\n\"portable-pty\" = \"0.9\"\n"
+        )),
+        1,
+    );
 }
 
 fn dep_rule_dotted_tables(dir: &Path) {

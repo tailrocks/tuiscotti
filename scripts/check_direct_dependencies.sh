@@ -27,7 +27,11 @@ function trim(s) {
 }
 function table_get(table_text, field,    rest, val) {
     rest = table_text
-    if (!match(rest, field "[ \t]*=")) return ""
+    if (!match(rest, field "[ \t]*=")) {
+        if (!match(rest, "\"" field "\"[ \t]*=")) {
+            if (!match(rest, "\x27" field "\x27[ \t]*=")) return ""
+        }
+    }
     rest = trim(substr(rest, RSTART + RLENGTH))
     if (match(rest, /^"[^"]*"/)) {
         val = substr(rest, 2, RLENGTH - 2)
@@ -77,6 +81,20 @@ function strip_comment(line,    out, i, c, in_str, in_lit, esc) {
     }
     return out
 }
+function normkey(s,    n, parts, i, p, out, f, l) {
+    n = split(s, parts, /\./)
+    out = ""
+    for (i = 1; i <= n; i++) {
+        p = parts[i]
+        if (length(p) >= 2) {
+            f = substr(p, 1, 1)
+            l = substr(p, length(p), 1)
+            if ((f == "\"" && l == "\"") || (f == "\x27" && l == "\x27")) p = substr(p, 2, length(p) - 2)
+        }
+        out = (out == "" ? p : out "." p)
+    }
+    return out
+}
 function dep_section(name) {
     if (name == "dependencies") return 1
     if (name == "dev-dependencies") return 1
@@ -123,10 +141,11 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
     if (line == "") next
     if (line ~ /^\[.*\]$/) {
         close_pending()
-        section = substr(line, 2, length(line) - 2)
+        section = normkey(substr(line, 2, length(line) - 2))
         if (section ~ /(^|\.)(dependencies|dev-dependencies|build-dependencies)\.[^.]+$/) {
             pend_key = section
             sub(/^(.*\.)?(dependencies|dev-dependencies|build-dependencies)\./, "", pend_key)
+            pend_key = normkey(pend_key)
             pend_ws = (section ~ /^workspace\.dependencies\./) ? 1 : 0
             pend_pkg = ""
             pend_wstrue = 0
@@ -145,6 +164,7 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
         value = substr(line, RSTART + RLENGTH)
         k = fullkey
         gsub(/[ \t]*\.[ \t]*/, ".", k)
+        k = normkey(k)
         prefix = ""
         rest = ""
         if (file_index == 1 && k ~ /^workspace\.dependencies\./) {
@@ -186,7 +206,7 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
     if (file_index == 1) {
         if (effsec != "workspace.dependencies") next
         if (!match(eff, /^[^=]+=/)) parse_error("invalid TOML in workspace manifest")
-        key = trim(substr(eff, RSTART, RLENGTH - 1))
+        key = normkey(trim(substr(eff, RSTART, RLENGTH - 1)))
         rest = trim(substr(eff, RSTART + RLENGTH))
         if (rest ~ /^\{/) {
             record_ws(key, table_get(rest, "package"))
@@ -199,11 +219,11 @@ FNR == 1 { file_index++; section = ""; pend_key = "" }
     }
     if (!dep_section(effsec)) next
     if (match(eff, /^[^=.]+[ \t]*\.[ \t]*workspace[ \t]*=[ \t]*true[ \t]*$/)) {
-        record_dep(trim(substr(eff, 1, index(eff, ".") - 1)), "workspace", "")
+        record_dep(normkey(trim(substr(eff, 1, index(eff, ".") - 1))), "workspace", "")
         next
     }
     if (!match(eff, /^[^=]+=/)) parse_error("invalid TOML in crate manifest")
-    key = trim(substr(eff, RSTART, RLENGTH - 1))
+    key = normkey(trim(substr(eff, RSTART, RLENGTH - 1)))
     rest = trim(substr(eff, RSTART + RLENGTH))
     alias = key
     sub(/\..*$/, "", alias)

@@ -276,3 +276,13 @@ the maintained donbeave/tui-test fork (provisional `[patch.crates-io]`
 until upstream merges and a registry release exists); source validation
 stays deny-by-default. Rationale lives here because `deny.toml`
 contains no prose comments: cargo-deny consumes only the IDs and URLs.
+
+## 16. Local-only mise gates
+
+The `ci-*` tasks in `mise.toml` never run in generated CI: schema 2
+`.velnor/config.toml` has no custom-task hook, and generated CI covers
+fmt, clippy, nextest, doctests, and doc through its own
+compile_driver/test_runner. The tasks exist for local pre-release
+verification (`ci-msrv` is the only MSRV vehicle). They run online
+without `--offline` because fresh CI runners have no cargo cache, and
+every command in them is verified locally before commit.

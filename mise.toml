@@ -37,13 +37,6 @@ env = { MBX_CARGO_SHIM_MODE = "1" }
 description = "Repo shape and line gates: alint check at the repo root (local only; not emitted into generated CI)"
 run = "alint check"
 
-# Local gates. Schema 2 .velnor/config.toml has no custom-task hook, so none
-# of these run in generated CI; generated CI covers fmt, clippy, nextest,
-# doctests, and doc through compile_driver/test_runner. Run these locally
-# (ci-msrv is the only MSRV vehicle — run it before release).
-# Tasks run online (no --offline): fresh CI runners have no cargo cache.
-# Every command below is verified locally.
-
 [tasks.ci-rustdoc]
 description = "Rustdoc gate: workspace docs build with warnings denied"
 run = 'RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked'
