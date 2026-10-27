@@ -15,8 +15,9 @@ rationale, and where it is pinned in code/tests.
 
 > VINTAGE (pre-migration wording kept as history): the rule still
 > holds — approval is explicit, workstation-only, and never
-> automatic in CI. The current approval surface is `FrozenStore`
-> acceptance via `tuiscotti accept`; see
+> automatic in CI. The current approval surface is
+> `ApprovalStore::accept` (library) and `tuiscotti accept` (CLI);
+> `FrozenStore` performs the frozen checks; see
 > [SNAPSHOTS.md](SNAPSHOTS.md).
 
 There is no bless flag, env var, or accepting CI mode — and there

@@ -9,7 +9,7 @@ scope, fails closed where applicable).
 | Platform | Status | Evidence |
 |---|---|---|
 | macOS (aarch64) | tested | Full guard nextest green on this branch (see [reviews/D07.md](migration/reviews/D07.md) for the migration review record). |
-| Linux (x86_64) | tested in CI | CI lanes run `ubuntu-24.04`; per-crate lanes are generated from the two workspace members. |
+| Linux (x86_64) | tested in CI | CI lanes run `ubuntu-26.04`; per-crate lanes are generated from the two workspace members. |
 | Windows (ConPTY) | not run | No Windows lane exists and no Windows test process has ever executed. Windows is never green until a CI lane runs it. |
 
 Unix-only live behavior: the old `session_migration` suite (direct

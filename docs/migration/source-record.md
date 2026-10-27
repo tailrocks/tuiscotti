@@ -85,7 +85,7 @@ Heads fetched read-only to `refs/remotes/origin/pr-NNN`. No branch was changed. 
 - Upstream `cargo check -p tui-test-rs --locked`: PASS, no warnings shown.
 - Downstream `cargo check --workspace --locked`: PASS.
 - Downstream `cargo test --workspace --locked --no-fail-fast -- --test-threads=4`: all suites pass except one pre-existing failure:
-  - `xtask --test enforcement`, `mise_fallback_resolves_real_binary_never_shim`: FAILED. Class `ENVIRONMENT`. Cause: `mise lock` cannot resolve `java@temurin-27.0.0+35` metadata for `macos-x64` from the external registry. Unrelated to this goal. No correction added to any upstream PR. The full failure log was removed from the tree during the 0.4.0 cleanup; it survives in git history.
+  - `xtask --test enforcement`, `mise_fallback_resolves_real_binary_never_shim`: FAILED. Class `ENVIRONMENT`. Cause: `mise lock` cannot resolve `java@temurin-27.0.0+35` metadata for `macos-x64` from the external registry. Unrelated to this goal. No correction added to any upstream PR. Full failure output: `docs/migration/evidence/p01-xtask-enforcement-failure.log`.
 
 ## D07 removal record (downstream writer, branch `goal/tui-test-extension`)
 
