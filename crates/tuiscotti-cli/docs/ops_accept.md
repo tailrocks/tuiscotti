@@ -13,7 +13,7 @@ one.
 
 The process exit code for an approval failure: `2` for malformed
 digest arguments, `3` for every operational failure. The library
-keeps the typed errors and their Section 16.3 codes; this mapping is
+keeps the typed errors and their CLI error codes; this mapping is
 the CLI boundary.
 
 Run `accept` and return the process exit code.

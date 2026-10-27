@@ -7,7 +7,7 @@ default_branch = "main"
 generator_validation = "bootstrap"
 max_parallel_jobs = 2
 pull_request_cache_policy = "read-only"
-runner_label = "ubuntu-24.04"
+runner_label = "ubuntu-26.04"
 
 [resources]
 compiler_process_budget = 2
@@ -90,7 +90,7 @@ scale_set_profile = "local"
 
 [execution.profiles.hosted]
 kind = "github-hosted"
-label = "ubuntu-24.04"
+label = "ubuntu-26.04"
 platform = "linux/amd64"
 
 [execution.profiles.local]

@@ -17,11 +17,12 @@ approval transaction. `render` extracts or re-renders a `.png`, or
 writes a static `.html` page, from a saved sample. `report` builds a
 static HTML index from saved candidate evidence.
 
-Exit codes follow GOAL Section 16.2: 0 for a pass or a successful
+Exit codes follow this contract: 0 for a pass or a successful
 offline operation, 1 for a missing baseline or a differing sample, 2
 for invalid arguments (clap usage errors stay at 2 with no JSON
 result), and 3 for file, format, profile, rendering, approval, or I/O
-failures. Error codes follow the Section 16.3 table. Exit 2 covers
+failures. Error codes travel in the `tuiscotti.cli.v1` result object
+with `--json`, or on stderr otherwise. Exit 2 covers
 both argument-error shapes: `render`'s `--out` extension check and
 `accept`'s digest checks run as clap parsers, so rejections exit 2
 with no JSON result; every sample-content failure, including corrupt

@@ -7,7 +7,7 @@ resolver = "3"
 
 [workspace.dependencies]
 # Centralize all actual dependencies here, including dev/build dependencies.
-# D07: only the two shipping crates remain. Live PTY work belongs to
+# Only the two shipping crates remain. Live PTY work belongs to
 # `tui-test-rs` (provisional pinned fork commit per D-R02-1, never the
 # last vendor dependency);
 # tuiscotti keeps no local PTY dependency. Compatible SemVer ranges let
@@ -64,7 +64,7 @@ broken_intra_doc_links = "deny"
 private_intra_doc_links = "deny"
 
 [profile.test]
-# D07: only the two shipping crates remain, so test builds keep line
+# Only the two shipping crates remain, so test builds keep line
 # tables only (failure backtraces stay file:line-accurate).
 # Dev/release profiles keep full debuginfo.
 debug = "line-tables-only"

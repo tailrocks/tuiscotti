@@ -3,16 +3,16 @@
 # https://alint.org/docs/concepts/start-here/the-config-model/).
 # Target: <repo-root>/.alint.yml
 #
-# Adapted to the new brand and ALL workspace crates, including facade, CLI, and xtask.
+# Adapted to ALL workspace crates, facade and CLI.
 # Validate against the selected alint release and run negative fixtures for every rule.
 version: 1
 rules:
-  # NOTE (structural fix, proven in VALIDATION.md probe `alint-missing-file`):
-  # alint 0.15.2 `file_exists` treats a `paths` array as ANY-of (one missing
-  # entry still passes), so the appendix's single 9-path `required-files` rule
-  # cannot enforce "all present". One rule per file below, same 9 paths, same
-  # severity, plus `root_only: true` so a nested same-name file cannot satisfy
-  # a repo-root requirement. 13 rules total (9 existence + 4 unchanged).
+  # NOTE (structural fix): alint 0.15.2 `file_exists` treats a `paths`
+  # array as ANY-of (one missing entry still passes), so a single
+  # multi-path `required-files` rule cannot enforce "all present". One
+  # rule per file below, same 9 paths, same severity, plus `root_only:
+  # true` so a nested same-name file cannot satisfy a repo-root
+  # requirement. 13 rules total (9 existence + 4 unchanged).
   - id: required-file-cargo-toml
     kind: file_exists
     paths: ["Cargo.toml"]

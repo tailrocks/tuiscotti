@@ -1,7 +1,9 @@
 # Contributing
 
 Pinned toolchain: Rust **1.99.1** (`rust-toolchain.toml`), edition 2024.
-`cargo` on PATH may be a cache shim; behavior is identical.
+Tool versions are pinned in `mise.toml` with lockfiles committed
+(`mise.lock`, `Cargo.lock`); `cargo` on PATH may be the repo's shim,
+behavior is identical.
 
 ## Setup
 
@@ -20,17 +22,50 @@ drive `tui_test::Session` directly.
 ## Gates (run before every push)
 
 ```sh
-cargo fmt --check
-cargo clippy --locked --offline --all-targets --all-features -- -D warnings
-cargo nextest run --locked --offline --all-features
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked --offline -- -D warnings
+cargo nextest run --workspace --locked --offline
+cargo test --doc -p tuiscotti --locked --offline
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 ```
 
-Doctests (2 at HEAD) run in CI via `mbx test --doc`; never run
-`cargo test --doc` locally (the build guard denies it).
+`nextest` runs the integration suite (never plain `cargo test` for
+it); doctests need the separate `cargo test --doc` invocation because
+nextest cannot execute doc tests. The same `--locked --offline` flags
+everywhere keep local runs hermetic after the initial fetch.
 
 Workspace lints forbid `unwrap_used`, `expect_used`, `panic!`,
 `todo!`, `dbg!` in shipped code; tests use the standard helpers.
 `unsafe_code` is forbidden. DCO signoff required: `git commit -s`.
+
+## Local vs CI
+
+CI is generated (see below); each lane has a local equivalent.
+
+| Local command | CI lane (`rust-*` jobs, default + `no-default`) |
+|---|---|
+| `cargo fmt --all -- --check` | Format |
+| `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` | Clippy |
+| `cargo nextest run --workspace --locked --offline` (`--profile ci` in CI) | Nextest (`tuiscotti-cli` only; the lib declares `[lib] test = false`) |
+| `cargo test --doc -p tuiscotti --locked --offline` | Doctests (2 doc tests in `crates/tuiscotti/docs/view.md`) |
+| `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked` | Documentation |
+
+CI additionally runs `jactionlint`, `plan`, and the `required` merge
+gate. Runners need no system fonts: rendering replays vendored bytes
+from `crates/tuiscotti/fonts/`.
+
+## What the dependency guard actually proves
+
+The `invalid_input` test parses both manifests (resolving workspace
+aliases through `package =`, including target-specific sections) and
+fails if either crate names `portable-pty`, `alacritty_terminal`, or
+`termpane` as a **direct** dependency. Those engines remain permitted
+only transitively through the pinned `tui-test-rs` fork. Separately,
+the `ci-no-default-graph` task greps `crates/tuiscotti/src/view.rs`
+for process/device spawns (`Command::new`, `openpty`, `/dev/pts`,
+…and fails if the pure-view path can start a child or open a PTY.
+Adding a direct engine dependency or a spawn in `view.rs` breaks the
+pure-view contract, not just a lint.
 
 ## Layout
 
@@ -43,37 +78,47 @@ Workspace lints forbid `unwrap_used`, `expect_used`, `panic!`,
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Rules that bite
+## Expectations
 
-- **No legacy code.** Remove old paths completely — no shims, aliases,
-  or deprecation periods. Breaking changes are preferred.
-- **CI must never auto-accept.** There is no bless flag or variable;
-  do not add one. Approval is `ApprovalStore::accept` /
-  `tuiscotti accept`, on a workstation only.
-  See [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md).
 - **Fail closed.** Missing or corrupt approvals fail the gate; unknown
   input to a guard fails rather than passes. New statuses go through
-  the typed outcomes (`check::CheckOutcome`, `approve::AcceptOutcome`)
-  and both stores.
+  the typed outcomes (`check::CheckOutcome`, `approve::AcceptOutcome`).
+- **CI never approves.** There is no bless flag or variable; do not
+  add one. Approval is `ApprovalStore::accept` /
+  `tuiscotti accept`, on a workstation only, and both refuse when `CI`
+  is set. See [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md).
 - **Determinism.** Same frame + same profile + same vendored font
   bytes = byte-identical PNGs. No system fonts, no wall-clock in
   artifacts (provenance timestamps excepted), no unordered maps in
   canonical output.
-- **Docs match code.** No automated fence-lock test remains
-  (`readme_lock.rs` was removed with the old CLI surface at D07). If
-  you change a documented behavior, update the README in the same
-  commit; reviewers verify claimed flags and flows against `--help`
-  and the CLI guide on doc diffs.
-- **Link check.** Every `docs/*.md` + `README.md` link must resolve;
-  follow the procedure in [docs/TESTING.md](docs/TESTING.md) before
-  pushing doc edits.
+- **Keep the surface small.** Short-lived branches; small PRs merged
+  promptly after all gates pass. No compatibility shims or aliases for
+  removed paths: remove the old path completely.
 
-## Reviews and merges
+## Docs maintenance
 
-One working branch (`goal/tui-test-extension`); small
-PRs, merged promptly after all gates pass. Before merge, read every
-review/comment/thread; verify findings against code, tests, and docs;
-fix + verify + commit + push + reply with the fixing commit URL, or
-reply with evidence before resolving. Merge only with zero
-unaddressed feedback, zero unresolved threads, and all required
-checks green at the final head SHA.
+- `README.md` fences are the contract: a documented-behavior change
+  ships with the README update in the same commit.
+- No automated link gate remains. Before pushing doc edits, list every
+  relative link you touched and confirm the target exists in the tree;
+  reviewers re-check links on doc diffs.
+- Record new decisions in [docs/DECISIONS.md](docs/DECISIONS.md).
+  `docs/migration/` and `docs/packets/` are frozen history: read them,
+  do not update them.
+
+## Generated CI
+
+CI is generated by Velnor Actions from `.velnor/config.toml`: edit the
+config and regenerate, never hand-edit `.github/workflows/` or the
+shared actions under `.github/actions/`. The `Check generated files`
+job fails on any divergence, including hand edits.
+
+## Release prep
+
+No crate has been published yet (`cargo search` shows no `tuiscotti`;
+the `tui-test-rs` fork pin in `[patch.crates-io]` resolves only inside
+this workspace). Before any publish: the fork-only snapshot/render
+APIs must land upstream and ship in a registry `tui-test-rs` release
+so the `[patch]` section can be dropped, then publish the facade
+first and `tuiscotti-cli` second (the binary depends on the facade by
+path). No tags exist yet; tag the release commit when that lands.

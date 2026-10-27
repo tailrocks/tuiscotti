@@ -1,7 +1,10 @@
 [package]
 name = "tuiscotti-cli"
-version = "0.3.0"
+version = "0.4.0"
 description = "Offline CLI for tuiscotti visual snapshots: check, accept, render, report"
+readme = "README.md"
+keywords = ["tui", "ratatui", "snapshot-testing", "visual-regression", "terminal"]
+categories = ["command-line-utilities", "development-tools"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -16,11 +19,11 @@ path = "src/main.rs"
 doc = false
 
 [dependencies]
-# D07: the facade ships no PTY, engine, or renderer, so the offline commands
+# The facade ships no PTY, engine, or renderer, so the offline commands
 # (check, accept, render, report) never start an application or open a
 # terminal device. State-only render replays the pinned renderer through
 # the upstream API.
-tuiscotti = { version = "0.3.0", path = "../tuiscotti" }
+tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 clap.workspace = true
@@ -29,7 +32,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-tuiscotti = { version = "0.3.0", path = "../tuiscotti" }
+tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
 tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 ratatui.workspace = true

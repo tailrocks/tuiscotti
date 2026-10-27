@@ -1,6 +1,6 @@
 # Limitations
 
-Honest gaps at the D07 head. Labels: **tested** (ran green),
+Honest gaps. Labels: **tested** (ran green),
 **compiles-only**, **not run**, **unsupported** (explicitly out of
 scope, fails closed where applicable).
 
@@ -8,8 +8,8 @@ scope, fails closed where applicable).
 
 | Platform | Status | Evidence |
 |---|---|---|
-| macOS (aarch64) | tested | Full guard nextest green at the D07 head (recorded in the D07 report). |
-| Linux (x86_64) | tested in CI | CI lanes run `ubuntu-24.04`; the D07 head regenerates per-crate lanes from the two remaining members. |
+| macOS (aarch64) | tested | Full guard nextest green on this branch (see [reviews/D07.md](migration/reviews/D07.md) for the migration review record). |
+| Linux (x86_64) | tested in CI | CI lanes run `ubuntu-26.04`; per-crate lanes are generated from the two workspace members. |
 | Windows (ConPTY) | not run | No Windows lane exists and no Windows test process has ever executed. Windows is never green until a CI lane runs it. |
 
 Unix-only live behavior: the old `session_migration` suite (direct

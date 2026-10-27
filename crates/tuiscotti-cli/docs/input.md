@@ -17,7 +17,7 @@ The file could not be opened or read.
 
 The filesystem failure.
 
-The Section 16.3 code for this failure: both shapes exit 3.
+The CLI error code for this failure: both shapes exit 3.
 
 The diagnostic for stderr and the JSON `reason` field.
 

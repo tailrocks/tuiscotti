@@ -1,7 +1,10 @@
 [package]
 name = "tuiscotti"
-version = "0.3.0"
+version = "0.4.0"
 description = "Rust TUI visual-regression toolkit: pure-view capture, versioned samples, frozen checks, approval, reports"
+readme = "README.md"
+keywords = ["tui", "ratatui", "snapshot-testing", "visual-regression", "terminal"]
+categories = ["development-tools", "visualization"]
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -11,7 +14,7 @@ repository.workspace = true
 test = false
 
 [dependencies]
-# D07: pure-view execution. Live sessions, input, locators, waits, capture,
+# Pure-view execution. Live sessions, input, locators, waits, capture,
 # rendering, and comparison all come from the upstream `tui-test-rs` snapshot
 # model; tuiscotti adds the Ratatui view conversion plus the sample, check,
 # approval, and report workflow around it. No PTY, renderer, engine, or

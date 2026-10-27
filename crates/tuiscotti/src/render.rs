@@ -82,7 +82,7 @@ impl From<std::io::Error> for RenderError {
 }
 
 impl RenderError {
-    #[doc = "The stable Section 16.3 machine code for this failure."]
+    #[doc = "The stable CLI machine code for this failure."]
     #[must_use]
     pub fn code(&self) -> &'static str {
         match self {

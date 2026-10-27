@@ -1,15 +1,16 @@
 # Public Rust API
 
-Two shipping crates. Every remaining production module owns one
-section-3.1 responsibility; nothing else ships. Status labels:
-**implemented** (shipped, tested), **partial** (works with documented
-gaps), **unsupported** (explicitly rejected, fails closed),
-**future** (planned, absent).
+Two shipping crates. Every production module owns one
+responsibility in the capture-to-approval workflow; nothing else
+ships. Status labels: **implemented** (shipped, tested),
+**partial** (works with documented gaps), **unsupported**
+(explicitly rejected, fails closed), **future** (planned, absent).
 
 Live terminal APIs (session, input, locators, waits, capture,
 rendering, pixel comparison) come from upstream `tui-test` and are
 called directly from application test code. They are not listed here
-because tuiscotti does not wrap or re-export them.
+because tuiscotti does not wrap or re-export them. The split is
+summarized in [COMPARISON.md](COMPARISON.md).
 
 ## `tuiscotti`: Ratatui view capture (`view`)
 
@@ -39,9 +40,9 @@ because tuiscotti does not wrap or re-export them.
 
 | Item | Status | Notes |
 |---|---|---|
-| `approve::ApprovalStore::accept` | implemented | 20-step digest-arbitrated transaction: takes the candidate path, candidate SHA-256, and expected baseline (`missing` for first approval). Validates the candidate test ID unconditionally, re-renders image samples through the upstream renderer with render-identity verification (recorded font/renderer/geometry/policy identity must match the re-render; a foreign platform key alone never rejects reproducible pixels), and commits the baseline with one atomic rename as the final fallible filesystem operation — no approval-success record is persisted, and the change summary rides in the returned outcome. Rejects inconsistent identity or pixels, unknown profiles, stale digests, and malformed input with typed codes. |
+| `approve::ApprovalStore::accept` | implemented | Digest-arbitrated transaction: takes the candidate path, candidate SHA-256, and expected baseline (`missing` for first approval). Validates the candidate test ID unconditionally, re-renders image samples through the upstream renderer with render-identity verification (recorded font/renderer/geometry/policy identity must match the re-render; a foreign platform key alone never rejects reproducible pixels), and commits the baseline with one atomic rename. Rejects inconsistent identity or pixels, unknown profiles, stale digests, and malformed input with typed codes. Full semantics: [SNAPSHOTS.md](SNAPSHOTS.md). |
 | `approve::{ApproveError, AcceptOutcome, sample_code}` | implemented | Machine-readable codes and the in-memory change summary shared with the CLI; CI refusal is `approval is forbidden while CI is set`. |
-| Approval under `CI` | unsupported | Any set `CI` value refuses before any write. No override exists. |
+| Approval under `CI` | unsupported | Any set `CI` value refuses before any write. No override exists. See [SNAPSHOTS.md](SNAPSHOTS.md). |
 
 ## `tuiscotti`: reports (`report`)
 
@@ -77,7 +78,7 @@ because tuiscotti does not wrap or re-export them.
 | `check`, `accept`, `render`, `report` | implemented | The only four commands; all offline. See [CLI.md](CLI.md). |
 | `input`, `json_out`, `cli` | implemented | Bounded sample reads (64 MiB), one JSON result shape (`tuiscotti.cli.v1`), native arg parsing. |
 
-## Unsupported (section-3.3 removals — no API, no shim)
+## Unsupported (removed — no API, no shim)
 
 Termpane/PTY transport, workers, reader threads, reaping, terminal
 parsing, key/mouse encoders, live locators, wait loops, daemon,

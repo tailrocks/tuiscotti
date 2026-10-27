@@ -3,10 +3,25 @@
 Decisions that must survive refactors. Each names the rule, the
 rationale, and where it is pinned in code/tests.
 
+> History note: sections 1, 7, 8, 9, 11 (middle items), and 14
+> describe the pre-tui-test-migration product (removed surfaces such
+> as `Store`/`GroupedStore`, `cargo insta`, `proto`/`machine`/MCP,
+> `tuiscotti.toml`, and the old layered crates). They are retained
+> as history; the tree wins on any disagreement. Current contracts
+> live in [SNAPSHOTS.md](SNAPSHOTS.md), [CLI.md](CLI.md), and
+> [API.md](API.md).
+
 ## 1. CI must never auto-accept
 
+> VINTAGE (pre-migration wording kept as history): the rule still
+> holds — approval is explicit, workstation-only, and never
+> automatic in CI. The current approval surface is
+> `ApprovalStore::accept` (library) and `tuiscotti accept` (CLI);
+> `FrozenStore` performs the frozen checks; see
+> [SNAPSHOTS.md](SNAPSHOTS.md).
+
 There is no bless flag, env var, or accepting CI mode — and there
-must never be. Approval is `Store::accept` /
+must never be. Historically, approval was `Store::accept` /
 `GroupedStore::accept(_all)` / `tuiscotti accept` (per-name) /
 `cargo insta review`, on a workstation only, after reviewing
 actuals. A test proves no env var accepts. Rationale: ambient
@@ -75,6 +90,9 @@ sequences, no scrollback reflow) are documented in
 
 ## 7. Typed op protocol over stdio, no daemon
 
+> VINTAGE: the `proto`/`machine`/MCP surface below was removed by
+> the tui-test migration; retained as history.
+
 Agents drive `proto::{Op, execute}` / `tuiscotti machine`: 15 typed
 ops, JSON envelopes, versioned protocol (`2.0.0`) with a printed
 schema (`tuiscotti schema`). Named sessions use versioned endpoint
@@ -83,6 +101,10 @@ to leak. The MCP bridge (`mcp::serve`) speaks the same ops.
 
 ## 8. Config responsibilities are split by owner
 
+> VINTAGE: `tuiscotti.toml`, `tuiscotti init`, and Insta config no
+> longer exist; retained as history. `.config/nextest.toml`
+> (scheduling only, never parsed here) is still current.
+
 `tuiscotti.toml` (capture + assertion policy, owned by tuiscotti) vs
 `.config/nextest.toml` (scheduling only, owned by cargo-nextest,
 never parsed here) vs Insta config (review behaviour, owned by
@@ -90,6 +112,11 @@ Insta). Printed by `tuiscotti init` and pinned in `proto::CONFIG_DOCS`.
 Rationale: each tool owns its file; no cross-parsing, no drift.
 
 ## 9. Layering: pure core, thin edges
+
+> VINTAGE: the `tuiscotti-core`/`tuiscotti-runtime` crate split
+> below no longer exists (two shipping crates remain); retained as
+> history. The current layering is in
+> [ARCHITECTURE.md](ARCHITECTURE.md).
 
 `tuiscotti-core` is pure (no rendering, PTY, or I/O) and every
 crate depends on it; `tuiscotti` is re-exports only; `tuiscotti`
@@ -158,6 +185,10 @@ serialization so workstation-specific absolute paths (`/Users/...`,
 or portable evidence bundles.
 
 ## 14. Downstream 7,550-scenario feedback decisions (P1–P8)
+
+> VINTAGE: the P1–P8 items below describe the removed pre-migration
+> product (key parsing, grouped stores, locators, `WaitError`,
+> rasterizer internals); retained as history, not current API.
 
 Findings from running a 7,550-scenario downstream Ratatui visual
 suite (`ratatui` `0.30`, `crossterm` `0.29`, 4 themes × 2 sizes ×
