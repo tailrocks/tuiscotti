@@ -49,7 +49,7 @@ description = "Dependency policy gate: cargo-deny advisories/bans/licenses/sourc
 run = "cargo deny check"
 
 [tasks.ci-check-all-features]
-description = "Feature-combination gate: workspace check+clippy under --all-features (covers the test-overrides combo, which is additive test-only API — test execution is identical under default features)"
+description = "Check and lint the workspace with --all-features"
 run = [
   "cargo check --workspace --locked --all-targets --all-features",
   "cargo clippy --workspace --locked --all-targets --all-features -- -D warnings",
