@@ -1,10 +1,11 @@
 # Tests and CI
 
 Two shipping crates, ordinary Rust tests, `nextest` runner. No custom
-test runner, no fixture workspace, no `xtask`. Full suite at HEAD:
-205 run / 205 passed in both the default and `CI=true` lanes
-(qual-stack-r5 pin `81da26f`, commit `49453af`;
-macOS/aarch64 workstation, toolchain per `rust-toolchain.toml`). The
+test runner, no fixture workspace, no `xtask`. Historical full-suite
+result (not the current HEAD): 205 run / 205 passed in both the
+default and `CI=true` lanes (qual-stack-r5 pin `81da26f`, downstream
+commit `49453af`; macOS/aarch64 workstation, toolchain per
+`rust-toolchain.toml`). The
 per-suite counts below are the V01 vintage (167/167 at `18d57ad`);
 see "Result vintages" before quoting them at HEAD.
 
@@ -49,7 +50,7 @@ Direct-view and live-session examples use the same downstream sample API.
 
 Every command below works from a clean checkout: the `tui-test-rs`
 dependency is the committed `[patch.crates-io]` git pin in `Cargo.toml`
-(`rev = "81da26fa9dc29664a897dc802be816a4432c0618"`, locked in
+(`rev = "e15339fd136b5454849e1107bab142c98416b174"`, locked in
 `Cargo.lock`), so no untracked `.cargo/config.toml`, `--config` flag,
 or registry access is needed (`cargo fetch --locked` warms the cache
 for `--offline` builds):

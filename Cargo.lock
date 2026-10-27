@@ -2124,7 +2124,7 @@ dependencies = [
 [[package]]
 name = "tui-test-rs"
 version = "0.1.1"
-source = "git+https://github.com/donbeave/tui-test?rev=3740cddd9c4aebfcaff82c9191d3a68309d45497#3740cddd9c4aebfcaff82c9191d3a68309d45497"
+source = "git+https://github.com/donbeave/tui-test?rev=e15339fd136b5454849e1107bab142c98416b174#e15339fd136b5454849e1107bab142c98416b174"
 dependencies = [
  "alacritty_terminal",
  "anyhow",
