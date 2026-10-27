@@ -69,8 +69,7 @@ private_intra_doc_links = "deny"
 # Dev/release profiles keep full debuginfo.
 debug = "line-tables-only"
 
-# Provisional fork dependency (§23.1, D-R02-1): our maintained fork
-# carries the accepted upstream APIs until the PRs merge and a registry
-# release exists. Pinned to the full commit SHA; remove at R02 adoption.
-[patch.crates-io]
-tui-test-rs = { git = "https://github.com/donbeave/tui-test", rev = "3887a75dee4463ce0122c37eb278ab7ebb71aeaf" }
+# Snapshot/render/pixel APIs come from the `tuiscotti-tui-test 0.2.0`
+# registry release (renamed fork of tui-test-rs; lib name is still
+# `tui_test`). R02 now means switching the dependency name back to
+# upstream `tui-test-rs` once its registry release carries the APIs.

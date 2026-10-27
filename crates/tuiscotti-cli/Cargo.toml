@@ -22,9 +22,9 @@ doc = false
 # The facade ships no PTY, engine, or renderer, so the offline commands
 # (check, accept, render, report) never start an application or open a
 # terminal device. State-only render replays the pinned renderer through
-# the upstream API.
+# the `tuiscotti-tui-test` API.
 tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
-tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
+tuiscotti-tui-test = { version = "0.2.0", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 clap.workspace = true
 image.workspace = true
@@ -33,7 +33,7 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
-tui-test-rs = { version = "0.1.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
+tuiscotti-tui-test = { version = "0.2.0", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 ratatui.workspace = true
 image.workspace = true

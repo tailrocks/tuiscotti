@@ -60,7 +60,7 @@ The `invalid_input` test parses both manifests (resolving workspace
 aliases through `package =`, including target-specific sections) and
 fails if either crate names `portable-pty`, `alacritty_terminal`, or
 `termpane` as a **direct** dependency. Those engines remain permitted
-only transitively through the pinned `tui-test-rs` fork. Separately,
+only transitively through `tuiscotti-tui-test`. Separately,
 the `ci-no-default-graph` task greps `crates/tuiscotti/src/view.rs`
 for process/device spawns (`Command::new`, `openpty`, `/dev/pts`,
 …and fails if the pure-view path can start a child or open a PTY.
@@ -115,10 +115,11 @@ job fails on any divergence, including hand edits.
 
 ## Release prep
 
-No crate has been published yet (`cargo search` shows no `tuiscotti`;
-the `tui-test-rs` fork pin in `[patch.crates-io]` resolves only inside
-this workspace). Before any publish: the fork-only snapshot/render
-APIs must land upstream and ship in a registry `tui-test-rs` release
-so the `[patch]` section can be dropped, then publish the facade
+No crate has been published yet (`cargo search` shows no `tuiscotti`).
+The fork-only snapshot/render APIs ship in the `tuiscotti-tui-test`
+`0.2.0` registry release both crates depend on, so there is no
+`[patch]` section to drop before publishing: publish the facade
 first and `tuiscotti-cli` second (the binary depends on the facade by
-path). No tags exist yet; tag the release commit when that lands.
+path). The remaining follow-up (R02) is switching the dependency name
+back to upstream `tui-test-rs` once its registry release carries the
+required APIs. No tags exist yet; tag the release commit when that lands.
