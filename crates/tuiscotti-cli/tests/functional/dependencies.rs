@@ -90,10 +90,10 @@ fn resolve(alias: &str, spec: &toml::Value, ws: &HashMap<String, String>) -> Res
         return Ok(alias.to_string());
     }
     let table = spec.as_table().ok_or(())?;
-    if let Some(inherit) = table.get("workspace") {
-        if inherit.as_bool().ok_or(())? {
-            return ws.get(alias).cloned().ok_or(());
-        }
+    if let Some(inherit) = table.get("workspace")
+        && inherit.as_bool().ok_or(())?
+    {
+        return ws.get(alias).cloned().ok_or(());
     }
     if let Some(package) = table.get("package") {
         return Ok(package.as_str().ok_or(())?.to_string());
