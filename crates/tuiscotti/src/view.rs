@@ -453,8 +453,8 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
             let cell = buffer
                 .cell(Position::new(x, y))
                 .ok_or(ViewError::CellOutOfBounds {
-                    x: u32::from(x),
-                    y: u32::from(y),
+                    x: u32::from(col),
+                    y: u32::from(row),
                 })?;
             let symbol = cell.symbol();
             if covered > 0 {
@@ -463,22 +463,22 @@ fn convert_cells(buffer: &Buffer) -> ViewResult<Vec<SnapshotCell>> {
                     cells.push(continuation_cell(cell)?);
                 } else {
                     return Err(ViewError::CoveredCellOccupied {
-                        x: u32::from(x),
-                        y: u32::from(y),
+                        x: u32::from(col),
+                        y: u32::from(row),
                     });
                 }
             } else {
                 let width = cell.cell_width();
                 if width == 0 {
                     return Err(ViewError::UncoveredZeroWidthCell {
-                        x: u32::from(x),
-                        y: u32::from(y),
+                        x: u32::from(col),
+                        y: u32::from(row),
                     });
                 }
                 if width > area.width - col {
                     return Err(ViewError::LeadingCellOverhang {
-                        x: u32::from(x),
-                        y: u32::from(y),
+                        x: u32::from(col),
+                        y: u32::from(row),
                         width,
                     });
                 }

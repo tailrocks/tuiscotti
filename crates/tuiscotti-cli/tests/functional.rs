@@ -2,6 +2,9 @@
 use std::path::{Path, PathBuf};
 
 use image::GenericImageView as _;
+use ratatui::buffer::{Buffer, Cell};
+use ratatui::layout::{Position, Rect};
+use tuiscotti::view::{ViewError, ViewSettings, snapshot_from_buffer};
 
 #[path = "functional/helpers.rs"]
 mod helpers;
@@ -328,6 +331,7 @@ fn invalid_input() {
     phase_direct_dep_rules(&candidates);
     #[cfg(unix)]
     approval_refuses_symlink_lock_without_external_write();
+    phase_view_error_coordinates();
     assert_eq!(walk_files(&baselines), [] as [std::path::PathBuf; 0]);
 }
 
@@ -607,6 +611,67 @@ fn phase_usage_errors(candidates: &Path, sample: &Path, baselines: &Path, lane: 
     );
     assert_eq!(exit_code(&out), 2);
     assert_eq!(out.stdout, [] as [u8; 0]);
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "constructed buffers contain their cells"
+)]
+fn phase_view_error_coordinates() {
+    let settings = ViewSettings::builtin();
+    let mut valid = Buffer::empty(Rect::new(10, 20, 2, 1));
+    valid
+        .cell_mut(Position::new(10, 20))
+        .expect("valid buffer contains its leading cell")
+        .set_symbol("あ");
+    let snapshot = snapshot_from_buffer(&valid, &settings).expect("wide cell plus space converts");
+    assert_eq!(snapshot.cols(), 2);
+    assert_eq!(snapshot.rows(), 1);
+    let mut occupied = Buffer::empty(Rect::new(10, 20, 2, 1));
+    occupied
+        .cell_mut(Position::new(10, 20))
+        .expect("occupied buffer contains its leading cell")
+        .set_symbol("あ");
+    occupied
+        .cell_mut(Position::new(11, 20))
+        .expect("occupied buffer contains its covered cell")
+        .set_symbol("x");
+    assert!(matches!(
+        snapshot_from_buffer(&occupied, &settings),
+        Err(ViewError::CoveredCellOccupied { x: 1, y: 0 })
+    ));
+    let mut hollow = Buffer::empty(Rect::new(10, 20, 1, 1));
+    hollow
+        .cell_mut(Position::new(10, 20))
+        .expect("hollow buffer contains its cell")
+        .set_symbol("");
+    assert!(matches!(
+        snapshot_from_buffer(&hollow, &settings),
+        Err(ViewError::UncoveredZeroWidthCell { x: 0, y: 0 })
+    ));
+    let mut overhang = Buffer::empty(Rect::new(10, 20, 1, 1));
+    overhang
+        .cell_mut(Position::new(10, 20))
+        .expect("overhang buffer contains its leading cell")
+        .set_symbol("あ");
+    assert!(matches!(
+        snapshot_from_buffer(&overhang, &settings),
+        Err(ViewError::LeadingCellOverhang {
+            x: 0,
+            y: 0,
+            width: 2
+        })
+    ));
+    let mut leading = Cell::default();
+    leading.set_symbol("a");
+    let truncated = Buffer {
+        area: Rect::new(10, 20, 2, 1),
+        content: vec![leading],
+    };
+    assert!(matches!(
+        snapshot_from_buffer(&truncated, &settings),
+        Err(ViewError::CellOutOfBounds { x: 1, y: 0 })
+    ));
 }
 
 #[test]

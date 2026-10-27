@@ -1,6 +1,6 @@
 # Tests and CI
 
-Two shipping crates, one functional suite, `nextest` runner. No custom
+Two shipping crates, one functional suite: `nextest` runs the integration tests. No custom
 test runner, no fixture workspace, no `xtask`, no unit tests, no
 examples. The suite is `functional` in `crates/tuiscotti-cli/tests/`
 (4 tests, listed below); it exercises the shipped CLI binary and the
