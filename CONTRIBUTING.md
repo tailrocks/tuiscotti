@@ -115,11 +115,11 @@ job fails on any divergence, including hand edits.
 
 ## Release prep
 
-`0.4.0` will be published (`tuiscotti` and `tuiscotti-cli` on crates.io,
+`0.4.0` is published (`tuiscotti` and `tuiscotti-cli` on crates.io;
 facade first and `tuiscotti-cli` second since the binary depends on
 the facade).
 The fork-only snapshot/render APIs ship in the `tuiscotti-tui-test`
-`0.2.1` registry release both crates depend on, so there is no
+`0.2.1` registry release both crates depend on, so there was no
 `[patch]` section to drop before publishing. The remaining follow-up
 (R02) is switching the dependency name back to upstream `tui-test-rs`
 once its registry release carries the required APIs. Tag each release
