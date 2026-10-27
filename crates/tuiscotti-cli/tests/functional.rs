@@ -123,11 +123,12 @@ fn live_workflow() {
     assert_eq!(code, 1);
     phase_render_report(&dirs, &candidate_v2, &report_name, &live_id, &lane);
     phase_missing_glyph(&dirs, &lane);
+    #[cfg(unix)]
+    phase_report_symlink_loop();
 }
 
 #[cfg(unix)]
-#[test]
-fn report_indexes_each_check_once_with_directory_symlink_loop() {
+fn phase_report_symlink_loop() {
     let root = case_dir("report-symlink-loop");
     let baselines = root.path().join("baselines");
     let artifacts = root.path().join("artifacts");
