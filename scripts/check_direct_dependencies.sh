@@ -21,27 +21,94 @@ if [ ! -r "$4" ]; then
 fi
 awk -v forbidden="portable-pty alacritty_terminal termpane" '
 function trim(s) {
-    sub(/^[ \t]+/, "", s)
-    sub(/[ \t]+$/, "", s)
+    sub(/^[ \t\r\n]+/, "", s)
+    sub(/[ \t\r\n]+$/, "", s)
     return s
 }
-function table_get(table_text, field,    rest, val) {
-    rest = table_text
-    if (!match(rest, field "[ \t]*=")) {
-        if (!match(rest, "\"" field "\"[ \t]*=")) {
-            if (!match(rest, "\x27" field "\x27[ \t]*=")) return ""
+function split_top(text,    i, c, q, esc, d, cur) {
+    _spn = 0
+    cur = ""; d = 0; q = ""; esc = 0
+    for (i = 1; i <= length(text); i++) {
+        c = substr(text, i, 1)
+        if (q != "") {
+            cur = cur c
+            if (esc) esc = 0
+            else if (q == "\"" && c == "\\") esc = 1
+            else if (c == q) q = ""
+            continue
+        }
+        if (c == "\"" || c == "\x27") { q = c; cur = cur c; continue }
+        if (c == "{" || c == "[") d++
+        if (c == "}" || c == "]") d--
+        if (c == "," && d == 0) { _sp[++_spn] = cur; cur = ""; continue }
+        cur = cur c
+    }
+    if (trim(cur) != "") _sp[++_spn] = cur
+}
+function split_eq(pair,    i, c, q, esc, d) {
+    _sk = ""; _sv = ""
+    d = 0; q = ""; esc = 0
+    for (i = 1; i <= length(pair); i++) {
+        c = substr(pair, i, 1)
+        if (q != "") {
+            if (esc) esc = 0
+            else if (q == "\"" && c == "\\") esc = 1
+            else if (c == q) q = ""
+            continue
+        }
+        if (c == "\"" || c == "\x27") { q = c; continue }
+        if (c == "{" || c == "[") d++
+        else if (c == "}" || c == "]") d--
+        else if (c == "=" && d == 0) {
+            _sk = trim(substr(pair, 1, i - 1))
+            _sv = trim(substr(pair, i + 1))
+            return 1
         }
     }
-    rest = trim(substr(rest, RSTART + RLENGTH))
-    if (match(rest, /^"[^"]*"/)) {
-        val = substr(rest, 2, RLENGTH - 2)
-        return decode_basic(val)
+    return 0
+}
+function field_value(v) {
+    if (v ~ /^"/ || substr(v, 1, 1) == "\x27") return str_value(v)
+    if (v == "true" || v == "false") return v
+    return ""
+}
+function table_get(table_text, field,    t, i, c, q, esc, d, inner, k) {
+    t = trim(table_text)
+    if (t ~ /^\{/) {
+        d = 0; q = ""; esc = 0
+        for (i = 1; i <= length(t); i++) {
+            c = substr(t, i, 1)
+            if (q != "") {
+                if (esc) esc = 0
+                else if (q == "\"" && c == "\\") esc = 1
+                else if (c == q) q = ""
+                continue
+            }
+            if (c == "\"" || c == "\x27") q = c
+            else if (c == "{" || c == "[") d++
+            else if (c == "}" || c == "]") {
+                d--
+                if (d == 0) break
+            }
+        }
+        if (d != 0) return ""
+        inner = substr(t, 2, i - 2)
+        split_top(inner)
+        for (i = 1; i <= _spn; i++) {
+            if (!split_eq(_sp[i])) continue
+            if (normkey(_sk) == field) return field_value(_sv)
+        }
+        return ""
     }
-    if (match(rest, "^\x27[^\x27]*\x27")) {
-        val = substr(rest, 2, RLENGTH - 2)
-        return val
+    if (match(t, "^" field "[ \t]*=")) {
+        return field_value(trim(substr(t, RSTART + RLENGTH)))
     }
-    if (match(rest, /^(true|false)/)) return substr(rest, 1, RLENGTH)
+    if (match(t, "^\"" field "\"[ \t]*=")) {
+        return field_value(trim(substr(t, RSTART + RLENGTH)))
+    }
+    if (match(t, "^\x27" field "\x27[ \t]*=")) {
+        return field_value(trim(substr(t, RSTART + RLENGTH)))
+    }
     return ""
 }
 function strip_comment(line,    out, i, c, in_str, in_lit, esc) {
@@ -359,7 +426,7 @@ FNR == 1 {
         fullkey = trim(substr(line, 1, RLENGTH - 1))
         value = substr(line, RSTART + RLENGTH)
         k = fullkey
-        gsub(/[ \t]*\.[ \t]*/, ".", k)
+        gsub(/[ \t\r\n]*\.[ \t\r\n]*/, ".", k)
         k = normkey(k)
         prefix = ""
         rest = ""
