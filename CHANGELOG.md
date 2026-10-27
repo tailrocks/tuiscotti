@@ -22,14 +22,14 @@ First public release. Two crates, one offline binary:
   commands — `check`, `accept`, `render`, `report`. Approval refuses
   before any write whenever the `CI` variable is set, in any form.
 
-### Registry blocker (resolved: `tuiscotti-tui-test 0.2.0` adopted)
+### Registry blocker (resolved: `tuiscotti-tui-test 0.2.1` adopted)
 
 Both crates build against snapshot/render/pixel APIs that upstream
 `microsoft/tui-test` (`tui-test-rs 0.1.1`) does not carry. The
 maintained fork is now published as the renamed registry crate
-`tuiscotti-tui-test 0.2.0` (lib name still `tui_test`), and the
+`tuiscotti-tui-test 0.2.1` (lib name still `tui_test`), and the
 workspace `[patch.crates-io]` git pin is removed: both crates depend
-on `tuiscotti-tui-test 0.2.0` from crates.io like any other registry
+on `tuiscotti-tui-test 0.2.1` from crates.io like any other registry
 dependency, so downstream consumers resolve the same release with no
 extra pin. Remaining follow-up (R02) is switching the dependency name
 back to upstream `tui-test-rs` once its registry release carries the

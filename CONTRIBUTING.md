@@ -117,7 +117,7 @@ job fails on any divergence, including hand edits.
 
 No crate has been published yet (`cargo search` shows no `tuiscotti`).
 The fork-only snapshot/render APIs ship in the `tuiscotti-tui-test`
-`0.2.0` registry release both crates depend on, so there is no
+`0.2.1` registry release both crates depend on, so there is no
 `[patch]` section to drop before publishing: publish the facade
 first and `tuiscotti-cli` second (the binary depends on the facade by
 path). The remaining follow-up (R02) is switching the dependency name

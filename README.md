@@ -66,7 +66,7 @@ and pixel comparison. Application test code uses its Rust API
 re-export it. tuiscotti consumes upstream snapshots
 (`TerminalSnapshot`), converts Ratatui views into them, and runs
 the offline compare-and-approve workflow on the result. The
-dependency is the `tuiscotti-tui-test 0.2.0` registry release
+dependency is the `tuiscotti-tui-test 0.2.1` registry release
 (renamed fork carrying the required snapshot and offline-render
 APIs; lib name `tui_test`); see
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and

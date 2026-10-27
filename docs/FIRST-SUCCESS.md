@@ -35,7 +35,7 @@ cargo build --locked --offline
 ```
 
 The `tuiscotti-tui-test` dependency is a plain crates.io release
-(`0.2.0`, lib name `tui_test`): downstream crates resolve the same
+(`0.2.1`, lib name `tui_test`): downstream crates resolve the same
 release with no pin (see "Downstream crates" below).
 
 All CLI commands below run from the workspace root with disjoint,
@@ -339,11 +339,11 @@ processes, PTY sessions, input, locators, waits, live capture,
 rendering, pixel comparison — is owned by upstream `tui-test`
 (`tui-test-rs`) and called directly from application test code;
 tuiscotti does not wrap or re-export it. The workspace depends on
-the `tuiscotti-tui-test 0.2.0` registry release (renamed fork
+the `tuiscotti-tui-test 0.2.1` registry release (renamed fork
 carrying the required snapshot and offline-render APIs; see
 `docs/ARCHITECTURE.md` and `docs/LIMITATIONS.md`).
 
-Exact supported surface at `tuiscotti-tui-test 0.2.0`,
+Exact supported surface at `tuiscotti-tui-test 0.2.1`,
 verified against its published tree:
 
 - sessions: `tui_test::Session::new(name)`,
@@ -365,7 +365,7 @@ verified against its published tree:
   `terminal::cell::Attrs`
 
 Pseudocode (shape only — check names and signatures against the
-`tuiscotti-tui-test 0.2.0` docs before compiling):
+`tuiscotti-tui-test 0.2.1` docs before compiling):
 
 ```rust,ignore
 let session = tui_test::Session::new("smoke");
@@ -385,7 +385,7 @@ let sample = tuiscotti::sample::Sample::with_pixels(
 ## 10. Downstream crates: no pin needed
 
 There is no `[patch.crates-io]` section anymore: downstream crates
-depend on `tuiscotti` (path or git) plus `tuiscotti-tui-test 0.2.0`
+depend on `tuiscotti` (path or git) plus `tuiscotti-tui-test 0.2.1`
 from crates.io and resolve the same release with no extra pin.
 Verified with a scratch crate outside the workspace depending on
 `tuiscotti` by path plus the registry release: `cargo run

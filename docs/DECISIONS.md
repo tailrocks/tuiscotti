@@ -296,22 +296,23 @@ multiple locales) drove eight durable design refinements:
   environment + semantic-wait pattern ([LIMITATIONS.md](LIMITATIONS.md),
   [TESTING.md](TESTING.md)).
 
-## 15. cargo-deny advisory ignores and the provisional fork source
+## 15. cargo-deny advisory ignores and the registry fork release
 
 `deny.toml` carries advisory ignores `RUSTSEC-2026-0206` (`rustybuzz`
-unmaintained; transitive via the tui-test-rs fork pin, no safe upgrade,
-ecosystem successor is `skrifa`) and `RUSTSEC-2026-0192` (`ttf-parser`
-unmaintained, same migration path via fontdb/rustybuzz). Remove both
-when shaping migrates off rustybuzz. The only permitted git source is
-the maintained donbeave/tui-test fork (provisional `[patch.crates-io]`
-until upstream merges and a registry release exists); source validation
+unmaintained; transitive via the `tuiscotti-tui-test` registry release,
+no safe upgrade, ecosystem successor is `skrifa`) and `RUSTSEC-2026-0192`
+(`ttf-parser` unmaintained, same migration path via fontdb/rustybuzz).
+Remove both when shaping migrates off rustybuzz. No git source is
+permitted at all (`deny.toml` `allow-git` is empty; the former
+`[patch.crates-io]` fork pin was removed when `tuiscotti-tui-test`
+0.2.0 shipped on crates.io from `tailrocks/tui-test`); source validation
 stays deny-by-default. Rationale lives here because `deny.toml`
 contains no prose comments: cargo-deny consumes only the IDs and URLs.
 `MPL-2.0` is allowed solely for `option-ext` 0.2.0, pulled transitively
-via `dirs-sys <- dirs <- tui-test-rs` (unavoidable upstream dep of the
-provisional fork pin). Retire this entry only if the upstream dependency
-graph drops `option-ext` (e.g. dirs/tui-test-rs remove the dependency and
-`cargo deny check licenses` stays green without it).
+via `dirs-sys <- dirs <- tuiscotti-tui-test` (unavoidable upstream dep
+of the registry fork release). Retire this entry only if the upstream
+dependency graph drops `option-ext` and `cargo deny check licenses`
+stays green without it.
 
 ## 16. Local-only mise gates
 

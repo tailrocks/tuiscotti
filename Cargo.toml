@@ -69,7 +69,7 @@ private_intra_doc_links = "deny"
 # Dev/release profiles keep full debuginfo.
 debug = "line-tables-only"
 
-# Snapshot/render/pixel APIs come from the `tuiscotti-tui-test 0.2.0`
+# Snapshot/render/pixel APIs come from the `tuiscotti-tui-test 0.2.1`
 # registry release (renamed fork of tui-test-rs; lib name is still
 # `tui_test`). R02 now means switching the dependency name back to
 # upstream `tui-test-rs` once its registry release carries the APIs.
