@@ -11,28 +11,31 @@ implementation completion, not completion of the whole downstream rollout.
 
 ## Model assignments
 
-Use GPT-6.1-Terra at low or medium effort for planning, design, task instructions,
-implementation, tests, documentation and execution. Use GPT-6.1-Sol at low or
-medium effort only for independent reviews during execution. Terra workers
-receive a finished task contract; they do not fill gaps in the architecture or
-decide what the product should do.
-These are role assignments, not assumptions about relative API prices.
+Use Luna for most planning, edits, tests, documentation and command execution.
+Use Terra when the task has a demonstrated correctness or design risk that a
+bounded Luna task cannot safely resolve. Use Sol only for independent review.
+Model and effort choices are task assignments, not claims about API prices.
 
-| Role | Model and effort | Responsibility |
+| Work | Model and allowed effort | Starting assignment |
 |---|---|---|
-| Planning and design | `gpt-6.1-terra`, `medium` | Write every task contract, schema, interface, algorithm, test case, benchmark method and substantive documentation change before dispatch. |
-| Bounded Rust work | `gpt-6.1-terra`, `medium` | Turn the reviewed contract into Rust code and tests, then run the specified checks. |
-| Mechanical work | `gpt-6.1-terra`, `low` | Apply exact filename, help-text, documentation and fixture edits; run specified commands and collect outputs. |
-| Independent review | `gpt-6.1-sol`, `low` or `medium` | Review design, security-sensitive boundaries, benchmark conclusions and the final integrated artifact. |
+| Coordination, inventory and mechanical work | `gpt-6-luna`, `low` to `max` | Low for commands and exact edits; medium for dispatch and routine reasoning. |
+| Bounded Rust, tests, tools, docs and task briefs | `gpt-6-luna`, `low` to `max` | Medium for fixed contracts; high for nontrivial local work. Use max only after high exposes a specific unresolved reasoning gap. |
+| Schema, decoder, digest and approval decisions | `gpt-6.1-terra`, `low` to `high` | Medium for settled cross-module integration; high for strict decoding, allocation safety or a difficult design decision. |
+| Focused independent review | `gpt-6.1-sol`, `low` to `medium` | Low for a bounded behavioral or documentation question. |
+| Required risk and final reviews | `gpt-6.1-sol`, `low` to `medium` | Medium for schema/decoder safety, digest/approval preservation, benchmark conclusions and the final artifact. |
 
-Keep the coordinator on Terra at low or medium effort when the runtime supports
-that choice. Its role is dispatch, state tracking, integration and command
-execution. Terra medium resolves design and correctness decisions, incorporating review findings.
-Start the execution session on Terra if a Terra coordinator is desired; the
-prompt cannot change the active session's model. Terra writes instructions and code;
-Sol low or medium reviews them; Terra remains the default code-writing worker. Do not silently
-replace a requested model if it is
-unavailable. Report the limitation and keep any dependent review gate open.
+Start the execution session on Luna medium when that coordinator is available.
+The prompt cannot change an active session's model. The coordinator tracks tasks,
+checks evidence and integrates approved changes; it dispatches difficult decisions
+rather than spending Terra or Sol calls on routine administration.
+
+Give workers complete contracts before implementation. Luna may prepare routine
+contracts from the settled design. Terra settles only the difficult contracts
+identified below or an evidence-backed escalation. Sol reviewers report findings
+and acceptance; they do not implement, write repair code or own task planning.
+No execution task uses Sol high, Terra above high, Luna above max, or another
+model. Do not silently substitute an unavailable requested model. Record the
+limitation and keep any required review gate open.
 
 ## Copyable implementation prompt
 
@@ -52,30 +55,38 @@ unavailable. Report the limitation and keep any dependent review gate open.
  baseline approval, new review application, or live terminal functionality.
  CLI result JSON and unrelated evidence metadata JSON remain separate contracts.
 
- Have GPT-6.1-Terra medium write the substantive design, complete task contracts,
- implementation instructions, test cases and expected results, documentation
- text and benchmark method. Resolve the specification review findings and
- publish the concrete schema, nested tags, error mapping and bounded decoder
- design before implementation dispatch. Obtain independent Sol medium review.
- Give GPT-6.1-Terra medium exact bounded Rust tasks and Terra low exact mechanical
- edits and commands. Each contract must include the interfaces, file ownership,
- ordered edits, invariants, tests and expected outputs in the template below.
- Terra implements those instructions. It must stop its task and report any
- missing decision or contradiction instead of inventing a design. Terra medium
- diagnoses the gap and writes a corrected contract before execution resumes.
- Have an independent Sol medium reviewer inspect actual diffs and outputs at each
- required gate. The Terra coordinator tracks and integrates approved work; it
- owns integration and uses Sol only for independent reviews.
+ Use only gpt-6-luna at low through max, gpt-6.1-terra at low through high,
+ and gpt-6.1-sol at low or medium. Default the coordinator and most work to Luna.
+ Start commands/exact edits at Luna low, bounded implementation/tests/docs at
+ Luna medium, and nontrivial local reasoning at Luna high. Use Luna max only
+ for a specific unresolved gap after high. Reserve Terra medium/high for the
+ schema, strict decoder, digest/approval seams and evidence-backed escalations.
+ Sol is review-only; batch its reviews at the risk gates in this plan. Do not
+ call Sol or Terra to repeat routine checks, rename files or track task status.
+
+ Resolve the concrete schema, nested tags, error mapping and bounded decoder
+ design before dependent implementation. Give each worker a complete contract
+ with interfaces, exact ownership, steps, invariants, tests and expected outputs.
+ Luna writes routine briefs from the settled design; Terra handles difficult
+ decisions. A worker reports missing decisions or contradictory evidence rather
+ than guessing, weakening tests or changing scope. Escalate only the blocked
+ unit under the rules below. Independent Sol medium reviews the required risk
+ gates and final revision; use Sol low only for narrower review questions.
 
  Follow the sequenced tasks below. Keep at most four agents active including
  the coordinator. Separate concurrent writers into isolated worktrees and give
  shared files one owner. Before dispatch, preserve uncommitted instructions and
  ensure each worktree receives the reviewed spec and plan, either from an
  authorized signed task-branch commit or a verified immutable snapshot. Record
- decisions, evidence, open findings and task
- completion locally. Preserve unrelated user work. Do not create extra cargo
+ decisions, evidence, open findings and task completion locally. Preserve unrelated user work. Do not create extra cargo
  workspace features or forbidden direct terminal dependencies. Edit generated
  workflows only through their source configuration and regeneration.
+
+ Use the project's mise-managed mr-boxington (mbx) for Cargo build and test
+ commands. Install the pinned tools, run mbx doctor, verify that the mise Cargo
+ wrapper is active and run a workspace check through it. If the wrapper or mbx
+ is unavailable, repair the setup and retry; report any unresolved failure
+ instead of silently bypassing mbx.
 
  Capture a pre-change behavior oracle before replacing the format. Implement
  the complete private Protobuf mapping and strict bounded Zstandard/container
@@ -153,10 +164,11 @@ return to the owning implementation task and invalidate affected measurements.
 
 ### A. Inspect and record current behavior
 
-Terra medium writes the inventory questions, behavior-oracle cases and exact expected
-assertions. Terra low performs the inventory and commands. Terra medium implements
-the specified oracle tests. Terra medium resolves newly discovered behavior and an
-independent Sol medium reviewer checks coverage before format replacement.
+Assign Luna low to inventory and commands, Luna medium to routine oracle tests,
+and Luna high to planning their behavioral coverage. Escalate an ambiguous
+comparison or digest contract to Terra medium with the source evidence. Review
+oracle coverage as part of the task B design review rather than dispatching a
+separate Sol reviewer for routine inventory.
 
 Inputs include `sample.rs`, `check.rs`, `approve.rs`, `render.rs`, `report.rs`,
 CLI input/error/result handling, integration helpers, and the public/module docs.
@@ -174,14 +186,25 @@ file hashes that necessarily change with the new format.
 Completion evidence is a source/path inventory, runnable oracle cases and a
 baseline validation result. No baseline approvals change in this task.
 
+Verify the actual mbx setup before running build or test lanes. Install the
+project's pinned tools with mise, check `mbx --version`, run `mbx doctor`, and
+confirm its setup check reports the mise Cargo wrapper active. Run
+`cargo check --workspace --locked --offline` through that wrapper and record
+the command and result. Use the wrapper or a verified direct `mbx` invocation
+for Cargo build and test commands, including nextest, Clippy and rustdoc. Verify
+subcommand forwarding before relying on it. Do not invoke a raw Cargo binary
+as a silent fallback. If setup fails, diagnose it, retry and report the blocker;
+do not mark the required mbx-backed gate as passed.
+
 Inventory Rust, mr-boxington, all pinned tools and workspace dependencies. Check
 their latest stable versions against authoritative sources at execution time.
 Record current and target versions, release evidence, compatibility constraints
 and updates required in manifests, lockfiles, toolchain files, documentation and
-generated configuration. Assign Terra medium to version and compatibility
-decisions, Terra low to bounded edits and commands, and Sol low or medium only
-to independent review. Apply and validate the updates before implementation
-benchmarks so the measurements use the versions that will ship. If a required
+generated configuration. Assign Luna low to release evidence and exact version
+edits, Luna medium/high to ordinary dependency compatibility fixes, and Terra
+medium only to breaking cross-module or toolchain issues beyond that scope.
+Sol reviews substantive dependency risks with the relevant design or final gate.
+Apply and validate the updates before implementation benchmarks so the measurements use the versions that will ship. If a required
 update cannot be completed, report the blocker and leave the goal incomplete
 unless the user explicitly changes the requirement.
 
@@ -198,8 +221,12 @@ does not depend on it, but do not mark the goal complete without its evidence.
 
 ### B. Resolve design and schema
 
-Assign Terra medium to the design and task contracts, with an independent Sol medium
-review. Terra low can gather dependency/tool availability evidence.
+Assign Luna medium/high to source inventories, design options and routine task
+briefs. Terra high settles the strict schema/scan/allocation contract; Terra
+medium settles the digest, approval and integration interfaces. Give each Terra
+call a narrow decision and the gathered evidence. Batch the concrete design and
+oracle into one independent Sol medium review before implementation. Luna low
+gathers dependency/tool availability evidence.
 
 Before coding, settle all of the following:
 
@@ -229,13 +256,17 @@ state digest is allowed by the spec; exposing it as a sample serializer is not.
 Completion evidence is a concrete design artifact, complete contracts for the
 next executable tasks and an independent review with no unresolved blocking
 findings. The current document gives task boundaries, not an already completed
-nested schema or decoder algorithm. Terra medium must write those concrete artifacts and Sol medium must review them
-at B before Terra receives implementation work.
+nested schema or decoder algorithm. The assigned Terra designer must settle the
+high-risk contracts and Sol medium must review them at B before implementation.
+Luna prepares the remaining bounded worker briefs from that reviewed design.
 
 ### C. Implement domain mapping and binary encoding
 
-Terra medium writes the exact private types, field mapping, encoding sequence and
-round-trip assertions. Assign Terra medium to implement that reviewed contract.
+Assign Luna medium/high to explicit field mapping, canonical encoding and
+round-trip tests from B's reviewed types/tag inventory. Luna may split repetitive
+mapping into small tasks with complete field tables. Terra medium owns any
+unsettled domain constructor or state-digest integration decision. Do not send
+an already specified mechanical mapping to Terra merely because it is Rust.
 The coordinator alone integrates changes to shared `sample.rs`, `lib.rs`, Cargo
 manifests and `Cargo.lock`, or explicitly gives those files one worker owner.
 
@@ -247,14 +278,17 @@ rather than leaving unused compatibility code.
 
 Add meaningful full-field round trips and golden bytes. Equality tests must
 project metadata explicitly because upstream snapshot equality excludes it.
-Sol medium reviews the mapping and deterministic serialization before integration.
+Include full-value mapping and deterministic serialization in the combined
+C/D/E risk review. Routine mapping subtasks do not each need a Sol call.
 
 ### D. Implement strict decoding and resource bounds
 
-Terra medium writes the scan/decode algorithms, allocation accounting, failure
-precedence and adversarial cases. Assign Terra medium to implement that complete
-contract. Use distinct modules/worktree from C. Sol medium independently reviews
-this task's boundary code before integration.
+Use Terra high for the strict scanner, allocation accounting and Zstandard
+frame/window enforcement where the code remains security-sensitive after B.
+Luna medium/high may implement the fixed header, generated tables and specified
+adversarial fixtures in separate files. Do not assign untrusted allocation logic
+to a cheap worker just to meet a model quota. Use distinct modules/worktrees
+from C. Sol medium reviews the decoder and its tests with C/E before integration.
 
 Validate lengths, magic, versions, codec ID, exact frame consumption, checksums,
 window and expanded-byte limits before allocating untrusted claims. Scan the
@@ -270,9 +304,10 @@ duration and covered decoder entry points; report observed coverage honestly.
 
 ### E. Integrate all consumers
 
-Terra medium specifies each consumer change, exact path/error behavior and integration
-test expectation. Assign Terra medium to those edits. Terra low handles exact
-filename/help-text replacements from the same reviewed contract.
+Assign Luna low to filename/help-text replacements and Luna medium/high to
+consumer wiring and specified CLI tests. Use Terra medium only for the state
+digest projection, exact-byte acceptance integration and unresolved transaction
+behavior. B's contract supplies path/error behavior and expected results.
 
 Update baseline lookup, acceptance, candidate/expected evidence, artifact links,
 render/report sample loading, CLI limits/error mappings, helpers and examples.
@@ -286,15 +321,20 @@ result JSON and its schema intact.
 
 Completion evidence is real CLI execution against valid binary samples, rejected
 JSON, a missing/different/pass check, staged acceptance and offline rendering.
-Sol medium reviews acceptance and artifact compatibility before broad validation.
+Batch C/D/E into one Sol medium risk review covering complete mapping, strict
+decoding, state digest, acceptance and artifact compatibility before broad
+validation. Re-review changed risky boundaries after fixes, not unchanged
+mechanical files.
 
 ### F. Measure and pin Zstandard settings
 
-Terra medium writes the measurement method, tool interfaces, corpus selection,
-commands, validation rules and decision criteria. Assign Terra medium to build
-that specified tool and Terra low to execute it. Sol medium reviews the evidence and selection. Terra medium writes or revises the
-setting decision when the evidence requires a design choice. Benchmark
-execution is serial even if other read-only work continues.
+Assign Luna high to the benchmark tool and detailed execution brief from B's
+measurement contract. Luna low runs it and collects raw results; Luna medium/high
+checks output equivalence and summarizes the tradeoffs. Use Terra medium only
+when corpus validity, Git-history construction or a setting decision requires
+judgment beyond the reviewed contract. Sol medium reviews the complete evidence
+and selected setting once the measurement artifact is ready. Benchmark execution
+is serial even if other read-only work continues.
 
 Measure actual canonical Protobuf bytes from fresh representative captures. For
 historical JSON controls, use the pre-change executable/worktree or a standalone
@@ -327,10 +367,11 @@ policy in `DECISIONS.md`, then rerun affected tests with the final settings.
 
 ### G. Complete behavioral and adversarial validation
 
-Terra medium writes the concrete test matrix, fixture construction steps, assertions
-and expected errors. Terra medium implements those tests; Terra low applies
-specified case expansions and runs commands. An independent Sol medium reviewer
-checks that assertions test observable behavior and cover the spec.
+Assign Luna medium/high to the test matrix and specified behavioral tests,
+Luna low to fixed case expansion and commands, and Terra medium/high only to
+subtle adversarial or concurrent failures needing diagnosis. Use the reviewed
+B/D contracts for malicious fixtures and expected errors. Review coverage in
+the combined risk and final reviews instead of one Sol call per test task.
 
 The matrix includes:
 
@@ -358,10 +399,12 @@ repository gates once the integrated artifact stabilizes.
 
 ### H. Update documentation and downstream runbook
 
-Terra medium writes the substantive documentation text and downstream instructions
-from the final design and measurements. Terra low applies the approved text and
-runs link checks. An independent Sol medium reviewer checks the final contracts
-and rollout instructions.
+Assign Luna medium to documentation and the downstream runbook from verified
+behavior and measurements. Luna low handles exact edits, links and inventory
+commands; Luna high resolves local documentation inconsistencies. Escalate a
+real product/approval ambiguity to Terra medium. Include final contracts and
+rollout instructions in the final Sol medium review; use Sol low separately
+only for a concrete unresolved documentation question.
 
 Update README fences, public API/snapshot/CLI docs, included module docs, durable
 decisions and applicable current migration guidance. Preserve frozen history.
@@ -392,7 +435,7 @@ unavailable merged/released versions appear complete.
 
 ### I. Run gates and independently review the final artifact
 
-Assign Terra low to command execution and evidence collection. Sol medium reviews
+Assign Luna low to command execution and evidence collection. Sol medium reviews
 the complete final diff, source, tests, raw measurements and docs. The final
 reviewer must not be the agent that wrote the reviewed change.
 
@@ -409,13 +452,15 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 Also run the repository's current generated-file/dependency checks when the
 changed paths require them. Record the actual toolchain and any wrapper failure;
-do not silently swap to an unpinned toolchain. Sign any authorized commits with
+confirm these Cargo commands run through the verified mbx wrapper. Do not
+silently bypass mbx or swap to an unpinned toolchain. Sign any authorized commits with
 `git commit -s`.
 
-Sol medium triages review findings as a fix or evidence-backed dismissal. Terra
-medium writes any needed repair contract. Give those instructions to the cheapest
-suitable worker, then have Sol medium recheck the changed boundary. Run affected
-lanes after every fix. Final completion requires no unresolved accepted finding,
+The Luna coordinator records findings and assigns repairs by risk. Luna
+medium/high writes routine repair contracts; Terra handles only a difficult or
+high-risk diagnosis. Sol medium rechecks changed required-review boundaries.
+A reviewer disagreement is resolved with evidence, not by weakening the gate.
+Run affected lanes after every fix. Final completion requires no unresolved accepted finding,
 all required local gates green at the reviewed revision, and explicit limits on
 claims that require external operations. Deterministic bytes must be verified on
 the supported platforms at the final revision. Missing platform evidence is
@@ -424,99 +469,106 @@ scope only through an explicit reviewed decision consistent with user requiremen
 
 ## Dispatch rules and cost control
 
-Terra medium writes one contract for each small executable unit, then an independent
-Sol medium reviewer checks any new design or boundary decision. The coordinator
-dispatches only the reviewed contract. A broad instruction such as "implement
-safe decoding" is a planning task for Terra medium, not a complete worker brief.
+Most tasks should stay on Luna. Do not enforce a percentage or spend multiple
+Luna retries on code that is already known to require Terra. Select by the
+actual risk and boundedness of the task.
 
-Use this contract format. Replace every placeholder before dispatch:
+| Situation | Action |
+|---|---|
+| Command, inventory, exact replacement or approved text | Luna low. |
+| Fixed-interface local Rust, ordinary tests, docs or tool edits | Luna medium; use high when the logic is nontrivial. |
+| Luna high exposes a specific unresolved local reasoning gap | Try Luna max once if the task remains bounded and its risk is low. |
+| Strict decoder/allocation logic, schema evolution, digest/approval semantics, or a cross-module design gap | Dispatch the narrow decision or implementation to Terra medium/high directly. |
+| A worker's first result contradicts its contract | Preserve evidence, classify typo versus reasoning/design failure, and repair only that unit. After two failed attempts at the same premise, stop retries and use Terra to diagnose. |
+
+Terra low may handle a small repair using context it already owns. Do not spawn
+Terra for a mechanical task that Luna can perform, or hold a Terra agent while
+commands run. Terra high is reserved for the strict decoder and genuinely hard
+reasoning; use medium for ordinary escalations. Return settled follow-up edits
+to Luna whenever the contract makes them safe.
+
+Sol stays review-only at low or medium. Required Sol medium gates are B's
+concrete design/oracle, the combined C/D/E risky implementation, F's benchmark
+conclusion, and I's final integrated artifact. Batch related findings and repair
+rechecks. Straightforward optional review questions use Sol low. Do not request
+a Sol review for each filename edit, command run or routine test expansion.
+A mandatory reviewer must be independent of the reviewed work. Passing tests or
+worker self-review cannot replace it.
+
+Use at most three children with a four-agent capacity. Separate concurrent
+writers into isolated worktrees; assign shared files and lockfiles one owner.
+Start each worker with a complete contract, using this format:
 
 ```text
 Task <ID> / contract revision <ID>
 
 1. Inputs and ownership
-   Model and effort: <Terra low or medium, selected by the Terra coordinator>
+   Model/effort: <allowed slug and effort, with one-line reason>
    Base commit and instruction snapshot hashes: <exact values>
    Required reads: <specific source, spec and design sections>
-   Files permitted to change: <exact paths and assigned symbols>
-   Files and behavior forbidden to change: <explicit boundaries>
-   Prerequisites: <completed task/review IDs and required artifacts>
+   Allowed changes: <exact files and symbols>
+   Forbidden changes: <scope and behavioral boundaries>
+   Prerequisites: <completed task/review IDs>
 
-2. Exact implementation instructions
-   Interfaces/types/schema: <signatures, field/tag table, visibility, errors>
+2. Exact work
+   Interfaces/types/schema: <signatures, tags, visibility, errors>
    Ordered edits: <bounded steps tied to paths and symbols>
-   Algorithm: <complete pseudocode for non-mechanical logic>
-   Edge cases: <presence, limits, overflow and failure precedence as relevant>
+   Algorithm and edge cases: <complete instructions for non-mechanical logic>
    Invariants: <observable behaviors that must remain true>
-   Approved documentation text: <exact text or artifact pointer if applicable>
+   Documentation content: <required facts or approved exact text>
 
 3. Verification
-   Fixtures and setup: <construction steps and pinned inputs>
-   Tests and assertions: <specific inputs, outputs, errors and unchanged values>
+   Fixtures/setup: <construction and pinned inputs>
+   Assertions: <inputs, outputs, errors and unchanged values>
    Commands: <copyable commands from the repository root>
-   Expected results: <exit status and concrete output/artifact checks>
-   Pass criteria: <all required observations, not just compilation>
+   Expected results: <exit status and actual artifact checks>
 
-4. Stop and escalation rules
-   If an interface is missing, an assumption fails, instructions conflict,
-   an unlisted file must change or a new design decision is needed, stop this
-   unit, preserve the diff and report the exact evidence to the coordinator.
-   Do not guess, weaken checks, change the spec or broaden scope.
-   Terra medium diagnoses the issue and issues a revised reviewed contract.
-   A mechanical typo may be fixed locally only when behavior and scope stay
-   exactly as specified; record it in the handoff.
+4. Stop/escalation
+   Report a missing decision, conflicting instruction, failed assumption,
+   unlisted file change or new design requirement with exact evidence.
+   Preserve the diff. Do not guess, weaken checks or change the spec.
+   The coordinator assigns a revised contract using the risk table above.
 
-5. Required handoff
-   Contract ID and resulting commit/diff identity.
-   Changed paths and completed instruction steps.
-   Commands, exit statuses and actual observations/artifact paths.
-   Deviations, unresolved concerns and any skipped verification.
-   Verdict: READY FOR SOL MEDIUM REVIEW or BLOCKED ON CONTRACT <specific gap>.
+5. Handoff
+   Contract and resulting commit/diff identity; changed paths and steps.
+   Commands, exit statuses and observed artifact paths.
+   Deviations, unresolved findings and skipped verification.
+   Verdict: VERIFIED AGAINST CONTRACT, NEEDS REQUIRED REVIEW, or BLOCKED <gap>.
 ```
 
-The planner does not need to write every Rust statement for a contract to be executable.
-It must settle every semantic choice and give sufficient types, algorithms,
-examples and expected results for Terra to implement without designing the
-feature. Terra may choose local names and formatting within the fixed contract.
-It must return any semantic ambiguity to the Terra medium planner immediately, rather than making two
-speculative implementation attempts.
+Luna may prepare a routine brief from an already settled design. A broad request
+such as "implement safe decoding" is not a worker contract; Terra must settle
+its security decisions at B first. A planner need not write every Rust statement,
+but must settle the semantics and give enough types, algorithms and examples
+for implementation without inventing product behavior.
 
-Supply task context by verified file pointers instead of pasting the entire
-transcript. The coordinator may dispatch independent ready tasks while Terra medium
-resolves a blocked contract; it must not proceed with work that depends on the
-unresolved decision.
+Escalate only the blocked unit and supply its exact evidence. Independent ready
+Luna tasks may continue. Retain completed work while the decision is resolved.
+Record each Terra/Sol dispatch and why Luna or a lower effort was insufficient;
+this is an audit of model use, not a reason to skip a necessary review.
 
-When using Codex model or effort overrides, set `fork_turns` to `none` and
-include all necessary task context and file pointers in the worker brief. Verify
-the brief points to the reviewed versions of both documents, including when
-they were uncommitted at startup.
+When overriding a model or effort in Codex, set `fork_turns` to `none` and include
+a self-contained brief with verified file pointers. Allowed slugs are
+`gpt-6-luna`, `gpt-6.1-terra` and `gpt-6.1-sol`; efforts must stay within the
+ranges in the model table. The active coordinator's model cannot be changed by
+the prompt. Preserve the reviewed instructions in each worktree even if they
+were uncommitted at startup.
 
-Use at most three children with a four-agent capacity. Do not have two agents
-edit one file or lockfile. Preserve cheap completed work while escalating only
-the disputed decision. A failed assertion returns its exact evidence to the Terra medium planner when
-the contract does not specify the repair. Terra medium writes the fix instructions;
-Terra applies them. After two failed attempts at an already specified repair, Terra medium must
-recheck the premise and rewrite the contract before another implementation
-attempt. A reviewer unavailable at the required
-model is a missing review, not permission to count worker self-review as approval.
-
-Use Terra for commands, implementation, detailed planning and resolving design
-gaps. Use Sol low for straightforward independent review and Sol medium for
-security-sensitive boundaries, benchmark conclusions and the final review. Sol medium reviews the actual changed files, benchmark evidence and
-outputs, not only the worker's handoff. Sol medium's acceptance closes each unit
-before dependent work is integrated. Terra medium writes repair instructions when
-needed. An independent Sol medium reviewer must review the final integrated
-result and the substantive design, regardless of earlier worker-task approvals.
-A failed gate or changed design invalidates the relevant previous review; it
-does not require rerunning unrelated workers.
+An unavailable required model leaves its review/task gate open. A failed gate
+or changed design invalidates the affected review and measurements; rerun only
+the affected work before the final integrated gates. Never mark the goal complete
+by lowering the review, safety, platform or verification requirements to save
+model usage.
 
 ## Later rollout phases
 
 These steps are outside the copyable implementation goal. They preserve the
 user's required order and need their actual external prerequisites.
-When those phases are authorized, Terra medium writes their concrete repository
-instructions and review criteria before Terra executes them. This plan does not
-give a lower-cost worker authority to invent capture, approval or release steps.
+When those phases are authorized, Luna medium/high prepares the concrete
+repository instructions from this runbook. Use Terra only for an unresolved
+capture, approval or release decision. Luna executes the bounded steps; Sol
+reviews any required risky boundary or final result. No worker invents capture,
+approval or release authority.
 
 1. After the implementation PR merges, record the full merged commit SHA. Recheck
    each downstream target's live head and instructions. Pin dependency and CLI to
