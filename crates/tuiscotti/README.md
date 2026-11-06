@@ -23,6 +23,9 @@ tuiscotti = "0.4"
 ratatui = "0.30"
 ```
 
+The published 0.4.0 release predates the binary sample changes in this
+working tree. To try this checkout, use a path dependency.
+
 The modules map one-to-one to the workflow stages:
 
 ```rust
@@ -74,6 +77,8 @@ fn main() -> tuiscotti::Result<()> {
 
 ## Contracts
 
+Samples and baselines use versioned Protobuf messages in Zstandard-compressed `.tui.pb` files. `Sample::to_bytes` writes the container. `Sample::from_bytes` validates and reads it. The reader rejects JSON samples without converting them. Regenerate old samples from their source.
+
 - **Two gates.** `state` compares canonical snapshot state only;
   `state-and-pixels` additionally compares the render contract and the
   decoded RGBA pixels. Pixels are only examined after state matches.
@@ -82,13 +87,9 @@ fn main() -> tuiscotti::Result<()> {
   empty segments, no `.`/`..`, no Windows device names. A
   `state-and-pixels` ID must end in `/pixels-<os>-<arch>`; a `state`
   ID must not end in a `pixels-` segment.
-- **Digests.** The candidate digest is the SHA-256 of the sample file
-  bytes. A baseline digest is the SHA-256 of the compared baseline
-  bytes, or the literal `missing` when no baseline exists. Compared
+- **Digests.** The candidate digest is the SHA-256 of the exact binary sample file bytes, including its header and compressed payload. A baseline digest is the SHA-256 of the compared baseline bytes, or the literal `missing` when no baseline exists. Compared
   state excludes test IDs, file bytes, and observation notes.
-- **Schemas.** Samples are `tuiscotti.sample.v1` JSON files; check
-  evidence records are `tuiscotti.check.v1`; CLI results are
-  `tuiscotti.cli.v1`. Unknown fields are rejected.
+- **Schemas.** The binary message carries the logical sample identifier `tuiscotti.sample.v1`. Check evidence records use `tuiscotti.check.v1`. CLI results use `tuiscotti.cli.v1` JSON. Sample decoding rejects unknown fields and unsupported versions.
 - **Limits (before allocation).** Sample files 64 MiB; one sample
   1,000,000 cells; one cell string 4,096 bytes; decoded RGBA 256 MiB;
   one image dimension 32,768 px; test ID 240 bytes (64 per segment).

@@ -1,0 +1,88 @@
+{
+  "schema": "tuiscotti-capture-pairing.v1",
+  "old_producer": "old",
+  "new_producer": "new",
+  "old_revision": "d8d54155947f6303a41dfd6079b53c0abc16f29a",
+  "new_revision": "d31900993b533ad4758848c261b5f4c5b2eb1cee",
+  "input_manifest_sha256_equal": true,
+  "old_ids": [
+    "holla-compact-80x24",
+    "holla-home-120x40",
+    "jackin-compact-80x24",
+    "jackin-home-120x40",
+    "showcase-compact-80x24",
+    "showcase-home-120x40",
+    "showcase-large-240x80",
+    "showcase-medium-160x50",
+    "tablepro-compact-80x24",
+    "tablepro-home-120x40"
+  ],
+  "new_ids": [
+    "holla-compact-80x24",
+    "holla-home-120x40",
+    "jackin-compact-80x24",
+    "jackin-home-120x40",
+    "showcase-compact-80x24",
+    "showcase-home-120x40",
+    "showcase-large-240x80",
+    "showcase-medium-160x50",
+    "tablepro-compact-80x24",
+    "tablepro-home-120x40"
+  ],
+  "unmatched_old": [],
+  "unmatched_new": [],
+  "pairs": [
+    {
+      "scenario_id": "holla-compact-80x24",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "holla-home-120x40",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "jackin-compact-80x24",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "jackin-home-120x40",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "showcase-compact-80x24",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "showcase-home-120x40",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "showcase-large-240x80",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "showcase-medium-160x50",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "tablepro-compact-80x24",
+      "matched": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "tablepro-home-120x40",
+      "matched": true,
+      "differences": []
+    }
+  ],
+  "mismatches": [],
+  "all_matched": true
+}

@@ -1,0 +1,3990 @@
+{
+  "schema": "tuiscotti-codec-matrix-run.v1",
+  "caps": {
+    "rss_bytes_per_process": 1073741824,
+    "seconds_per_complete_pass": 3600,
+    "cumulative_seconds": 259200
+  },
+  "execution_condition": "contended",
+  "timing_selection_eligible": false,
+  "selection_note": "No codec winner may be selected from --allow-contended data.",
+  "passes": [
+    {
+      "schema": "tuiscotti-codec-pass.v1",
+      "pass": 1,
+      "seed": 20261106,
+      "task_count": 52,
+      "expected_task_count": 52,
+      "wall_ns": 123933951750,
+      "contended_collection": true,
+      "timing_selection_eligible": false,
+      "host_observations": "host-observations.jsonl",
+      "failed": null,
+      "status": "PASS",
+      "tasks": [
+        {
+          "task": "01-xz-lzma2-protobuf-raw-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 591338208,
+          "time": {
+            "max_rss_native_units": 35323904,
+            "real_seconds": 0.56,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/01-xz-lzma2-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "02-gzip-protobuf-raw-level-1",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 180391292,
+          "time": {
+            "max_rss_native_units": 34897920,
+            "real_seconds": 0.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/02-gzip-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "03-brotli-protobuf-raw-level-5",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 5,
+          "wall_ns": 186695041,
+          "time": {
+            "max_rss_native_units": 35438592,
+            "real_seconds": 0.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/03-brotli-protobuf-raw-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "04-xz-lzma2-protobuf-raw-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 0,
+          "wall_ns": 312969500,
+          "time": {
+            "max_rss_native_units": 36782080,
+            "real_seconds": 0.3,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/04-xz-lzma2-protobuf-raw-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "05-gzip-protobuf-raw-level-6",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 208024417,
+          "time": {
+            "max_rss_native_units": 35323904,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/05-gzip-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "06-zstd-cli-json-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 437314167,
+          "time": {
+            "max_rss_native_units": 143458304,
+            "real_seconds": 0.43,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/06-zstd-cli-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "07-candidate-container-json-level-22",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 3336616916,
+          "time": {
+            "max_rss_native_units": 216645632,
+            "real_seconds": 3.32,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/07-candidate-container-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "08-candidate-container-json-level-15",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 2163481375,
+          "time": {
+            "max_rss_native_units": 199426048,
+            "real_seconds": 2.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/08-candidate-container-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "09-zstd-cli-json-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 510973291,
+          "time": {
+            "max_rss_native_units": 70828032,
+            "real_seconds": 0.49,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/09-zstd-cli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "10-xz-lzma2-json-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 3175869750,
+          "time": {
+            "max_rss_native_units": 71401472,
+            "real_seconds": 3.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/10-xz-lzma2-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "11-xz-lzma2-protobuf-raw-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 1735283334,
+          "time": {
+            "max_rss_native_units": 85655552,
+            "real_seconds": 1.72,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/11-xz-lzma2-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "12-brotli-json-level-9",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 412952375,
+          "time": {
+            "max_rss_native_units": 81133568,
+            "real_seconds": 0.4,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/12-brotli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "13-brotli-protobuf-raw-level-9",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 214710041,
+          "time": {
+            "max_rss_native_units": 44040192,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/13-brotli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "14-zstd-cli-protobuf-raw-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 12,
+          "wall_ns": 212986833,
+          "time": {
+            "max_rss_native_units": 45072384,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/14-zstd-cli-protobuf-raw-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "15-xz-lzma2-json-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1414419750,
+          "time": {
+            "max_rss_native_units": 119767040,
+            "real_seconds": 1.4,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/15-xz-lzma2-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "16-brotli-json-level-1",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 200828583,
+          "time": {
+            "max_rss_native_units": 72286208,
+            "real_seconds": 0.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/16-brotli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "17-zstd-cli-json-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 227218125,
+          "time": {
+            "max_rss_native_units": 71925760,
+            "real_seconds": 0.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/17-zstd-cli-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "18-zstd-cli-protobuf-raw-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 21,
+          "wall_ns": 1131387041,
+          "time": {
+            "max_rss_native_units": 57982976,
+            "real_seconds": 1.12,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/18-zstd-cli-protobuf-raw-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "19-candidate-container-json-level-19",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 2219757041,
+          "time": {
+            "max_rss_native_units": 211435520,
+            "real_seconds": 2.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/19-candidate-container-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "20-xz-lzma2-json-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 0,
+          "wall_ns": 693369333,
+          "time": {
+            "max_rss_native_units": 70631424,
+            "real_seconds": 0.68,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/20-xz-lzma2-json-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "21-zstd-cli-protobuf-raw-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 20,
+          "wall_ns": 2139266750,
+          "time": {
+            "max_rss_native_units": 57901056,
+            "real_seconds": 2.13,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/21-zstd-cli-protobuf-raw-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "22-gzip-json-level-6",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 345609167,
+          "time": {
+            "max_rss_native_units": 71401472,
+            "real_seconds": 0.34,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/22-gzip-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "23-zstd-cli-protobuf-raw-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 19,
+          "wall_ns": 943994416,
+          "time": {
+            "max_rss_native_units": 57950208,
+            "real_seconds": 0.93,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/23-zstd-cli-protobuf-raw-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "24-zstd-cli-json-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 3544172167,
+          "time": {
+            "max_rss_native_units": 216612864,
+            "real_seconds": 3.53,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/24-zstd-cli-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "25-candidate-container-json-level-9",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1894250459,
+          "time": {
+            "max_rss_native_units": 169181184,
+            "real_seconds": 1.88,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/25-candidate-container-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "26-xz-lzma2-json-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 854145959,
+          "time": {
+            "max_rss_native_units": 70811648,
+            "real_seconds": 0.84,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/26-xz-lzma2-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "27-zstd-cli-json-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 2284915958,
+          "time": {
+            "max_rss_native_units": 166739968,
+            "real_seconds": 2.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/27-zstd-cli-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "28-zstd-cli-protobuf-raw-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 22,
+          "wall_ns": 2164146875,
+          "time": {
+            "max_rss_native_units": 58032128,
+            "real_seconds": 2.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/28-zstd-cli-protobuf-raw-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "29-zstd-cli-protobuf-raw-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 15,
+          "wall_ns": 300192708,
+          "time": {
+            "max_rss_native_units": 64323584,
+            "real_seconds": 0.28,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/29-zstd-cli-protobuf-raw-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "30-zstd-cli-protobuf-raw-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 153236583,
+          "time": {
+            "max_rss_native_units": 34734080,
+            "real_seconds": 0.14,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/30-zstd-cli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "31-brotli-protobuf-raw-level-11",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 11,
+          "wall_ns": 6419660209,
+          "time": {
+            "max_rss_native_units": 62570496,
+            "real_seconds": 6.4,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/31-brotli-protobuf-raw-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "32-gzip-protobuf-raw-level-9",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 495490208,
+          "time": {
+            "max_rss_native_units": 34553856,
+            "real_seconds": 0.48,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/32-gzip-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "33-zstd-cli-protobuf-raw-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 384583625,
+          "time": {
+            "max_rss_native_units": 35831808,
+            "real_seconds": 0.35,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/33-zstd-cli-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "34-xz-lzma2-protobuf-raw-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 1334248291,
+          "time": {
+            "max_rss_native_units": 35291136,
+            "real_seconds": 1.32,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/34-xz-lzma2-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "35-zstd-cli-json-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 5433014334,
+          "time": {
+            "max_rss_native_units": 217350144,
+            "real_seconds": 5.42,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/35-zstd-cli-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "36-zstd-cli-json-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 212473125,
+          "time": {
+            "max_rss_native_units": 70533120,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/36-zstd-cli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "37-gzip-json-level-9",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 358487917,
+          "time": {
+            "max_rss_native_units": 71090176,
+            "real_seconds": 0.35,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/37-gzip-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "38-brotli-protobuf-raw-level-1",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 178517792,
+          "time": {
+            "max_rss_native_units": 35520512,
+            "real_seconds": 0.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/38-brotli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "39-zstd-cli-json-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 284606416,
+          "time": {
+            "max_rss_native_units": 99893248,
+            "real_seconds": 0.26,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/39-zstd-cli-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "40-candidate-container-json-level-20",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 3358394250,
+          "time": {
+            "max_rss_native_units": 198262784,
+            "real_seconds": 3.35,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/40-candidate-container-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "41-candidate-container-json-level-3",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 1297943042,
+          "time": {
+            "max_rss_native_units": 167804928,
+            "real_seconds": 1.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/41-candidate-container-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "42-gzip-json-level-1",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 221240458,
+          "time": {
+            "max_rss_native_units": 74842112,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/42-gzip-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "43-zstd-cli-json-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1677762958,
+          "time": {
+            "max_rss_native_units": 182812672,
+            "real_seconds": 1.67,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/43-zstd-cli-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "44-zstd-cli-protobuf-raw-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 18,
+          "wall_ns": 572029042,
+          "time": {
+            "max_rss_native_units": 57163776,
+            "real_seconds": 0.56,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/44-zstd-cli-protobuf-raw-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "45-zstd-cli-protobuf-raw-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 139853833,
+          "time": {
+            "max_rss_native_units": 34635776,
+            "real_seconds": 0.13,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/45-zstd-cli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "46-brotli-json-level-5",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 5,
+          "wall_ns": 226321375,
+          "time": {
+            "max_rss_native_units": 72810496,
+            "real_seconds": 0.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/46-brotli-json-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "47-candidate-container-json-level-1",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 1258775125,
+          "time": {
+            "max_rss_native_units": 163315712,
+            "real_seconds": 1.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/47-candidate-container-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "48-zstd-cli-json-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 1032099791,
+          "time": {
+            "max_rss_native_units": 128172032,
+            "real_seconds": 1.02,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/48-zstd-cli-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "49-candidate-container-json-level-21",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2367196000,
+          "time": {
+            "max_rss_native_units": 212844544,
+            "real_seconds": 2.35,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/49-candidate-container-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "50-candidate-container-json-level-18",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 1948927959,
+          "time": {
+            "max_rss_native_units": 217726976,
+            "real_seconds": 1.93,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/50-candidate-container-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "51-candidate-container-json-level-12",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 1495249666,
+          "time": {
+            "max_rss_native_units": 205897728,
+            "real_seconds": 1.49,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/51-candidate-container-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "52-brotli-json-level-11",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 11,
+          "wall_ns": 19252233167,
+          "time": {
+            "max_rss_native_units": 123617280,
+            "real_seconds": 19.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-01/52-brotli-json-level-11.json",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "schema": "tuiscotti-codec-pass.v1",
+      "pass": 2,
+      "seed": 20261107,
+      "task_count": 52,
+      "expected_task_count": 52,
+      "wall_ns": 91371684833,
+      "contended_collection": true,
+      "timing_selection_eligible": false,
+      "host_observations": "host-observations.jsonl",
+      "failed": null,
+      "status": "PASS",
+      "tasks": [
+        {
+          "task": "01-zstd-cli-json-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 668026292,
+          "time": {
+            "max_rss_native_units": 142557184,
+            "real_seconds": 0.65,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/01-zstd-cli-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "02-xz-lzma2-json-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1204514250,
+          "time": {
+            "max_rss_native_units": 119783424,
+            "real_seconds": 1.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/02-xz-lzma2-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "03-xz-lzma2-json-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 1150898791,
+          "time": {
+            "max_rss_native_units": 70844416,
+            "real_seconds": 1.14,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/03-xz-lzma2-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "04-gzip-protobuf-raw-level-1",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 162080875,
+          "time": {
+            "max_rss_native_units": 35504128,
+            "real_seconds": 0.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/04-gzip-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "05-zstd-cli-json-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 210075584,
+          "time": {
+            "max_rss_native_units": 69500928,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/05-zstd-cli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "06-candidate-container-json-level-3",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 1291990750,
+          "time": {
+            "max_rss_native_units": 171114496,
+            "real_seconds": 1.28,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/06-candidate-container-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "07-xz-lzma2-protobuf-raw-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 0,
+          "wall_ns": 308230792,
+          "time": {
+            "max_rss_native_units": 35586048,
+            "real_seconds": 0.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/07-xz-lzma2-protobuf-raw-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "08-brotli-protobuf-raw-level-5",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 5,
+          "wall_ns": 206365167,
+          "time": {
+            "max_rss_native_units": 34750464,
+            "real_seconds": 0.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/08-brotli-protobuf-raw-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "09-zstd-cli-json-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 289333583,
+          "time": {
+            "max_rss_native_units": 71499776,
+            "real_seconds": 0.28,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/09-zstd-cli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "10-candidate-container-json-level-21",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2152872458,
+          "time": {
+            "max_rss_native_units": 220348416,
+            "real_seconds": 2.14,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/10-candidate-container-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "11-candidate-container-json-level-19",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 2115473500,
+          "time": {
+            "max_rss_native_units": 217677824,
+            "real_seconds": 2.1,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/11-candidate-container-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "12-zstd-cli-protobuf-raw-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 20,
+          "wall_ns": 882087709,
+          "time": {
+            "max_rss_native_units": 57950208,
+            "real_seconds": 0.87,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/12-zstd-cli-protobuf-raw-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "13-zstd-cli-protobuf-raw-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 19,
+          "wall_ns": 783774875,
+          "time": {
+            "max_rss_native_units": 57950208,
+            "real_seconds": 0.77,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/13-zstd-cli-protobuf-raw-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "14-zstd-cli-protobuf-raw-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 12,
+          "wall_ns": 195119375,
+          "time": {
+            "max_rss_native_units": 44990464,
+            "real_seconds": 0.18,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/14-zstd-cli-protobuf-raw-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "15-candidate-container-json-level-12",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 1298482542,
+          "time": {
+            "max_rss_native_units": 181764096,
+            "real_seconds": 1.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/15-candidate-container-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "16-gzip-json-level-9",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 338398000,
+          "time": {
+            "max_rss_native_units": 71122944,
+            "real_seconds": 0.33,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/16-gzip-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "17-zstd-cli-protobuf-raw-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 22,
+          "wall_ns": 1524078709,
+          "time": {
+            "max_rss_native_units": 58081280,
+            "real_seconds": 1.51,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/17-zstd-cli-protobuf-raw-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "18-zstd-cli-json-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 1276585459,
+          "time": {
+            "max_rss_native_units": 166199296,
+            "real_seconds": 1.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/18-zstd-cli-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "19-gzip-json-level-6",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 294816625,
+          "time": {
+            "max_rss_native_units": 73662464,
+            "real_seconds": 0.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/19-gzip-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "20-candidate-container-json-level-1",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 1167355709,
+          "time": {
+            "max_rss_native_units": 183025664,
+            "real_seconds": 1.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/20-candidate-container-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "21-brotli-json-level-5",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 5,
+          "wall_ns": 261290334,
+          "time": {
+            "max_rss_native_units": 72122368,
+            "real_seconds": 0.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/21-brotli-json-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "22-zstd-cli-protobuf-raw-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 191811292,
+          "time": {
+            "max_rss_native_units": 35553280,
+            "real_seconds": 0.18,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/22-zstd-cli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "23-zstd-cli-protobuf-raw-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 138199500,
+          "time": {
+            "max_rss_native_units": 35651584,
+            "real_seconds": 0.12,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/23-zstd-cli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "24-gzip-protobuf-raw-level-9",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 272674083,
+          "time": {
+            "max_rss_native_units": 34914304,
+            "real_seconds": 0.26,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/24-gzip-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "25-xz-lzma2-json-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 0,
+          "wall_ns": 599945250,
+          "time": {
+            "max_rss_native_units": 68468736,
+            "real_seconds": 0.58,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/25-xz-lzma2-json-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "26-brotli-json-level-9",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 326815208,
+          "time": {
+            "max_rss_native_units": 81182720,
+            "real_seconds": 0.31,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/26-brotli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "27-xz-lzma2-json-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 668584250,
+          "time": {
+            "max_rss_native_units": 73318400,
+            "real_seconds": 0.66,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/27-xz-lzma2-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "28-xz-lzma2-protobuf-raw-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 712602458,
+          "time": {
+            "max_rss_native_units": 85671936,
+            "real_seconds": 0.7,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/28-xz-lzma2-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "29-candidate-container-json-level-20",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 3623058417,
+          "time": {
+            "max_rss_native_units": 200130560,
+            "real_seconds": 3.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/29-candidate-container-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "30-zstd-cli-json-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1521700542,
+          "time": {
+            "max_rss_native_units": 182763520,
+            "real_seconds": 1.51,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/30-zstd-cli-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "31-candidate-container-json-level-18",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 1804006125,
+          "time": {
+            "max_rss_native_units": 217792512,
+            "real_seconds": 1.79,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/31-candidate-container-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "32-zstd-cli-protobuf-raw-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 181007208,
+          "time": {
+            "max_rss_native_units": 34799616,
+            "real_seconds": 0.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/32-zstd-cli-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "33-zstd-cli-json-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 217137500,
+          "time": {
+            "max_rss_native_units": 71073792,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/33-zstd-cli-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "34-zstd-cli-json-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2590268875,
+          "time": {
+            "max_rss_native_units": 216449024,
+            "real_seconds": 2.58,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/34-zstd-cli-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "35-brotli-protobuf-raw-level-11",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 11,
+          "wall_ns": 4280226875,
+          "time": {
+            "max_rss_native_units": 60211200,
+            "real_seconds": 4.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/35-brotli-protobuf-raw-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "36-zstd-cli-protobuf-raw-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 18,
+          "wall_ns": 641376750,
+          "time": {
+            "max_rss_native_units": 57212928,
+            "real_seconds": 0.63,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/36-zstd-cli-protobuf-raw-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "37-gzip-protobuf-raw-level-6",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 203474875,
+          "time": {
+            "max_rss_native_units": 35684352,
+            "real_seconds": 0.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/37-gzip-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "38-gzip-json-level-1",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 230372042,
+          "time": {
+            "max_rss_native_units": 68960256,
+            "real_seconds": 0.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/38-gzip-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "39-brotli-json-level-11",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 11,
+          "wall_ns": 13297216667,
+          "time": {
+            "max_rss_native_units": 124157952,
+            "real_seconds": 13.28,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/39-brotli-json-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "40-brotli-protobuf-raw-level-9",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 190443875,
+          "time": {
+            "max_rss_native_units": 43876352,
+            "real_seconds": 0.18,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/40-brotli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "41-xz-lzma2-protobuf-raw-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 301258583,
+          "time": {
+            "max_rss_native_units": 35225600,
+            "real_seconds": 0.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/41-xz-lzma2-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "42-candidate-container-json-level-15",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 1298450083,
+          "time": {
+            "max_rss_native_units": 195821568,
+            "real_seconds": 1.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/42-candidate-container-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "43-zstd-cli-json-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 232803333,
+          "time": {
+            "max_rss_native_units": 100319232,
+            "real_seconds": 0.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/43-zstd-cli-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "44-zstd-cli-json-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 882161041,
+          "time": {
+            "max_rss_native_units": 128761856,
+            "real_seconds": 0.87,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/44-zstd-cli-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "45-zstd-cli-json-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 4040077916,
+          "time": {
+            "max_rss_native_units": 215580672,
+            "real_seconds": 4.03,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/45-zstd-cli-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "46-brotli-json-level-1",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 162382791,
+          "time": {
+            "max_rss_native_units": 73400320,
+            "real_seconds": 0.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/46-brotli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "47-candidate-container-json-level-22",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 2094868459,
+          "time": {
+            "max_rss_native_units": 201981952,
+            "real_seconds": 2.09,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/47-candidate-container-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "48-candidate-container-json-level-9",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1218153416,
+          "time": {
+            "max_rss_native_units": 185876480,
+            "real_seconds": 1.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/48-candidate-container-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "49-zstd-cli-protobuf-raw-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 21,
+          "wall_ns": 974365125,
+          "time": {
+            "max_rss_native_units": 58015744,
+            "real_seconds": 0.97,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/49-zstd-cli-protobuf-raw-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "50-zstd-cli-protobuf-raw-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 15,
+          "wall_ns": 234652208,
+          "time": {
+            "max_rss_native_units": 64356352,
+            "real_seconds": 0.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/50-zstd-cli-protobuf-raw-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "51-brotli-protobuf-raw-level-1",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 112645250,
+          "time": {
+            "max_rss_native_units": 35667968,
+            "real_seconds": 0.1,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/51-brotli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "52-xz-lzma2-protobuf-raw-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 693542125,
+          "time": {
+            "max_rss_native_units": 35323904,
+            "real_seconds": 0.68,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-02/52-xz-lzma2-protobuf-raw-level-6.json",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "schema": "tuiscotti-codec-pass.v1",
+      "pass": 3,
+      "seed": 20261108,
+      "task_count": 52,
+      "expected_task_count": 52,
+      "wall_ns": 146905306542,
+      "contended_collection": true,
+      "timing_selection_eligible": false,
+      "host_observations": "host-observations.jsonl",
+      "failed": null,
+      "status": "PASS",
+      "tasks": [
+        {
+          "task": "01-xz-lzma2-json-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 1092174667,
+          "time": {
+            "max_rss_native_units": 70926336,
+            "real_seconds": 1.08,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/01-xz-lzma2-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "02-candidate-container-json-level-22",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 2299835417,
+          "time": {
+            "max_rss_native_units": 197361664,
+            "real_seconds": 2.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/02-candidate-container-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "03-candidate-container-json-level-9",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1277211334,
+          "time": {
+            "max_rss_native_units": 187957248,
+            "real_seconds": 1.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/03-candidate-container-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "04-gzip-json-level-6",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 277864000,
+          "time": {
+            "max_rss_native_units": 72466432,
+            "real_seconds": 0.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/04-gzip-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "05-brotli-protobuf-raw-level-9",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 184620667,
+          "time": {
+            "max_rss_native_units": 44482560,
+            "real_seconds": 0.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/05-brotli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "06-candidate-container-json-level-15",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 1549640792,
+          "time": {
+            "max_rss_native_units": 226213888,
+            "real_seconds": 1.54,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/06-candidate-container-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "07-xz-lzma2-protobuf-raw-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 1013712292,
+          "time": {
+            "max_rss_native_units": 36339712,
+            "real_seconds": 0.95,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/07-xz-lzma2-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "08-xz-lzma2-json-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 660148625,
+          "time": {
+            "max_rss_native_units": 72351744,
+            "real_seconds": 0.65,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/08-xz-lzma2-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "09-candidate-container-json-level-21",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 1969831750,
+          "time": {
+            "max_rss_native_units": 213385216,
+            "real_seconds": 1.96,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/09-candidate-container-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "10-candidate-container-json-level-3",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 1207240292,
+          "time": {
+            "max_rss_native_units": 186974208,
+            "real_seconds": 1.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/10-candidate-container-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "11-zstd-cli-json-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1257803459,
+          "time": {
+            "max_rss_native_units": 182845440,
+            "real_seconds": 1.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/11-zstd-cli-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "12-zstd-cli-json-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 212857625,
+          "time": {
+            "max_rss_native_units": 69976064,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/12-zstd-cli-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "13-gzip-protobuf-raw-level-1",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 148174333,
+          "time": {
+            "max_rss_native_units": 34570240,
+            "real_seconds": 0.14,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/13-gzip-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "14-candidate-container-json-level-20",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1888369084,
+          "time": {
+            "max_rss_native_units": 217759744,
+            "real_seconds": 1.88,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/14-candidate-container-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "15-xz-lzma2-protobuf-raw-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 0,
+          "wall_ns": 277127584,
+          "time": {
+            "max_rss_native_units": 35192832,
+            "real_seconds": 0.26,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/15-xz-lzma2-protobuf-raw-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "16-candidate-container-json-level-12",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 1302202333,
+          "time": {
+            "max_rss_native_units": 206454784,
+            "real_seconds": 1.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/16-candidate-container-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "17-gzip-protobuf-raw-level-9",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 222283750,
+          "time": {
+            "max_rss_native_units": 35291136,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/17-gzip-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "18-zstd-cli-protobuf-raw-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 165430416,
+          "time": {
+            "max_rss_native_units": 35848192,
+            "real_seconds": 0.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/18-zstd-cli-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "19-brotli-json-level-9",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 322009458,
+          "time": {
+            "max_rss_native_units": 80510976,
+            "real_seconds": 0.31,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/19-brotli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "20-xz-lzma2-json-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1144589250,
+          "time": {
+            "max_rss_native_units": 119816192,
+            "real_seconds": 1.13,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/20-xz-lzma2-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "21-zstd-cli-json-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 989693792,
+          "time": {
+            "max_rss_native_units": 128434176,
+            "real_seconds": 0.98,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/21-zstd-cli-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "22-zstd-cli-json-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 225681083,
+          "time": {
+            "max_rss_native_units": 72744960,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/22-zstd-cli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "23-xz-lzma2-json-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 0,
+          "wall_ns": 536948792,
+          "time": {
+            "max_rss_native_units": 69812224,
+            "real_seconds": 0.53,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/23-xz-lzma2-json-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "24-brotli-json-level-5",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 5,
+          "wall_ns": 239176917,
+          "time": {
+            "max_rss_native_units": 71712768,
+            "real_seconds": 0.23,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/24-brotli-json-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "25-zstd-cli-json-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 250450291,
+          "time": {
+            "max_rss_native_units": 75186176,
+            "real_seconds": 0.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/25-zstd-cli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "26-zstd-cli-json-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2335085459,
+          "time": {
+            "max_rss_native_units": 216629248,
+            "real_seconds": 2.33,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/26-zstd-cli-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "27-gzip-protobuf-raw-level-6",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 168991375,
+          "time": {
+            "max_rss_native_units": 34881536,
+            "real_seconds": 0.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/27-gzip-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "28-brotli-json-level-1",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 152032709,
+          "time": {
+            "max_rss_native_units": 69632000,
+            "real_seconds": 0.14,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/28-brotli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "29-zstd-cli-json-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 240143792,
+          "time": {
+            "max_rss_native_units": 100089856,
+            "real_seconds": 0.23,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/29-zstd-cli-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "30-zstd-cli-protobuf-raw-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 159582959,
+          "time": {
+            "max_rss_native_units": 35209216,
+            "real_seconds": 0.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/30-zstd-cli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "31-zstd-cli-protobuf-raw-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 19,
+          "wall_ns": 793288459,
+          "time": {
+            "max_rss_native_units": 57950208,
+            "real_seconds": 0.78,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/31-zstd-cli-protobuf-raw-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "32-xz-lzma2-protobuf-raw-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 622961834,
+          "time": {
+            "max_rss_native_units": 85639168,
+            "real_seconds": 0.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/32-xz-lzma2-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "33-zstd-cli-json-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 1805539000,
+          "time": {
+            "max_rss_native_units": 165101568,
+            "real_seconds": 1.79,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/33-zstd-cli-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "34-brotli-json-level-11",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 11,
+          "wall_ns": 27991662250,
+          "time": {
+            "max_rss_native_units": 120651776,
+            "real_seconds": 27.98,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/34-brotli-json-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "35-zstd-cli-protobuf-raw-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 22,
+          "wall_ns": 2650091959,
+          "time": {
+            "max_rss_native_units": 58097664,
+            "real_seconds": 2.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/35-zstd-cli-protobuf-raw-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "36-zstd-cli-protobuf-raw-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 18,
+          "wall_ns": 859944333,
+          "time": {
+            "max_rss_native_units": 57131008,
+            "real_seconds": 0.85,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/36-zstd-cli-protobuf-raw-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "37-gzip-json-level-9",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 489793166,
+          "time": {
+            "max_rss_native_units": 71368704,
+            "real_seconds": 0.48,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/37-gzip-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "38-zstd-cli-protobuf-raw-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 12,
+          "wall_ns": 327228209,
+          "time": {
+            "max_rss_native_units": 45072384,
+            "real_seconds": 0.31,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/38-zstd-cli-protobuf-raw-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "39-brotli-protobuf-raw-level-11",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 11,
+          "wall_ns": 7824545542,
+          "time": {
+            "max_rss_native_units": 62095360,
+            "real_seconds": 7.81,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/39-brotli-protobuf-raw-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "40-candidate-container-json-level-19",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 3548209708,
+          "time": {
+            "max_rss_native_units": 198115328,
+            "real_seconds": 3.53,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/40-candidate-container-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "41-brotli-protobuf-raw-level-5",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 5,
+          "wall_ns": 298310166,
+          "time": {
+            "max_rss_native_units": 33996800,
+            "real_seconds": 0.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/41-brotli-protobuf-raw-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "42-candidate-container-json-level-18",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 6624278583,
+          "time": {
+            "max_rss_native_units": 215334912,
+            "real_seconds": 6.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/42-candidate-container-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "43-zstd-cli-protobuf-raw-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 20,
+          "wall_ns": 2849850291,
+          "time": {
+            "max_rss_native_units": 57999360,
+            "real_seconds": 2.84,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/43-zstd-cli-protobuf-raw-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "44-brotli-protobuf-raw-level-1",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 229270500,
+          "time": {
+            "max_rss_native_units": 35094528,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/44-brotli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "45-gzip-json-level-1",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 414536208,
+          "time": {
+            "max_rss_native_units": 72318976,
+            "real_seconds": 0.37,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/45-gzip-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "46-candidate-container-json-level-1",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 4588425042,
+          "time": {
+            "max_rss_native_units": 161955840,
+            "real_seconds": 4.58,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/46-candidate-container-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "47-xz-lzma2-protobuf-raw-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 856282500,
+          "time": {
+            "max_rss_native_units": 35160064,
+            "real_seconds": 0.84,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/47-xz-lzma2-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "48-zstd-cli-protobuf-raw-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 15,
+          "wall_ns": 465815375,
+          "time": {
+            "max_rss_native_units": 64372736,
+            "real_seconds": 0.45,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/48-zstd-cli-protobuf-raw-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "49-zstd-cli-json-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 18042125750,
+          "time": {
+            "max_rss_native_units": 217186304,
+            "real_seconds": 18.03,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/49-zstd-cli-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "50-zstd-cli-json-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 973975542,
+          "time": {
+            "max_rss_native_units": 143081472,
+            "real_seconds": 0.96,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/50-zstd-cli-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "51-zstd-cli-protobuf-raw-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 21,
+          "wall_ns": 2063127625,
+          "time": {
+            "max_rss_native_units": 58048512,
+            "real_seconds": 2.05,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/51-zstd-cli-protobuf-raw-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "52-zstd-cli-protobuf-raw-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 191968083,
+          "time": {
+            "max_rss_native_units": 35651584,
+            "real_seconds": 0.18,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-03/52-zstd-cli-protobuf-raw-level-1.json",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "schema": "tuiscotti-codec-pass.v1",
+      "pass": 4,
+      "seed": 20261109,
+      "task_count": 52,
+      "expected_task_count": 52,
+      "wall_ns": 110844307250,
+      "contended_collection": true,
+      "timing_selection_eligible": false,
+      "host_observations": "host-observations.jsonl",
+      "failed": null,
+      "status": "PASS",
+      "tasks": [
+        {
+          "task": "01-candidate-container-json-level-3",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 2703027750,
+          "time": {
+            "max_rss_native_units": 183762944,
+            "real_seconds": 2.69,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/01-candidate-container-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "02-zstd-cli-protobuf-raw-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 15,
+          "wall_ns": 448130000,
+          "time": {
+            "max_rss_native_units": 64405504,
+            "real_seconds": 0.39,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/02-zstd-cli-protobuf-raw-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "03-zstd-cli-json-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 2124690958,
+          "time": {
+            "max_rss_native_units": 128040960,
+            "real_seconds": 2.04,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/03-zstd-cli-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "04-zstd-cli-json-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 3093875792,
+          "time": {
+            "max_rss_native_units": 165134336,
+            "real_seconds": 3.0,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/04-zstd-cli-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "05-brotli-protobuf-raw-level-1",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 264849000,
+          "time": {
+            "max_rss_native_units": 34570240,
+            "real_seconds": 0.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/05-brotli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "06-zstd-cli-protobuf-raw-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 18,
+          "wall_ns": 1128963375,
+          "time": {
+            "max_rss_native_units": 57163776,
+            "real_seconds": 1.09,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/06-zstd-cli-protobuf-raw-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "07-xz-lzma2-protobuf-raw-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 0,
+          "wall_ns": 424347708,
+          "time": {
+            "max_rss_native_units": 35586048,
+            "real_seconds": 0.41,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/07-xz-lzma2-protobuf-raw-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "08-gzip-protobuf-raw-level-6",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 278654166,
+          "time": {
+            "max_rss_native_units": 34504704,
+            "real_seconds": 0.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/08-gzip-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "09-brotli-json-level-11",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 11,
+          "wall_ns": 30144250125,
+          "time": {
+            "max_rss_native_units": 123174912,
+            "real_seconds": 30.1,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/09-brotli-json-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "10-brotli-protobuf-raw-level-5",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 5,
+          "wall_ns": 206542959,
+          "time": {
+            "max_rss_native_units": 33865728,
+            "real_seconds": 0.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/10-brotli-protobuf-raw-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "11-brotli-json-level-1",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 191448000,
+          "time": {
+            "max_rss_native_units": 71172096,
+            "real_seconds": 0.18,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/11-brotli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "12-candidate-container-json-level-20",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1816320417,
+          "time": {
+            "max_rss_native_units": 215859200,
+            "real_seconds": 1.81,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/12-candidate-container-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "13-xz-lzma2-json-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 1103855667,
+          "time": {
+            "max_rss_native_units": 71974912,
+            "real_seconds": 1.09,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/13-xz-lzma2-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "14-zstd-cli-json-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1237484917,
+          "time": {
+            "max_rss_native_units": 182763520,
+            "real_seconds": 1.23,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/14-zstd-cli-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "15-zstd-cli-protobuf-raw-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 19,
+          "wall_ns": 801591958,
+          "time": {
+            "max_rss_native_units": 57950208,
+            "real_seconds": 0.79,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/15-zstd-cli-protobuf-raw-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "16-candidate-container-json-level-22",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 2178879709,
+          "time": {
+            "max_rss_native_units": 216399872,
+            "real_seconds": 2.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/16-candidate-container-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "17-candidate-container-json-level-15",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 1338929417,
+          "time": {
+            "max_rss_native_units": 197345280,
+            "real_seconds": 1.33,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/17-candidate-container-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "18-zstd-cli-json-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 357538875,
+          "time": {
+            "max_rss_native_units": 143212544,
+            "real_seconds": 0.35,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/18-zstd-cli-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "19-brotli-protobuf-raw-level-11",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 11,
+          "wall_ns": 3901838750,
+          "time": {
+            "max_rss_native_units": 62898176,
+            "real_seconds": 3.89,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/19-brotli-protobuf-raw-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "20-zstd-cli-protobuf-raw-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 129233792,
+          "time": {
+            "max_rss_native_units": 34258944,
+            "real_seconds": 0.12,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/20-zstd-cli-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "21-gzip-json-level-1",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 213823291,
+          "time": {
+            "max_rss_native_units": 69648384,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/21-gzip-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "22-candidate-container-json-level-18",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 1543476500,
+          "time": {
+            "max_rss_native_units": 215531520,
+            "real_seconds": 1.53,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/22-candidate-container-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "23-zstd-cli-protobuf-raw-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 21,
+          "wall_ns": 969150166,
+          "time": {
+            "max_rss_native_units": 57982976,
+            "real_seconds": 0.96,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/23-zstd-cli-protobuf-raw-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "24-candidate-container-json-level-9",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1249559750,
+          "time": {
+            "max_rss_native_units": 185679872,
+            "real_seconds": 1.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/24-candidate-container-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "25-zstd-cli-protobuf-raw-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 150174708,
+          "time": {
+            "max_rss_native_units": 34029568,
+            "real_seconds": 0.14,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/25-zstd-cli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "26-xz-lzma2-json-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 0,
+          "wall_ns": 515510250,
+          "time": {
+            "max_rss_native_units": 75268096,
+            "real_seconds": 0.5,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/26-xz-lzma2-json-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "27-xz-lzma2-json-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1086745958,
+          "time": {
+            "max_rss_native_units": 119767040,
+            "real_seconds": 1.08,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/27-xz-lzma2-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "28-gzip-json-level-9",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 322931375,
+          "time": {
+            "max_rss_native_units": 72794112,
+            "real_seconds": 0.31,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/28-gzip-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "29-brotli-json-level-9",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 267390125,
+          "time": {
+            "max_rss_native_units": 81149952,
+            "real_seconds": 0.26,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/29-brotli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "30-zstd-cli-json-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 224918042,
+          "time": {
+            "max_rss_native_units": 71057408,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/30-zstd-cli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "31-xz-lzma2-protobuf-raw-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 600775917,
+          "time": {
+            "max_rss_native_units": 85622784,
+            "real_seconds": 0.59,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/31-xz-lzma2-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "32-xz-lzma2-protobuf-raw-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 559451959,
+          "time": {
+            "max_rss_native_units": 35307520,
+            "real_seconds": 0.55,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/32-xz-lzma2-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "33-xz-lzma2-protobuf-raw-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 310217292,
+          "time": {
+            "max_rss_native_units": 33849344,
+            "real_seconds": 0.3,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/33-xz-lzma2-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "34-zstd-cli-json-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 4160379250,
+          "time": {
+            "max_rss_native_units": 217169920,
+            "real_seconds": 4.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/34-zstd-cli-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "35-zstd-cli-protobuf-raw-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 115737417,
+          "time": {
+            "max_rss_native_units": 34406400,
+            "real_seconds": 0.11,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/35-zstd-cli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "36-zstd-cli-json-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 186865500,
+          "time": {
+            "max_rss_native_units": 75563008,
+            "real_seconds": 0.18,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/36-zstd-cli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "37-brotli-protobuf-raw-level-9",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 173765750,
+          "time": {
+            "max_rss_native_units": 43515904,
+            "real_seconds": 0.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/37-brotli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "38-gzip-json-level-6",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 272754125,
+          "time": {
+            "max_rss_native_units": 71434240,
+            "real_seconds": 0.26,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/38-gzip-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "39-gzip-protobuf-raw-level-1",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 137584167,
+          "time": {
+            "max_rss_native_units": 35536896,
+            "real_seconds": 0.13,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/39-gzip-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "40-zstd-cli-json-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 246460209,
+          "time": {
+            "max_rss_native_units": 100139008,
+            "real_seconds": 0.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/40-zstd-cli-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "41-candidate-container-json-level-19",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 1855415958,
+          "time": {
+            "max_rss_native_units": 219332608,
+            "real_seconds": 1.84,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/41-candidate-container-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "42-zstd-cli-protobuf-raw-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 22,
+          "wall_ns": 1547592667,
+          "time": {
+            "max_rss_native_units": 58032128,
+            "real_seconds": 1.54,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/42-zstd-cli-protobuf-raw-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "43-candidate-container-json-level-1",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 1254343833,
+          "time": {
+            "max_rss_native_units": 165838848,
+            "real_seconds": 1.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/43-candidate-container-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "44-gzip-protobuf-raw-level-9",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 245473083,
+          "time": {
+            "max_rss_native_units": 34603008,
+            "real_seconds": 0.23,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/44-gzip-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "45-zstd-cli-protobuf-raw-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 12,
+          "wall_ns": 217611750,
+          "time": {
+            "max_rss_native_units": 45023232,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/45-zstd-cli-protobuf-raw-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "46-zstd-cli-protobuf-raw-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 20,
+          "wall_ns": 958852000,
+          "time": {
+            "max_rss_native_units": 57966592,
+            "real_seconds": 0.95,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/46-zstd-cli-protobuf-raw-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "47-candidate-container-json-level-21",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2049444958,
+          "time": {
+            "max_rss_native_units": 219578368,
+            "real_seconds": 2.04,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/47-candidate-container-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "48-brotli-json-level-5",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 5,
+          "wall_ns": 248708708,
+          "time": {
+            "max_rss_native_units": 72073216,
+            "real_seconds": 0.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/48-brotli-json-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "49-zstd-cli-json-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2421078458,
+          "time": {
+            "max_rss_native_units": 215662592,
+            "real_seconds": 2.41,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/49-zstd-cli-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "50-xz-lzma2-json-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 617008667,
+          "time": {
+            "max_rss_native_units": 71106560,
+            "real_seconds": 0.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/50-xz-lzma2-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "51-candidate-container-json-level-12",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 1275439750,
+          "time": {
+            "max_rss_native_units": 193167360,
+            "real_seconds": 1.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/51-candidate-container-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "52-zstd-cli-json-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 198053959,
+          "time": {
+            "max_rss_native_units": 72433664,
+            "real_seconds": 0.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-04/52-zstd-cli-json-level-3.json",
+          "verified": true
+        }
+      ]
+    },
+    {
+      "schema": "tuiscotti-codec-pass.v1",
+      "pass": 5,
+      "seed": 20261110,
+      "task_count": 52,
+      "expected_task_count": 52,
+      "wall_ns": 89142120209,
+      "contended_collection": true,
+      "timing_selection_eligible": false,
+      "host_observations": "host-observations.jsonl",
+      "failed": null,
+      "status": "PASS",
+      "tasks": [
+        {
+          "task": "01-zstd-cli-json-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 257780959,
+          "time": {
+            "max_rss_native_units": 100352000,
+            "real_seconds": 0.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/01-zstd-cli-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "02-zstd-cli-json-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 1301943667,
+          "time": {
+            "max_rss_native_units": 166248448,
+            "real_seconds": 1.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/02-zstd-cli-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "03-candidate-container-json-level-22",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 2227353458,
+          "time": {
+            "max_rss_native_units": 201392128,
+            "real_seconds": 2.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/03-candidate-container-json-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "04-zstd-cli-protobuf-raw-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 15,
+          "wall_ns": 275392250,
+          "time": {
+            "max_rss_native_units": 64438272,
+            "real_seconds": 0.27,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/04-zstd-cli-protobuf-raw-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "05-gzip-protobuf-raw-level-6",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 180803625,
+          "time": {
+            "max_rss_native_units": 35356672,
+            "real_seconds": 0.17,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/05-gzip-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "06-zstd-cli-json-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 207871583,
+          "time": {
+            "max_rss_native_units": 73760768,
+            "real_seconds": 0.2,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/06-zstd-cli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "07-zstd-cli-protobuf-raw-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 22,
+          "wall_ns": 1428074292,
+          "time": {
+            "max_rss_native_units": 57982976,
+            "real_seconds": 1.42,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/07-zstd-cli-protobuf-raw-level-22.json",
+          "verified": true
+        },
+        {
+          "task": "08-candidate-container-json-level-12",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 12,
+          "wall_ns": 1255154083,
+          "time": {
+            "max_rss_native_units": 185647104,
+            "real_seconds": 1.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/08-candidate-container-json-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "09-zstd-cli-protobuf-raw-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 20,
+          "wall_ns": 925807292,
+          "time": {
+            "max_rss_native_units": 57982976,
+            "real_seconds": 0.92,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/09-zstd-cli-protobuf-raw-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "10-xz-lzma2-json-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 1110807583,
+          "time": {
+            "max_rss_native_units": 70811648,
+            "real_seconds": 1.1,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/10-xz-lzma2-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "11-brotli-json-level-1",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 175312875,
+          "time": {
+            "max_rss_native_units": 70729728,
+            "real_seconds": 0.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/11-brotli-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "12-candidate-container-json-level-1",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 1242337917,
+          "time": {
+            "max_rss_native_units": 183975936,
+            "real_seconds": 1.23,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/12-candidate-container-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "13-xz-lzma2-json-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 616133792,
+          "time": {
+            "max_rss_native_units": 73416704,
+            "real_seconds": 0.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/13-xz-lzma2-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "14-gzip-protobuf-raw-level-9",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 216205667,
+          "time": {
+            "max_rss_native_units": 36323328,
+            "real_seconds": 0.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/14-gzip-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "15-candidate-container-json-level-3",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 1225781333,
+          "time": {
+            "max_rss_native_units": 187236352,
+            "real_seconds": 1.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/15-candidate-container-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "16-candidate-container-json-level-9",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1252664125,
+          "time": {
+            "max_rss_native_units": 185040896,
+            "real_seconds": 1.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/16-candidate-container-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "17-xz-lzma2-json-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 1122639208,
+          "time": {
+            "max_rss_native_units": 119783424,
+            "real_seconds": 1.11,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/17-xz-lzma2-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "18-xz-lzma2-protobuf-raw-level-9",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 616503208,
+          "time": {
+            "max_rss_native_units": 85606400,
+            "real_seconds": 0.61,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/18-xz-lzma2-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "19-brotli-json-level-9",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 285063541,
+          "time": {
+            "max_rss_native_units": 80592896,
+            "real_seconds": 0.28,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/19-brotli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "20-candidate-container-json-level-15",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 1378413708,
+          "time": {
+            "max_rss_native_units": 224493568,
+            "real_seconds": 1.37,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/20-candidate-container-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "21-candidate-container-json-level-19",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 19,
+          "wall_ns": 1812259625,
+          "time": {
+            "max_rss_native_units": 199786496,
+            "real_seconds": 1.8,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/21-candidate-container-json-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "22-zstd-cli-json-level-20",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1292742625,
+          "time": {
+            "max_rss_native_units": 183451648,
+            "real_seconds": 1.28,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/22-zstd-cli-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "23-zstd-cli-json-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 921239083,
+          "time": {
+            "max_rss_native_units": 128352256,
+            "real_seconds": 0.91,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/23-zstd-cli-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "24-zstd-cli-protobuf-raw-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 132571167,
+          "time": {
+            "max_rss_native_units": 35799040,
+            "real_seconds": 0.12,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/24-zstd-cli-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "25-zstd-cli-json-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2354355584,
+          "time": {
+            "max_rss_native_units": 217841664,
+            "real_seconds": 2.34,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/25-zstd-cli-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "26-candidate-container-json-level-18",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 18,
+          "wall_ns": 1637507750,
+          "time": {
+            "max_rss_native_units": 221839360,
+            "real_seconds": 1.63,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/26-candidate-container-json-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "27-candidate-container-json-level-20",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 20,
+          "wall_ns": 1912929542,
+          "time": {
+            "max_rss_native_units": 203472896,
+            "real_seconds": 1.9,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/27-candidate-container-json-level-20.json",
+          "verified": true
+        },
+        {
+          "task": "28-gzip-json-level-6",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 6,
+          "wall_ns": 300937000,
+          "time": {
+            "max_rss_native_units": 69091328,
+            "real_seconds": 0.29,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/28-gzip-json-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "29-zstd-cli-protobuf-raw-level-19",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 19,
+          "wall_ns": 881384208,
+          "time": {
+            "max_rss_native_units": 57982976,
+            "real_seconds": 0.87,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/29-zstd-cli-protobuf-raw-level-19.json",
+          "verified": true
+        },
+        {
+          "task": "30-zstd-cli-json-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 255923333,
+          "time": {
+            "max_rss_native_units": 68485120,
+            "real_seconds": 0.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/30-zstd-cli-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "31-brotli-protobuf-raw-level-5",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 5,
+          "wall_ns": 159916250,
+          "time": {
+            "max_rss_native_units": 34160640,
+            "real_seconds": 0.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/31-brotli-protobuf-raw-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "32-zstd-cli-protobuf-raw-level-21",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 21,
+          "wall_ns": 1058435375,
+          "time": {
+            "max_rss_native_units": 58032128,
+            "real_seconds": 1.05,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/32-zstd-cli-protobuf-raw-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "33-zstd-cli-protobuf-raw-level-9",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 170796750,
+          "time": {
+            "max_rss_native_units": 34734080,
+            "real_seconds": 0.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/33-zstd-cli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "34-candidate-container-json-level-21",
+          "codec": "candidate-container",
+          "source_kind": "json",
+          "setting": 21,
+          "wall_ns": 2590984708,
+          "time": {
+            "max_rss_native_units": 220561408,
+            "real_seconds": 2.58,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/34-candidate-container-json-level-21.json",
+          "verified": true
+        },
+        {
+          "task": "35-zstd-cli-protobuf-raw-level-18",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 18,
+          "wall_ns": 679509291,
+          "time": {
+            "max_rss_native_units": 57163776,
+            "real_seconds": 0.67,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/35-zstd-cli-protobuf-raw-level-18.json",
+          "verified": true
+        },
+        {
+          "task": "36-gzip-json-level-9",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 9,
+          "wall_ns": 333554500,
+          "time": {
+            "max_rss_native_units": 72253440,
+            "real_seconds": 0.32,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/36-gzip-json-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "37-xz-lzma2-protobuf-raw-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 0,
+          "wall_ns": 264148500,
+          "time": {
+            "max_rss_native_units": 34783232,
+            "real_seconds": 0.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/37-xz-lzma2-protobuf-raw-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "38-brotli-json-level-5",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 5,
+          "wall_ns": 232048292,
+          "time": {
+            "max_rss_native_units": 71237632,
+            "real_seconds": 0.22,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/38-brotli-json-level-5.json",
+          "verified": true
+        },
+        {
+          "task": "39-zstd-cli-json-level-15",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 15,
+          "wall_ns": 363217709,
+          "time": {
+            "max_rss_native_units": 142508032,
+            "real_seconds": 0.35,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/39-zstd-cli-json-level-15.json",
+          "verified": true
+        },
+        {
+          "task": "40-brotli-protobuf-raw-level-9",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 9,
+          "wall_ns": 199051791,
+          "time": {
+            "max_rss_native_units": 44023808,
+            "real_seconds": 0.19,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/40-brotli-protobuf-raw-level-9.json",
+          "verified": true
+        },
+        {
+          "task": "41-xz-lzma2-protobuf-raw-level-3",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 3,
+          "wall_ns": 342155167,
+          "time": {
+            "max_rss_native_units": 34619392,
+            "real_seconds": 0.33,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/41-xz-lzma2-protobuf-raw-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "42-gzip-protobuf-raw-level-1",
+          "codec": "gzip",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 156452792,
+          "time": {
+            "max_rss_native_units": 35831808,
+            "real_seconds": 0.15,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/42-gzip-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "43-zstd-cli-protobuf-raw-level-1",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 133324459,
+          "time": {
+            "max_rss_native_units": 36077568,
+            "real_seconds": 0.12,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/43-zstd-cli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "44-zstd-cli-protobuf-raw-level-12",
+          "codec": "zstd-cli",
+          "source_kind": "protobuf-raw",
+          "setting": 12,
+          "wall_ns": 168802000,
+          "time": {
+            "max_rss_native_units": 45039616,
+            "real_seconds": 0.16,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/44-zstd-cli-protobuf-raw-level-12.json",
+          "verified": true
+        },
+        {
+          "task": "45-brotli-protobuf-raw-level-1",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 1,
+          "wall_ns": 130609459,
+          "time": {
+            "max_rss_native_units": 37453824,
+            "real_seconds": 0.12,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/45-brotli-protobuf-raw-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "46-xz-lzma2-json-level-0",
+          "codec": "xz-lzma2",
+          "source_kind": "json",
+          "setting": 0,
+          "wall_ns": 531179875,
+          "time": {
+            "max_rss_native_units": 72679424,
+            "real_seconds": 0.52,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/46-xz-lzma2-json-level-0.json",
+          "verified": true
+        },
+        {
+          "task": "47-gzip-json-level-1",
+          "codec": "gzip",
+          "source_kind": "json",
+          "setting": 1,
+          "wall_ns": 237219250,
+          "time": {
+            "max_rss_native_units": 71221248,
+            "real_seconds": 0.23,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/47-gzip-json-level-1.json",
+          "verified": true
+        },
+        {
+          "task": "48-brotli-protobuf-raw-level-11",
+          "codec": "brotli",
+          "source_kind": "protobuf-raw",
+          "setting": 11,
+          "wall_ns": 4069276583,
+          "time": {
+            "max_rss_native_units": 61472768,
+            "real_seconds": 4.06,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/48-brotli-protobuf-raw-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "49-xz-lzma2-protobuf-raw-level-6",
+          "codec": "xz-lzma2",
+          "source_kind": "protobuf-raw",
+          "setting": 6,
+          "wall_ns": 673883333,
+          "time": {
+            "max_rss_native_units": 35307520,
+            "real_seconds": 0.66,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/49-xz-lzma2-protobuf-raw-level-6.json",
+          "verified": true
+        },
+        {
+          "task": "50-zstd-cli-json-level-3",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 3,
+          "wall_ns": 259856625,
+          "time": {
+            "max_rss_native_units": 72531968,
+            "real_seconds": 0.25,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/50-zstd-cli-json-level-3.json",
+          "verified": true
+        },
+        {
+          "task": "51-brotli-json-level-11",
+          "codec": "brotli",
+          "source_kind": "json",
+          "setting": 11,
+          "wall_ns": 15220830125,
+          "time": {
+            "max_rss_native_units": 124207104,
+            "real_seconds": 15.21,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/51-brotli-json-level-11.json",
+          "verified": true
+        },
+        {
+          "task": "52-zstd-cli-json-level-22",
+          "codec": "zstd-cli",
+          "source_kind": "json",
+          "setting": 22,
+          "wall_ns": 4258230292,
+          "time": {
+            "max_rss_native_units": 215613440,
+            "real_seconds": 4.24,
+            "user_seconds": null,
+            "system_seconds": null
+          },
+          "result_json": "pass-05/52-zstd-cli-json-level-22.json",
+          "verified": true
+        }
+      ]
+    }
+  ],
+  "status": "PASS",
+  "cumulative_wall_ns": 562197370584
+}

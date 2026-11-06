@@ -1,0 +1,206 @@
+
+fn varint(mut value: u64) -> Vec<u8> {
+    let mut out = Vec::new();
+    while value >= 128 { out.push((value as u8) | 128); value >>= 7; }
+    out.push(value as u8); out
+}
+fn read_varint_at(bytes: &[u8], mut at: usize) -> (u64, usize) {
+    let start = at; let mut value = 0u64; let mut shift = 0;
+    loop { let byte = bytes[at]; at += 1; value |= u64::from(byte & 0x7f) << shift; if byte & 0x80 == 0 { return (value, at - start); } shift += 7; }
+}
+fn num(out: &mut Vec<u8>, tag: u32, value: u64) { out.extend(varint(u64::from(tag) << 3)); out.extend(varint(value)); }
+fn bytes(out: &mut Vec<u8>, tag: u32, value: &[u8]) { out.extend(varint((u64::from(tag) << 3) | 2)); out.extend(varint(value.len() as u64)); out.extend(value); }
+fn fixed32(out: &mut Vec<u8>, tag: u32, value: u32) { out.extend(varint((u64::from(tag) << 3) | 5)); out.extend(value.to_le_bytes()); }
+fn fixed64(out: &mut Vec<u8>, tag: u32, value: u64) { out.extend(varint((u64::from(tag) << 3) | 1)); out.extend(value.to_le_bytes()); }
+fn rgb(red: u32) -> Vec<u8> { let mut x = Vec::new(); num(&mut x, 1, u64::from(red)); num(&mut x, 2, 4); num(&mut x, 3, 5); x }
+fn color_rgb(red: u32) -> Vec<u8> { let mut x = Vec::new(); bytes(&mut x, 3, &rgb(red)); x }
+fn color_index(index: u32) -> Vec<u8> { let mut x = Vec::new(); num(&mut x, 2, u64::from(index)); x }
+fn color_default() -> Vec<u8> { let mut x = Vec::new(); bytes(&mut x, 1, &[]); x }
+fn cell(index: u32, underline: u32, bool_value: u32, width: u32, text: &[u8], red: u32) -> Vec<u8> {
+    let mut x = Vec::new(); bytes(&mut x, 1, text); num(&mut x, 2, u64::from(width));
+    bytes(&mut x, 3, &color_rgb(red)); bytes(&mut x, 4, &color_index(index));
+    for tag in 5..=11 { num(&mut x, tag, if tag == 5 { u64::from(bool_value) } else { 0 }); } num(&mut x, 12, u64::from(underline)); bytes(&mut x, 13, &color_default()); x
+}
+fn cursor(shape: u32, red: u32) -> Vec<u8> { let mut x = Vec::new(); num(&mut x, 1, 0); num(&mut x, 2, 0); num(&mut x, 3, 0); num(&mut x, 4, 0); num(&mut x, 5, u64::from(shape)); bytes(&mut x, 6, &rgb(red)); x }
+fn metadata(source: u32) -> Vec<u8> { let mut x = Vec::new(); num(&mut x, 1, 0); num(&mut x, 2, 0); bytes(&mut x, 3, b"backend"); bytes(&mut x, 4, b"session"); num(&mut x, 5, u64::from(source)); x }
+fn snapshot_with_palette(index: u32, scope: u32, underline: u32, source: u32, shape: u32, bool_value: u32, width: u32, text: &[u8], red: u32, palette_count: usize) -> Vec<u8> {
+    let mut x = Vec::new(); num(&mut x, 1, 1); num(&mut x, 2, 1); num(&mut x, 3, 1); num(&mut x, 4, u64::from(scope)); num(&mut x, 5, 0);
+    bytes(&mut x, 6, &cell(index, underline, bool_value, width, text, red));
+    for color in 0..palette_count { bytes(&mut x, 7, &rgb((color % 256) as u32)); }
+    bytes(&mut x, 8, &rgb(3)); bytes(&mut x, 9, &rgb(3)); bytes(&mut x, 10, &rgb(3));
+    bytes(&mut x, 11, &cursor(shape, 3)); bytes(&mut x, 13, &metadata(source)); x
+}
+fn snapshot(index: u32, scope: u32, underline: u32, source: u32, shape: u32, bool_value: u32, width: u32, text: &[u8], red: u32) -> Vec<u8> {
+    snapshot_with_palette(index, scope, underline, source, shape, bool_value, width, text, red, 256)
+}
+fn sample(index: u32) -> Vec<u8> {
+    sample_matrix(index, 1, 1, 1, 1, 0, 1, b"x", 3, false)
+}
+fn sample_with_note(index: u32, note_present: bool) -> Vec<u8> {
+    sample_matrix(index, 1, 1, 1, 1, 0, 1, b"x", 3, note_present)
+}
+fn sample_matrix_with_palette(index: u32, scope: u32, underline: u32, source: u32, shape: u32, bool_value: u32, width: u32, text: &[u8], red: u32, note_present: bool, palette_count: usize) -> Vec<u8> {
+    let mut x = Vec::new(); bytes(&mut x, 1, b"tuiscotti.sample.v1"); bytes(&mut x, 2, b"suite/test");
+    x.extend(varint(24)); x.extend([0x81, 0]); // legal non-minimal encoding for GATE_STATE
+    bytes(&mut x, 4, &snapshot_with_palette(index, scope, underline, source, shape, bool_value, width, text, red, palette_count)); let mut observation = Vec::new(); if note_present { bytes(&mut observation, 1, &[]); } bytes(&mut x, 7, &observation); x
+}
+fn sample_matrix(index: u32, scope: u32, underline: u32, source: u32, shape: u32, bool_value: u32, width: u32, text: &[u8], red: u32, note_present: bool) -> Vec<u8> {
+    sample_matrix_with_palette(index, scope, underline, source, shape, bool_value, width, text, red, note_present, 256)
+}
+fn pixel_render_contract_version(version: u32) -> Vec<u8> {
+    let mut contract = Vec::new();
+    bytes(&mut contract, 1, b"pinned"); num(&mut contract, 2, u64::from(version));
+    bytes(&mut contract, 3, b"renderer"); bytes(&mut contract, 4, b"raster");
+    fixed32(&mut contract, 6, 10.0f32.to_bits()); fixed32(&mut contract, 7, 20.0f32.to_bits());
+    fixed32(&mut contract, 8, 16.0f32.to_bits()); fixed32(&mut contract, 9, 15.0f32.to_bits());
+    fixed64(&mut contract, 10, 1.0f64.to_bits()); num(&mut contract, 11, 0);
+    bytes(&mut contract, 12, b"palette");
+    num(&mut contract, 13, 1); bytes(&mut contract, 15, b"macos-aarch64");
+    contract
+}
+fn pixel_render_contract() -> Vec<u8> { pixel_render_contract_version(1) }
+fn pixel_image(width: u32, height: u32) -> Vec<u8> {
+    const PNG_10X20_RGBA: &[u8] = &[
+        0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00,0x00,0x00,0x0d,0x49,0x48,0x44,0x52,
+        0x00,0x00,0x00,0x0a,0x00,0x00,0x00,0x14,0x08,0x06,0x00,0x00,0x00,0xb4,0xee,0xac,
+        0x56,0x00,0x00,0x00,0x10,0x49,0x44,0x41,0x54,0x78,0x9c,0x63,0x60,0x18,0x05,0xa3,
+        0x60,0x14,0x90,0x02,0x00,0x03,0x34,0x00,0x01,0x6e,0x75,0x8d,0x6c,0x00,0x00,0x00,
+        0x00,0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82,
+    ];
+    let mut image = Vec::new(); num(&mut image, 1, 1); num(&mut image, 2, u64::from(width));
+    num(&mut image, 3, u64::from(height));
+    bytes(&mut image, 4, b"91abebe2f1d080807be3b293683021584ac6ac4bd601416d08dd2d393598b2bf");
+    bytes(&mut image, 5, b"67042dfda5683aead81b6055d19c4dba238341f9dd82f49c0e7cc0c19c5f10d1");
+    bytes(&mut image, 6, PNG_10X20_RGBA); image
+}
+fn pixel_sample(image_width: u32, image_height: u32) -> Vec<u8> {
+    pixel_sample_with_contract(image_width, image_height, 1)
+}
+fn pixel_sample_with_contract(image_width: u32, image_height: u32, contract_version: u32) -> Vec<u8> {
+    let mut sample = Vec::new();
+    bytes(&mut sample, 1, b"tuiscotti.sample.v1");
+    bytes(&mut sample, 2, b"suite/test/pixels-macos-aarch64"); num(&mut sample, 3, 2);
+    bytes(&mut sample, 4, &snapshot(0, 1, 1, 1, 1, 0, 1, b"x", 3));
+    bytes(&mut sample, 5, &pixel_render_contract_version(contract_version));
+    bytes(&mut sample, 6, &pixel_image(image_width, image_height));
+    bytes(&mut sample, 7, &[]);
+    sample
+}
+fn main() {
+    for fields in [
+        generated::FIELDS_CELL,
+        generated::FIELDS_COLOR,
+        generated::FIELDS_CURSOR,
+        generated::FIELDS_DEFAULTCOLOR,
+        generated::FIELDS_FONT,
+        generated::FIELDS_IMAGE,
+        generated::FIELDS_METADATA,
+        generated::FIELDS_OBSERVATION,
+        generated::FIELDS_RENDERCONTRACT,
+        generated::FIELDS_RGB,
+        generated::FIELDS_SAMPLE,
+        generated::FIELDS_SNAPSHOT,
+    ] { assert!(fields.windows(2).all(|w| w[0].tag < w[1].tag)); }
+    let mut budget = DecodeBudget; let valid = sample(0);
+    let valid_pixels = pixel_sample(10, 20);
+    let pixel_scan = generated::scan_sample(&valid_pixels, &mut budget);
+    assert!(pixel_scan.is_ok(), "one-cell grid with 10x20 pixel image rejected: {:?}", pixel_scan.err());
+    let mut gate_mismatch = valid_pixels.clone();
+    let gate_at = gate_mismatch.windows(2).position(|window| window == [0x18, 2]).expect("pixel gate field");
+    gate_mismatch[gate_at + 1] = 1;
+    assert!(matches!(generated::scan_sample(&gate_mismatch, &mut budget), Err(DecodeError::Domain(sample::SampleError::GateMismatch { .. }))), "gate evidence mismatch lost its typed domain error");
+    for (width, height) in [(1, 20), (10, 1), (20, 10), (1, 1)] {
+        let mismatched_pixels = pixel_sample(width, height);
+        assert!(generated::scan_sample(&mismatched_pixels, &mut budget).is_err(), "mismatched {width}x{height} image accepted for a one-cell grid");
+    }
+    let scanned = generated::scan_sample(&valid, &mut budget).expect("valid non-minimal fixture rejected");
+    assert_eq!(scanned.scan_claims(), (44, 1, 0, 0));
+    assert_eq!(scanned.schema().expect("sample schema"), "tuiscotti.sample.v1");
+    let snapshot = scanned.snapshot().expect("snapshot getter");
+    assert_eq!(snapshot.cols().expect("cols getter"), 1);
+    let mut cells = snapshot.cells();
+    let cell = cells.next().expect("one cell").expect("cell token");
+    assert_eq!(cell.text().expect("cell text"), "x");
+    assert!(cells.next().is_none(), "single-pass cell iterator repeated an item");
+    assert_eq!(scanned.observation().expect("observation").note().expect("absent note"), None);
+    let empty_note_bytes = sample_with_note(0, true);
+    let empty_note = generated::scan_sample(&empty_note_bytes, &mut budget).expect("empty note sample");
+    assert_eq!(empty_note.observation().expect("observation with note").note().expect("present empty note"), Some(""));
+    let fg = cell.fg().expect("foreground getter").value().expect("color union");
+    match fg { generated::ValidatedColorValue::Rgb(rgb) => assert_eq!(rgb.red().expect("red getter"), 3), _ => panic!("RGB branch changed") }
+    match cell.bg().expect("background getter").value().expect("indexed color") { generated::ValidatedColorValue::Indexed(index) => assert_eq!(index, 0), _ => panic!("index 0 branch changed") }
+    assert!(matches!(cell.underline_color().expect("underline color").value().expect("default color"), generated::ValidatedColorValue::DefaultColor(_)));
+    for value in 1..=3 {
+        let encoded = sample_matrix(0, value, 1, 1, 1, 0, 1, b"x", 3, false);
+        let parsed = generated::scan_sample(&encoded, &mut budget).expect("accepted scope value");
+        let scope = parsed.snapshot().expect("scope snapshot").scope().expect("scope getter");
+        assert!(matches!((value, scope), (1, generated::Scope::Viewport) | (2, generated::Scope::ActiveScreen) | (3, generated::Scope::FullHistory)));
+    }
+    for value in 1..=6 {
+        let encoded = sample_matrix(0, 1, value, 1, 1, 0, 1, b"x", 3, false);
+        let parsed = generated::scan_sample(&encoded, &mut budget).expect("accepted underline value");
+        let cell_value = parsed.snapshot().expect("underline snapshot").cells().next().expect("underline cell").expect("underline token");
+        assert!(matches!((value, cell_value.underline().expect("underline getter")),
+            (1, generated::Underline::None) | (2, generated::Underline::Single) | (3, generated::Underline::Double) |
+            (4, generated::Underline::Curly) | (5, generated::Underline::Dotted) | (6, generated::Underline::Dashed)));
+    }
+    for (source, shape) in [(1, 1), (2, 2), (1, 3)] {
+        let encoded = sample_matrix(0, 1, 1, source, shape, 0, 1, b"x", 3, false);
+        let parsed = generated::scan_sample(&encoded, &mut budget).expect("accepted source/shape enums");
+        assert!(matches!(parsed.snapshot().expect("enum snapshot").metadata().expect("metadata").source().expect("source"), generated::Source::Live | generated::Source::Offline));
+        assert!(matches!(parsed.snapshot().expect("shape snapshot").cursor().expect("cursor").shape().expect("shape"), generated::CursorShape::Block | generated::CursorShape::Underline | generated::CursorShape::Bar));
+    }
+    let indexed_255_bytes = sample_matrix_with_palette(255, 1, 1, 1, 1, 0, 1, b"x", 3, false, 256);
+    let indexed_255 = generated::scan_sample(&indexed_255_bytes, &mut budget).expect("index 255 sample");
+    let snapshot_255 = indexed_255.snapshot().expect("snapshot 255");
+    let cell_255 = snapshot_255.cells().next().expect("cell 255").expect("cell token 255");
+    assert!(matches!(cell_255.bg().expect("background 255").value().expect("indexed 255"), generated::ValidatedColorValue::Indexed(255)));
+    let short_palette = sample_matrix_with_palette(0, 1, 1, 1, 1, 0, 1, b"x", 3, false, 255);
+    assert!(matches!(generated::scan_sample(&short_palette, &mut budget), Err(DecodeError::Domain(sample::SampleError::InvalidSnapshot { .. }))), "255 palette entries did not retain the invalid snapshot category");
+    let empty_palette = sample_matrix_with_palette(0, 1, 1, 1, 1, 0, 1, b"x", 3, false, 0);
+    assert!(matches!(generated::scan_sample(&empty_palette, &mut budget), Err(DecodeError::Domain(sample::SampleError::InvalidSnapshot { .. }))), "zero palette entries did not retain the invalid snapshot category");
+    let exact_palette = sample_matrix_with_palette(0, 1, 1, 1, 1, 0, 1, b"x", 3, false, 256);
+    assert!(generated::scan_sample(&exact_palette, &mut budget).is_ok(), "256 palette entries rejected");
+    let excessive_palette = sample_matrix_with_palette(0, 1, 1, 1, 1, 0, 1, b"x", 3, false, 257);
+    assert!(matches!(generated::scan_sample(&excessive_palette, &mut budget), Err(DecodeError::Resource { resource: "palette entries", claimed: Some(257), limit: 256, .. })), "257 palette entries did not retain the resource fault");
+    let mut recorder = Recorder { visits: 0, default_color: 0, indexed: 0, rgb: 0 };
+    scanned.visit(&mut recorder).expect("generated visitor");
+    assert_eq!(recorder.visits, 835);
+    assert_eq!((recorder.default_color, recorder.indexed, recorder.rgb), (1, 1, 1));
+    let mut bad = valid.clone(); bad.extend(varint(99 << 3)); bad.push(0);
+    assert!(generated::scan_sample(&bad, &mut budget).is_err(), "unknown field accepted");
+    assert!(generated::scan_sample(&[], &mut budget).is_err(), "missing required fields accepted");
+    let mut duplicate = sample(0); bytes(&mut duplicate, 1, b"tuiscotti.sample.v1");
+    assert!(generated::scan_sample(&duplicate, &mut budget).is_err(), "duplicate singular field accepted");
+    for malformed in [
+        sample_matrix(256, 1, 1, 1, 1, 0, 1, b"x", 3, false),
+        sample_matrix(0, 1, 0, 1, 1, 0, 1, b"x", 3, false),
+        sample_matrix(0, 1, 1, 99, 1, 0, 1, b"x", 3, false),
+        sample_matrix(0, 1, 1, 1, 0, 0, 1, b"x", 3, false),
+        sample_matrix(0, 1, 1, 1, 1, 2, 1, b"x", 3, false),
+        sample_matrix(0, 1, 1, 1, 1, 0, 65_536, b"x", 3, false),
+        sample_matrix(0, 1, 1, 1, 1, 0, 1, b"\xff", 3, false),
+        sample_matrix(0, 1, 1, 1, 1, 0, 1, b"x", 256, false),
+    ] { assert!(generated::scan_sample(&malformed, &mut budget).is_err(), "malformed schema constraint accepted"); }
+    let legacy_palette_digest = pixel_sample(10, 20);
+    assert!(generated::scan_sample(&legacy_palette_digest, &mut budget).is_ok(), "legacy non-hex palette digest rejected");
+    assert!(matches!(generated::scan_sample(&pixel_sample_with_contract(10, 20, 2), &mut budget), Err(DecodeError::Domain(sample::SampleError::UnsupportedContract { version: 2 }))), "unsupported contract version lost its typed domain error");
+    assert!(matches!(generated::scan_sample(&pixel_sample(32_769, 20), &mut budget), Err(DecodeError::Resource { resource: "image dimension", claimed: Some(32_769), limit: 32_768, .. })), "image dimension limit lost its resource classification");
+    let mut unsupported_snapshot_schema = valid.clone();
+    let snapshot_tag = unsupported_snapshot_schema.iter().position(|byte| *byte == 0x22).expect("snapshot message tag");
+    let (_, length_bytes) = read_varint_at(&unsupported_snapshot_schema, snapshot_tag + 1);
+    let snapshot_start = snapshot_tag + 1 + length_bytes;
+    assert_eq!(&unsupported_snapshot_schema[snapshot_start..snapshot_start + 2], &[0x08, 1]);
+    unsupported_snapshot_schema[snapshot_start + 1] = 2;
+    let snapshot_error = generated::scan_sample(&unsupported_snapshot_schema, &mut budget).expect_err("unsupported snapshot schema accepted");
+    assert!(matches!(&snapshot_error, DecodeError::UnsupportedSchema(value) if value == "2"), "snapshot schema diagnostic lost its exact version payload: {snapshot_error:?}");
+    let mut unsupported_sample_schema = valid.clone();
+    let schema_at = unsupported_sample_schema.windows(b"tuiscotti.sample.v1".len()).position(|window| window == b"tuiscotti.sample.v1").expect("sample schema");
+    unsupported_sample_schema[schema_at + b"tuiscotti.sample.v1".len() - 1] = b'2';
+    let sample_error = generated::scan_sample(&unsupported_sample_schema, &mut budget).expect_err("unsupported sample schema accepted");
+    assert!(matches!(&sample_error, DecodeError::UnsupportedSchema(value) if value == "tuiscotti.sample.v2"), "sample schema diagnostic lost its exact rejected value: {sample_error:?}");
+    let mut count = generated::CountSink::new(); generated::put_varint_field(&mut count, 1, 150).unwrap(); generated::put_bytes_field(&mut count, 2, b"ok").unwrap();
+    assert_eq!(generated::ProtoSink::position(&count), 7);
+    let mut out = generated::VecSink::new(7).unwrap(); generated::put_varint_field(&mut out, 1, 150).unwrap(); generated::put_bytes_field(&mut out, 2, b"ok").unwrap();
+    assert_eq!(out.finish(), [0x08, 0x96, 0x01, 0x12, 0x02, b'o', b'k']);
+}

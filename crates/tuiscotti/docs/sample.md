@@ -23,7 +23,7 @@ image               # null for a state sample without an image
 observation
 ```
 
-The `snapshot` field uses the public upstream [`TerminalSnapshot`]
+The `snapshot` field uses the public upstream `TerminalSnapshot`
 serialization unchanged. Types are explicit everywhere: no unstructured
 maps. Unknown fields are rejected, as are unsupported schemas.
 
@@ -403,7 +403,8 @@ Structural validation (no font resolution) accepts a historical contract
 that parses under this schema; rendering and approval re-rendering
 resolve the profile by name instead. Style slots, fallback order, font
 digests with face indices, geometry, palette digest, cursor phase, and
-the platform key are all recorded here.
+the platform key are all recorded here. Geometry and scale must be finite;
+finite values retain their exact floating-point bits.
 
 # `pub(crate) fn from_rendered(`
 
@@ -423,7 +424,7 @@ against re-rendered identity, both derived from the recorded profile,
 so a self-consistent non-pinned identity would pass it. Only this
 constructor (and the single-profile registry behind
 `resolve_profile`) pins creation and verification to
-[`PROFILE_NAME`].
+`PROFILE_NAME`.
 
 # Errors
 
@@ -498,7 +499,7 @@ Fields stay private; constructors and accessors are the whole surface.
 Field order in the file is the declaration order below and never changes.
 
 There is no derived `Deserialize`: the manual implementation below runs
-the same complete validation as [`Sample::from_bytes`], so the serde
+the same complete validation as `Sample::from_bytes`, so the serde
 path can never bypass gate pairing or digest checks.
 
 # `struct SampleWire {`
@@ -584,7 +585,7 @@ Returns [`SampleError`] for every rejected input; see its variants.
 # `fn from_wire(envelope: SampleWire) -> Result<Self, SampleError> {`
 
 Build a validated sample from one parsed wire envelope: the single
-construction path shared by [`Sample::from_bytes`] and the manual
+construction path shared by `Sample::from_bytes` and the manual
 [`serde::Deserialize`] implementation, so no parse path can bypass
 structural or image validation.
 
@@ -600,7 +601,7 @@ are never loaded.
 # Errors
 
 Returns [`SampleError`] when the file is unreadable, too large, or
-fails [`Sample::from_bytes`] validation.
+fails `Sample::from_bytes` validation.
 
 # `pub fn save(&self, path: &std::path::Path) -> Result<(), SampleError> {`
 
@@ -635,7 +636,7 @@ Returns [`SampleError`] when the embedded image fails to decode.
 # `pub fn validate_structure(&self) -> Result<(), SampleError> {`
 
 Structural validation without font resolution: gate pairing, test
-ID, contract version, grid limits, and cell text limits. Used both
+ID, contract version, finite geometry and scale, grid limits, and cell text limits. Used both
 after construction and at comparison time for historical contracts.
 The pixels suffix checks against the stored contract identity, so a
 sample recorded on another platform parses wherever its own ID and
@@ -664,7 +665,7 @@ platform that recorded them.
 
 This is the single complete test-ID validator: construction
 ([`Sample::state`], [`Sample::with_pixels`]) and parsing
-([`Sample::from_bytes`] through [`Sample::validate_structure`]) all run
+(`Sample::from_bytes` through [`Sample::validate_structure`]) all run
 through it, and the frozen checker delegates its grammar-only check to
 `validate_test_id_grammar`, so no second shape rule can drift.
 
@@ -704,7 +705,7 @@ Enforce grid and cell-count limits on numbers, before any allocation.
 # `fn preflight_snapshot_wire(value: &serde_json::Value) -> Result<(), SampleError> {`
 
 Preflight the nested snapshot wire value with typed schema and limit
-checks before [`TerminalSnapshot`] deserialization.
+checks before `TerminalSnapshot` deserialization.
 
 Upstream snapshot failures arrive as one untyped serde string, which
 would flatten an unsupported schema or an over-limit grid into
@@ -713,7 +714,7 @@ instead — never by matching upstream message text — so those shapes
 keep [`SampleError::UnsupportedSchema`] and the resource-limit
 variants (and their `UNSUPPORTED_SCHEMA`/`RESOURCE_LIMIT` codes).
 Anything this preflight does not recognize stays for
-[`TerminalSnapshot`] deserialization, which still fails closed with
+`TerminalSnapshot` deserialization, which still fails closed with
 [`SampleError::InvalidSnapshot`].
 
 # `fn preflight_snapshot_schema(value: &serde_json::Value) -> Result<(), SampleError> {`
@@ -762,3 +763,24 @@ SHA-256 hex over raw bytes.
 # `fn hex_bytes(bytes: &[u8]) -> String {`
 
 Lowercase hex over digest bytes.
+
+PNG validation during digest calculation uses the bounded decoder. Its
+`PngCodec`, `PngColor`, and `PngResourceLimit` errors retain the concrete
+PNG decoder source where applicable. Resource limits retain the
+`RESOURCE_LIMIT` classification; other PNG failures retain `INVALID_IMAGE`.
+Dimension failures may use `ZeroImageDimensions` or
+`ImageDimensionsMismatch` without allocating diagnostic text.
+Before reading later PNG chunks, the decoder checks valid header dimensions and
+a conservative 64 MiB allocation envelope for PNG metadata and chunk framing.
+The envelope includes the number and size of chunks and excludes image-data
+payloads. Excess metadata fails with `RESOURCE_LIMIT`; accepted PNG bytes and
+decoded pixels are preserved.
+When an oversized image is also malformed later in the file, the dimension
+limit is reported first; an invalid header is still reported as a PNG error.
+The PNG library performs some internal allocations infallibly. The
+budget charges the reviewed requested-layout envelopes, but their codec
+source assumptions still need downstream verification, and it cannot turn
+an upstream allocation failure into a recoverable error. The decoder skips
+ICC profile payloads; sampled valid, malformed, duplicate, and bad-CRC
+ICC chunks retain the same pixels and acceptance as the earlier image
+decoder.

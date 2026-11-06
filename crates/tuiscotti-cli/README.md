@@ -9,7 +9,7 @@ Live terminal work (sessions, input, locators, waits, live capture)
 belongs to upstream `tui-test-rs` and is scripted through its Rust API
 (`tui_test::Session`), not through this binary.
 
-## Install
+## Install the published 0.4.0 release
 
 Requires Rust 1.99.1 with `cargo` on `PATH`. Install from
 crates.io:
@@ -22,6 +22,8 @@ From a workspace checkout, run without installing via
 `cargo run -q -p tuiscotti-cli --locked --offline -- <command>`.
 
 ## Commands
+
+Sample inputs and baselines use Zstandard-compressed Protobuf files. Use `.tui.pb` for samples. `result.json` and `--json` output remain JSON metadata. The reader rejects JSON samples without converting them. Regenerate old samples from their source.
 
 Exactly four subcommands; the only global flag is `--json` (one
 machine-readable `tuiscotti.cli.v1` result object on stdout, diagnostics
@@ -64,16 +66,16 @@ profile, rendering, approval, or I/O failures.
 
 ```sh
 # 1. check: first run reports missing (exit 1), writes candidate evidence
-tuiscotti check --sample sample.tui.json --baselines baselines --artifacts artifacts
+tuiscotti check --sample sample.tui.pb --baselines baselines --artifacts artifacts
 # 2. inspect the evidence
-tuiscotti render --sample sample.tui.json --out candidate.png
+tuiscotti render --sample sample.tui.pb --out candidate.png
 tuiscotti report --artifacts artifacts --out index.html
 # 3. accept: review the digests, then approve (missing = first approval)
-CANDIDATE=$(sha256sum sample.tui.json | cut -d' ' -f1)
-tuiscotti accept --candidate sample.tui.json --candidate-sha256 "$CANDIDATE" \
+CANDIDATE=$(sha256sum sample.tui.pb | cut -d' ' -f1)
+tuiscotti accept --candidate sample.tui.pb --candidate-sha256 "$CANDIDATE" \
   --expect-baseline missing --baselines baselines
 # 4. recheck: passes against the new baseline (exit 0)
-tuiscotti check --sample sample.tui.json --baselines baselines --artifacts artifacts
+tuiscotti check --sample sample.tui.pb --baselines baselines --artifacts artifacts
 ```
 
 A changed sample never self-heals: only an explicit `accept` with

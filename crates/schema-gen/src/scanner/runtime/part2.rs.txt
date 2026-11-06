@@ -1,0 +1,164 @@
+    finish_frame(top, state.path)?;
+    let complete = state.stack[index]
+        .take()
+        .ok_or_else(|| fault(0, state.path, "missing completed frame"))?;
+    state.depth -= 1;
+    if state.depth == 0 { return Ok(Some(complete.summary)); }
+    if complete.indexed { state.path.pop_index(); }
+    state.path.pop_field();
+    let parent = state.stack[state.depth - 1]
+        .as_mut()
+        .ok_or_else(|| fault(0, state.path, "missing parent frame"))?;
+    merge_summary(parent, &complete.summary, complete.span.end, state.path)?;
+    Ok(None)
+}
+fn merge_summary(parent: &mut Frame<'_>, child: &ScanSummary, end: usize, path: WirePath) -> Result<(), WireFault> {
+    parent.summary.l = checked_sum(parent.summary.l, child.l, end, path)?;
+    parent.summary.c = checked_sum(parent.summary.c, child.c, end, path)?;
+    parent.summary.f = checked_sum(parent.summary.f, child.f, end, path)?;
+    parent.summary.p = checked_sum(parent.summary.p, child.p, end, path)?;
+    parent.summary.test_id = parent.summary.test_id.or(child.test_id);
+    parent.summary.platform_key = parent.summary.platform_key.or(child.platform_key);
+    parent.summary.grid = parent.summary.grid.or(child.grid);
+    parent.summary.image = parent.summary.image.or(child.image);
+    Ok(())
+}
+fn scan_current_field<'a>(top: &mut Frame<'a>, path: WirePath, depth: usize) -> Result<Option<(Frame<'a>, WirePath)>, WireFault> {
+    let step = read_field_header(top, path)?;
+    read_field_value(top, step, depth)
+}
+fn read_field_header(top: &mut Frame<'_>, path: WirePath) -> Result<FieldStep, WireFault> {
+    let fields = fields_for(top.kind).ok_or_else(|| fault(top.cursor, path, "unknown message kind"))?;
+    let offset = top.cursor;
+    let key = read_varint(top.span.bytes, &mut top.cursor, top.span.end, path)?;
+    let tag = u32::try_from(key >> 3).map_err(|_| fault(offset, path, "field tag overflow"))?;
+    let wire = (key & 7) as u8;
+    if tag == 0 || tag > 536_870_911 { return Err(fault(offset, path, "invalid field tag")); }
+    let index = fields.iter().position(|field| field.tag == tag).ok_or_else(|| {
+        let mut unknown = path;
+        if unknown.tag(tag) { fault(offset, unknown, "unknown field") }
+        else { fault(offset, path, "wire path capacity proof violated") }
+    })?;
+    if index >= 16 { return Err(fault(offset, path, "generated field counter overflow")); }
+    if index >= 64 { return Err(fault(offset, path, "generated field mask overflow")); }
+    let field = &fields[index];
+    let mut field_path = path;
+    if !field_path.field(field.id) { return Err(fault(offset, path, "wire path capacity proof violated")); }
+    if field.repeated && !field_path.index(top.repeated[index]) { return Err(fault(offset, path, "wire path capacity proof violated")); }
+    if !field.repeated && top.seen & (1u64 << index) != 0 { return Err(fault(offset, field_path, "duplicate singular field")); }
+    top.seen |= 1u64 << index;
+    if field.oneof.is_some() {
+        if top.oneofs != 0 { return Err(fault(offset, field_path, "multiple oneof alternatives")); }
+        top.oneofs = 1;
+    }
+    let expected = match field.kind { WireKind::Varint => 0, WireKind::Fixed64 => 1, WireKind::LengthDelimited => 2, WireKind::Fixed32 => 5 };
+    if wire != expected { return Err(fault(offset, field_path, "wire type mismatch")); }
+    if field.repeated {
+        let next = checked_sum(top.repeated[index], 1, offset, field_path)?;
+        if let Some(limit) = repeated_limit(top.kind, field.name) && next > limit {
+            return Err(resource_fault(offset, field_path, "palette exceeds 256 entries", "palette entries", Some(next), limit));
+        }
+        top.repeated[index] = next;
+    }
+    Ok(FieldStep { index, tag, offset, path: field_path })
+}
+fn read_field_value<'a>(top: &mut Frame<'a>, step: FieldStep, depth: usize) -> Result<Option<(Frame<'a>, WirePath)>, WireFault> {
+    let fields = fields_for(top.kind).ok_or_else(|| fault(step.offset, step.path, "unknown message kind"))?;
+    let field = &fields[step.index];
+    let mut child = None;
+    match field.kind {
+        WireKind::Varint => {
+            let value = read_varint(top.span.bytes, &mut top.cursor, top.span.end, step.path)?;
+            check_varint(field, value, step.offset, step.path)?;
+            if step.tag <= 16 { top.values[step.tag as usize - 1] = value; }
+        }
+        WireKind::Fixed64 | WireKind::Fixed32 => {
+            let width = if field.kind == WireKind::Fixed64 { 8 } else { 4 };
+            let finish = top.cursor.checked_add(width).ok_or_else(|| fault(top.cursor, step.path, "fixed field overflow"))?;
+            if finish > top.span.end { return Err(fault(top.cursor, step.path, "truncated fixed field")); }
+            check_fixed(field, &top.span.bytes[top.cursor..finish], step.offset, step.path)?;
+            top.cursor = finish;
+        }
+        WireKind::LengthDelimited => {
+            let (start, finish) = read_length(top.span.bytes, &mut top.cursor, top.span.end, step.path)?;
+            if let Some(child_kind) = field.type_name {
+                if depth == 32 { return Err(resource_fault(start, step.path, "message nesting exceeds 32", "message nesting depth", Some(33), 32)); }
+                if child_kind == "Cell" { top.summary.c = checked_sum(top.summary.c, 1, start, step.path)?; }
+                if child_kind == "Font" { top.summary.f = checked_sum(top.summary.f, 1, start, step.path)?; }
+                child = Some(Frame { kind: child_kind, span: Span { bytes: top.span.bytes, start, end: finish }, cursor: start, seen: 0, oneofs: 0, repeated: [0; 16], values: [0; 16], summary: ScanSummary::default(), indexed: field.repeated });
+            } else {
+                update_length_summary(top, field, start, finish, step.path)?;
+            }
+        }
+    }
+    if !field.repeated { top.repeated[step.index] = 1; }
+    Ok(child.map(|child| (child, step.path)))
+}
+fn update_length_summary(top: &mut Frame<'_>, field: &FieldSpec, start: usize, finish: usize, path: WirePath) -> Result<(), WireFault> {
+    let length = (finish - start) as u64;
+    check_length(field, &top.span.bytes[start..finish], start, path)?;
+    top.summary.l = checked_sum(top.summary.l, length, start, path)?;
+    if field.message == "Image" && field.name == "png" { top.summary.p = checked_sum(top.summary.p, length, start, path)?; }
+    if field.message == "Sample" && field.name == "test_id" { top.summary.test_id = Some((start, finish)); }
+    if field.message == "RenderContract" && field.name == "platform_key" { top.summary.platform_key = Some((start, finish)); }
+    Ok(())
+}
+fn checked_sum(left: u64, right: u64, offset: usize, path: WirePath) -> Result<u64, WireFault> {
+    left.checked_add(right).ok_or_else(|| resource_fault(offset, path, "summary overflow", "decoded summary", None, u64::MAX))
+}
+fn check_varint(field: &FieldSpec, value: u64, offset: usize, path: WirePath) -> Result<(), WireFault> {
+    check_small_integer(field, value, offset, path)?;
+    check_dimensions(field, value, offset, path)?;
+    check_enum_value(field, value, offset, path)?;
+    check_schema_value(field, value, offset, path)
+}
+fn check_small_integer(field: &FieldSpec, value: u64, offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"UINT32") && value > u64::from(u32::MAX) { return Err(fault(offset, path, "uint32 overflow")); }
+    if field.constraints.contains(&"BOOL_0_1") && value > 1 { return Err(fault(offset, path, "bool is not zero or one")); }
+    if field.constraints.contains(&"RGB_U8") && value > 255 { return Err(fault(offset, path, "RGB component exceeds 255")); }
+    if field.constraints.contains(&"INDEX_U8") && value > 255 { return Err(fault(offset, path, "palette index exceeds 255")); }
+    if field.constraints.contains(&"CELL_WIDTH_U16") && value > u64::from(u16::MAX) { return Err(fault(offset, path, "cell width exceeds u16")); }
+    Ok(())
+}
+fn check_dimensions(field: &FieldSpec, value: u64, offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"GRID_DIM_1_32768") && value == 0 { return Err(WireFault { offset, path, detail: "snapshot grid dimension is zero", kind: FaultKind::InvalidSnapshot }); }
+    if field.constraints.contains(&"GRID_DIM_1_32768") && value > 32768 { return Err(resource_fault(offset, path, "grid dimension exceeds 32768", "grid dimension", Some(value), 32768)); }
+    if field.constraints.contains(&"IMAGE_DIM_1_32768_RGBA_MAX_268435456") && value == 0 { return Err(WireFault { offset, path, detail: "image dimensions must be nonzero", kind: FaultKind::DimensionMismatch }); }
+    if field.constraints.contains(&"IMAGE_DIM_1_32768_RGBA_MAX_268435456") && value > 32768 { return Err(resource_fault(offset, path, "image dimension exceeds 32768", "image dimension", Some(value), 32768)); }
+    Ok(())
+}
+fn check_enum_value(field: &FieldSpec, value: u64, offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"ENUM_NONZERO_KNOWN") {
+        let number = i32::try_from(value).map_err(|_| fault(offset, path, "enum value exceeds i32"))?;
+        if number == 0 || !enum_accepts(field.type_name.unwrap_or(""), number) { return Err(fault(offset, path, "unknown enum value")); }
+    }
+    Ok(())
+}
+fn check_schema_value(field: &FieldSpec, value: u64, offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"SNAPSHOT_SCHEMA_EQ_1") && value != 1 { return Err(WireFault { offset, path, detail: "unsupported snapshot schema", kind: FaultKind::UnsupportedSchema(value) }); }
+    if field.constraints.contains(&"CONTRACT_VERSION_EXPECTED") && value != 1 { return Err(WireFault { offset, path, detail: "unsupported render contract version", kind: FaultKind::UnsupportedContract(u32::try_from(value).map_err(|_| fault(offset, path, "contract version exceeds u32"))?) }); }
+    if field.constraints.contains(&"USIZE_CHECKED") && usize::try_from(value).is_err() { return Err(fault(offset, path, "value does not fit usize")); }
+    Ok(())
+}
+
+fn check_fixed(field: &FieldSpec, bytes: &[u8], offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"FINITE_FLOAT") {
+        let finite = if field.kind == WireKind::Fixed32 {
+            f32::from_le_bytes(bytes.try_into().map_err(|_| fault(offset, path, "invalid float width"))?).is_finite()
+        } else {
+            f64::from_le_bytes(bytes.try_into().map_err(|_| fault(offset, path, "invalid double width"))?).is_finite()
+        };
+        if !finite { return Err(fault(offset, path, "non-finite float")); }
+    }
+    Ok(())
+}
+
+fn check_length(field: &FieldSpec, bytes: &[u8], offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"UTF8") && std::str::from_utf8(bytes).is_err() { return Err(fault(offset, path, "invalid UTF-8")); }
+    let limit = if field.constraints.contains(&"CELL_TEXT_UTF8_4096") || field.constraints.contains(&"LINK_UTF8_4096") { 4096 }
+        else if field.constraints.contains(&"TITLE_UTF8_65536") { 65536 }
+        else if field.constraints.contains(&"TEST_ID_GRAMMAR_240_64") { 240 }
+        else { 64 * 1024 * 1024 };
+    if bytes.len() > limit { return Err(resource_fault(offset, path, "field exceeds policy length", "field bytes", Some(bytes.len() as u64), limit as u64)); }
+    if field.constraints.contains(&"SAMPLE_SCHEMA_EXPECTED") && bytes != b"tuiscotti.sample.v1" { return Err(WireFault { offset, path, detail: "unsupported sample schema", kind: FaultKind::UnsupportedSampleSchema(offset, bytes.len()) }); }
+    if field.constraints.contains(&"TEST_ID_GRAMMAR_240_64") { check_test_id(bytes, offset, path)?; }
