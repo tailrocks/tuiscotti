@@ -153,13 +153,15 @@ fn binary_file_entry_bounded_read_and_capacity_accounting() -> Result<(), Box<dy
     assert_eq!(from_file.test_id(), "suite/wide-cell");
     let bounded = checked(crate::sample::io::read_bounded(&path))?;
     assert_eq!(bounded, encoded);
-    assert!(bounded.capacity() > usize::try_from(crate::sample::MAX_SAMPLE_FILE_BYTES)?);
+    assert!(bounded.capacity() < 8192);
     let mut smaller = Vec::with_capacity(encoded.len());
     smaller.extend_from_slice(&encoded);
     let small_capacity = smaller.capacity();
-    let large_capacity = bounded.capacity();
+    let mut larger = Vec::with_capacity(small_capacity + 8192);
+    larger.extend_from_slice(&bounded);
+    let large_capacity = larger.capacity();
     let (_, small_peak) = checked(super::super::super::decode_owned_sample_with_peak(smaller))?;
-    let (_, large_peak) = checked(super::super::super::decode_owned_sample_with_peak(bounded))?;
+    let (_, large_peak) = checked(super::super::super::decode_owned_sample_with_peak(larger))?;
     assert_eq!(
         large_peak - small_peak,
         u64::try_from(large_capacity - small_capacity)?
