@@ -24,15 +24,15 @@ summarized in [COMPARISON.md](COMPARISON.md).
 
 | Item | Status | Notes |
 |---|---|---|
-| `sample::Sample` (`tuiscotti.sample.v1`) | implemented | Versioned JSON binding test ID, gate, upstream snapshot, render contract, PNG image, and observation. `with_pixels` for `state-and-pixels`, `state` for the `state` gate. |
+| `sample::Sample` (`tuiscotti.sample.v1`) | implemented | Versioned domain value binding the test ID, gate, upstream snapshot, render contract, PNG image, and observation. `to_bytes` and `from_bytes` use the binary sample container. `with_pixels` builds `state-and-pixels`; `state` builds the `state` gate. |
 | `sample::{Gate, RenderContract, SampleImage, Observation}` | implemented | `state` compares canonical state only; `state-and-pixels` also compares render contract and decoded RGBA. |
-| `sample::{SampleError, candidate_id}` | implemented | Limits before allocation: 64 MiB file, 1 000 000 cells, 4 KiB cells, 256 MiB RGBA, 240-byte test IDs. |
+| `sample::{SampleError, Sample::candidate_id}` | implemented | Binary reads enforce the container, message, and resource limits. The decoder rejects JSON, unknown fields, unsupported versions, and malformed data. |
 
 ## `tuiscotti`: frozen checks (`check`)
 
 | Item | Status | Notes |
 |---|---|---|
-| `check::FrozenStore::{new, check}` | implemented | Read-only baselines; candidates and evidence go to the artifact root only. Outcomes: `pass`, `missing`, `different` with typed `MismatchReason`. |
+| `check::FrozenStore::{new, check, check_owned, check_file}` | implemented | Read-only baselines; candidates and evidence go to the artifact root only. `check` borrows bytes, `check_owned` accounts for the owned input allocation, and `check_file` uses the shared bounded read. Outcomes: `pass`, `missing`, `different` with typed `MismatchReason`. |
 | `check::{CheckError, CheckFailure, CheckSuccess, MISSING_BASELINE, validate_test_id}` | implemented | Failures carry evidence paths; test IDs are validated ASCII segments. |
 | Ambient bless (`BLESS=1`, auto-accept) | unsupported | Removed; explicit `accept` with both digests is the only approval path. |
 
@@ -76,7 +76,7 @@ summarized in [COMPARISON.md](COMPARISON.md).
 | Item | Status | Notes |
 |---|---|---|
 | `check`, `accept`, `render`, `report` | implemented | The only four commands; all offline. See [CLI.md](CLI.md). |
-| `input`, `json_out`, `cli` | implemented | Bounded sample reads (64 MiB), one JSON result shape (`tuiscotti.cli.v1`), native arg parsing. |
+| `input`, `json_out`, `cli` | implemented | Bounded binary sample reads, one JSON result shape (`tuiscotti.cli.v1`), native argument parsing. Result JSON remains separate from sample storage. |
 
 ## Unsupported (removed — no API, no shim)
 

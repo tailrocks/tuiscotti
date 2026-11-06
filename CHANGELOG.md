@@ -3,6 +3,24 @@
 All notable changes to the `tuiscotti` and `tuiscotti-cli` crates are
 documented here. Versions follow Semantic Versioning.
 
+## Unreleased — proposed paired version 0.5.0
+
+The proposed paired release version is `0.5.0`. The package manifests
+remain at `0.4.0`; release-plz will bump them for the release PR. This
+version has not been published or released.
+
+- Persisted samples and baselines use versioned Protobuf messages in
+  Zstandard-compressed `.tui.pb` containers. JSON result records and
+  CLI output remain JSON. The binary reader rejects legacy JSON samples;
+  regenerate samples from their source before use.
+- The schema descriptor and policy are checked against generated Rust
+  wire code. Vendored protoc and an offline schema freshness test are
+  part of the test workflow.
+- Workspace nextest now runs private library tests, including embedded
+  PNG tests, alongside the CLI integration suites.
+- The final compression setting has not been selected. The current
+  implementation setting is provisional and is not a release decision.
+
 ## 0.4.0 — 2026-10-27
 
 > The crates are at [crates.io](https://crates.io/crates/tuiscotti)

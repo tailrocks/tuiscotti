@@ -2,7 +2,7 @@
 
 Frozen comparison and candidate evidence (D03, GOAL 14).
 
-[`FrozenStore`] compares a candidate [`Sample`] against the approved
+[`FrozenStore`] compares a candidate [`crate::sample::Sample`] against the approved
 baseline for its test ID without changing the baseline root. On any
 mismatch it saves the candidate bytes and the derived evidence under the
 artifact root, keyed by the compared baseline digest, and returns a
@@ -58,7 +58,7 @@ What the path broke.
 
 # variant `CheckError::Sample`
 
-The candidate or baseline sample fails [`Sample`] validation.
+The candidate or baseline sample fails [`crate::sample::Sample`] validation.
 
 # variant `CheckError::Pixel`
 
@@ -495,7 +495,7 @@ Save the candidate bytes once; re-validate them on later checks.
 
 # fn `save_expected`
 
-Save the compared baseline bytes (`expected.tui.json`); never read a
+Save the compared baseline bytes (`expected.tui.pb`); never read a
 newer baseline during later reporting, never overwrite another
 digest's evidence.
 

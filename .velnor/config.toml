@@ -25,6 +25,10 @@ ignore = []
 compile_driver = "mbx"
 test_runner = "cargo_nextest"
 
+[[stacks.rust.inputs]]
+globs = ["crates/schema-gen/**", "crates/tuiscotti/src/sample/wire/**"]
+packages = ["tuiscotti-cli"]
+
 [[stacks.rust.configurations]]
 name = "default"
 features = ["default"]
@@ -86,7 +90,7 @@ enabled = false
 environment = "release"
 
 [discovery]
-exclude = []
+exclude = ["crates/schema-gen/**"]
 
 [actions.overrides]
 

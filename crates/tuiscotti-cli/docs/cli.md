@@ -34,7 +34,7 @@ application or writing a baseline.
 
 Saved sample file to compare.
 
-Baseline root holding `<test-id>.tui.json` files.
+Baseline root holding `<test-id>.tui.pb` files.
 
 Artifact root receiving candidate evidence on mismatch.
 

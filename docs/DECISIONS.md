@@ -333,3 +333,84 @@ the old source builds used, but CI-fresh-runner installs download
 binaries instead of compiling). The `rust` 1.99.1 pin stays consistent
 with `rust-toolchain.toml`. Root `mise.toml` matches the Renovate
 `mise` manager file patterns and the Velnor Rust-unit watch list.
+
+## 18. Binary sample persistence; Zstandard level 22 provisional
+
+The current sample API writes and reads versioned Protobuf messages in
+Zstandard-compressed `.tui.pb` containers. The reader rejects JSON
+samples without converting them; result records and CLI output remain
+JSON. This implementation contract is covered by binary reader and CLI
+integration tests and described in [SNAPSHOTS.md](SNAPSHOTS.md).
+
+The public sample writer provisionally uses Zstandard level 22 with a
+32 MiB window ceiling, content size and frame checksum enabled, dictionary
+ID disabled, and zero workers. The level is the maximum regular level in
+the pinned vendored Zstandard 1.5.7 build. This follows five release-mode
+real-corpus runs that passed the 1 GiB per-process RSS, 60-minute per-pass,
+and 72-hour cumulative caps with substantial margin. The level is a
+provisional implementation choice, not release approval or final
+cross-platform proof.
+
+An independently reviewed exact-head follow-up at
+`9e8eab42e072936824186bbaa17919181410a6e9` exercised the public writer and
+reader on 20 real captures across five release-mode processes. All 100 output
+files matched the preserved outputs, and every process stayed within the
+absolute RSS/time limits. It establishes exact-head resource feasibility and
+output identity for that corpus. Its process timing includes output writes;
+the harness's per-record timing field stops before writing and is not an
+end-to-end measurement. The heavily contended host makes timing unsuitable
+for codec ranking. The harness and inputs are local untracked evidence, so a
+fresh clone cannot reproduce the result without restoring them.
+
+A real downstream-history storage experiment used 105 unapproved candidate
+snapshots: 104 replacements, one new PB file, and five retained JSON files.
+The measured repacked history grew by 292,207 bytes; its incremental thin pack
+was 286,339 bytes, and a fresh PB-only pack was 286,025 bytes. This is a
+single-snapshot storage measurement, not a full multi-revision migration or
+proof of equivalence to historical JSON content. The inputs and results are
+also local untracked evidence. Neither follow-up is release approval or
+cross-platform proof.
+
+The run was made under sustained unrelated host load after the original
+benchmark freeze. The later contended-run amendment permits provisional
+selection only from absolute cap results; the run cannot support relative
+speed rankings. Evidence is native macOS/aarch64 only. Linux behavior and
+broader workloads remain unverified, including accept and check over the full
+capture corpus, report generation over realistic non-empty evidence, and
+workloads beyond the measured 20 captures. Details,
+comparisons, hashes, and reproduction commands are in
+[the provisional level 22 benchmark record](benchmarks/zstd-level-22-provisional.md).
+Before release, complete the remaining format and resource checks in
+[COMPRESSED-BASELINES.md](COMPRESSED-BASELINES.md) and the cross-platform
+evidence described by the benchmark record.
+
+A read-only audit of the inventoried downstream legacy corpora examined
+2,608 path occurrences: 2,600 valid state samples and eight deliberately
+invalid coverage fixtures. A field-based upper bound for every valid sample's
+Protobuf message is 5,641,690 bytes. For the pinned encoder's no-flush
+streaming path, the independently reviewed conservative container bound is
+5,789,892 bytes, below the 64 MiB limit. This is evidence for those enumerated
+corpora, not for arbitrary future samples; pixel-gated legacy samples were not
+present in that inventory. The audit did not convert or approve baselines.
+The local evidence archive is `.audit/benchmark-evidence/legacy-cap-results-20261106.tar.gz`
+(SHA-256 `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`).
+
+## 19. Stable direct dependency refresh and pixel round-trip parity
+
+The workspace lock now selects [cc 1.11.1](https://crates.io/crates/cc/1.11.1),
+[crc32fast 1.5.4](https://crates.io/crates/crc32fast/1.5.4),
+[flate2 1.1.11](https://crates.io/crates/flate2/1.1.11),
+[rand 0.10.3](https://crates.io/crates/rand/0.10.3), and
+[toml 1.2.0](https://crates.io/crates/toml/1.2.0). Test-only random sampling
+uses rand 0.10's `RngExt`; the standalone schema generator pins toml 1.2.0.
+
+The current dependency snapshot passed exact round-trip parity for 20 frozen
+captures on native macOS arm64: 10 state-only and 10 state-and-pixels. The
+independent verifier passed 140 checks, including state digests, PNG bytes and
+decoded RGBA hashes, against archived captures and preserved outputs. The
+normal/build dependency graph matched byte-for-byte between the workspace and
+audit harness (137 package names). This evidence does not cover x86, fresh
+terminal rendering, or cross-platform determinism. No captures or baselines
+were written. The local report and reproduction artifacts are at
+`/private/tmp/tuiscotti-roundtrip-pixel-current-head-b0276ae-deps/REPORT.md`;
+they are not present in a fresh clone.

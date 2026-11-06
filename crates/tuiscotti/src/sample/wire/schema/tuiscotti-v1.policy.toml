@@ -1,0 +1,936 @@
+version = 1
+package = "tuiscotti.private.v1"
+retired = []
+
+[constraints.UTF8]
+phase = "field"
+
+[constraints.UINT32]
+phase = "field"
+
+[constraints.UINT64]
+phase = "field"
+
+[constraints.BOOL_0_1]
+phase = "field"
+
+[constraints.ENUM_NONZERO_KNOWN]
+phase = "field"
+
+[constraints.FINITE_FLOAT]
+phase = "field"
+
+[constraints.FLOAT32_BITS]
+phase = "field"
+
+[constraints.FLOAT64_BITS]
+phase = "field"
+
+[constraints.SAMPLE_SCHEMA_EXPECTED]
+phase = "field"
+
+[constraints.TEST_ID_GRAMMAR_240_64]
+phase = "field"
+
+[constraints.SNAPSHOT_SCHEMA_EQ_1]
+phase = "field"
+
+[constraints.GRID_DIM_1_32768]
+phase = "field"
+
+[constraints.TITLE_UTF8_65536]
+phase = "field"
+
+[constraints.RGB_U8]
+phase = "field"
+
+[constraints.INDEX_U8]
+phase = "field"
+
+[constraints.CELL_TEXT_UTF8_4096]
+phase = "field"
+
+[constraints.CELL_WIDTH_U16]
+phase = "field"
+
+[constraints.LINK_UTF8_4096]
+phase = "field"
+
+[constraints.CONTRACT_VERSION_EXPECTED]
+phase = "field"
+
+[constraints.USIZE_CHECKED]
+phase = "field"
+
+[constraints.IMAGE_DIM_1_32768_RGBA_MAX_268435456]
+phase = "field"
+
+[constraints.EMPTY_MESSAGE]
+phase = "field"
+
+[constraints.GATE_EVIDENCE_PAIR]
+phase = "message"
+
+[constraints.GRID_PRODUCT_CELLS_EXACT_MAX_1000000]
+phase = "message"
+
+[constraints.PALETTE_COUNT_EXACT_256]
+phase = "message"
+
+[constraints.UPSTREAM_SNAPSHOT_INVARIANTS]
+phase = "mapping"
+
+[constraints.IMAGE_PIXEL_DIMS_MATCH_GRID_10X20]
+phase = "message"
+
+[constraints.ONEOF_EXACTLY_ONE]
+phase = "message"
+
+[constraints.AGGREGATE_BUDGET]
+phase = "aggregate"
+
+[messages.Sample]
+# fields declared below
+constraints = ["GATE_EVIDENCE_PAIR", "AGGREGATE_BUDGET"]
+
+[messages.Sample.fields.schema]
+tag = 1
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "schema"
+constraints = ["UTF8", "SAMPLE_SCHEMA_EXPECTED"]
+
+[messages.Sample.fields.test_id]
+tag = 2
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "test_id"
+constraints = ["UTF8", "TEST_ID_GRAMMAR_240_64"]
+
+[messages.Sample.fields.gate]
+tag = 3
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "Gate"
+handler = "gate"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.Sample.fields.snapshot]
+tag = 4
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Snapshot"
+handler = "snapshot"
+constraints = []
+
+[messages.Sample.fields.render_contract]
+tag = 5
+kind = "message"
+cardinality = "singular"
+presence = "optional"
+type_name = "RenderContract"
+handler = "render_contract"
+constraints = []
+
+[messages.Sample.fields.image]
+tag = 6
+kind = "message"
+cardinality = "singular"
+presence = "optional"
+type_name = "Image"
+handler = "image"
+constraints = []
+
+[messages.Sample.fields.observation]
+tag = 7
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Observation"
+handler = "observation"
+constraints = []
+
+[messages.Snapshot]
+# fields declared below
+constraints = ["GRID_PRODUCT_CELLS_EXACT_MAX_1000000", "PALETTE_COUNT_EXACT_256", "UPSTREAM_SNAPSHOT_INVARIANTS"]
+
+[messages.Snapshot.fields.schema]
+tag = 1
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "schema"
+constraints = ["UINT32", "SNAPSHOT_SCHEMA_EQ_1"]
+
+[messages.Snapshot.fields.cols]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "cols"
+constraints = ["UINT32", "GRID_DIM_1_32768"]
+
+[messages.Snapshot.fields.rows]
+tag = 3
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "rows"
+constraints = ["UINT32", "GRID_DIM_1_32768"]
+
+[messages.Snapshot.fields.scope]
+tag = 4
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "Scope"
+handler = "scope"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.Snapshot.fields.viewport_origin]
+tag = 5
+kind = "uint64"
+cardinality = "singular"
+presence = "required"
+handler = "viewport_origin"
+constraints = ["UINT64"]
+
+[messages.Snapshot.fields.cells]
+tag = 6
+kind = "message"
+cardinality = "repeated"
+presence = "repeated"
+type_name = "Cell"
+handler = "cells"
+constraints = []
+
+[messages.Snapshot.fields.palette]
+tag = 7
+kind = "message"
+cardinality = "repeated"
+presence = "repeated"
+type_name = "Rgb"
+handler = "palette"
+constraints = []
+
+[messages.Snapshot.fields.default_foreground]
+tag = 8
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Rgb"
+handler = "default_foreground"
+constraints = []
+
+[messages.Snapshot.fields.default_background]
+tag = 9
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Rgb"
+handler = "default_background"
+constraints = []
+
+[messages.Snapshot.fields.default_cursor]
+tag = 10
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Rgb"
+handler = "default_cursor"
+constraints = []
+
+[messages.Snapshot.fields.cursor]
+tag = 11
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Cursor"
+handler = "cursor"
+constraints = []
+
+[messages.Snapshot.fields.title]
+tag = 12
+kind = "string"
+cardinality = "singular"
+presence = "optional"
+handler = "title"
+constraints = ["UTF8", "TITLE_UTF8_65536"]
+
+[messages.Snapshot.fields.metadata]
+tag = 13
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Metadata"
+handler = "metadata"
+constraints = []
+
+[messages.Rgb]
+# fields declared below
+constraints = []
+
+[messages.Rgb.fields.red]
+tag = 1
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "red"
+constraints = ["UINT32", "RGB_U8"]
+
+[messages.Rgb.fields.green]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "green"
+constraints = ["UINT32", "RGB_U8"]
+
+[messages.Rgb.fields.blue]
+tag = 3
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "blue"
+constraints = ["UINT32", "RGB_U8"]
+
+[messages.DefaultColor]
+fields = {}
+constraints = []
+
+[messages.Color]
+# fields declared below
+constraints = ["ONEOF_EXACTLY_ONE"]
+
+[messages.Color.fields.indexed]
+tag = 2
+kind = "uint32"
+cardinality = "oneof"
+presence = "oneof"
+oneof = "value"
+handler = "indexed"
+constraints = ["UINT32", "INDEX_U8"]
+
+[messages.Color.fields.rgb]
+tag = 3
+kind = "message"
+cardinality = "oneof"
+presence = "oneof"
+oneof = "value"
+type_name = "Rgb"
+handler = "rgb"
+constraints = []
+
+[messages.Cell]
+# fields declared below
+constraints = []
+
+[messages.Cell.fields.text]
+tag = 1
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "text"
+constraints = ["UTF8", "CELL_TEXT_UTF8_4096"]
+
+[messages.Cell.fields.width]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "width"
+constraints = ["UINT32", "CELL_WIDTH_U16"]
+
+[messages.Cell.fields.fg]
+tag = 3
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Color"
+handler = "fg"
+constraints = []
+
+[messages.Cell.fields.bg]
+tag = 4
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Color"
+handler = "bg"
+constraints = []
+
+[messages.Cell.fields.bold]
+tag = 5
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "bold"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.dim]
+tag = 6
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "dim"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.italic]
+tag = 7
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "italic"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.inverse]
+tag = 8
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "inverse"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.invisible]
+tag = 9
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "invisible"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.strike]
+tag = 10
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "strike"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.blink]
+tag = 11
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "blink"
+constraints = ["BOOL_0_1"]
+
+[messages.Cell.fields.underline]
+tag = 12
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "Underline"
+handler = "underline"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.Cell.fields.underline_color]
+tag = 13
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Color"
+handler = "underline_color"
+constraints = []
+
+[messages.Cell.fields.link_uri]
+tag = 14
+kind = "string"
+cardinality = "singular"
+presence = "optional"
+handler = "link_uri"
+constraints = ["UTF8", "LINK_UTF8_4096"]
+
+[messages.Cell.fields.link_id]
+tag = 15
+kind = "string"
+cardinality = "singular"
+presence = "optional"
+handler = "link_id"
+constraints = ["UTF8", "LINK_UTF8_4096"]
+
+[messages.Cursor]
+# fields declared below
+constraints = []
+
+[messages.Cursor.fields.col]
+tag = 1
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "col"
+constraints = ["UINT32"]
+
+[messages.Cursor.fields.row]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "row"
+constraints = ["UINT32"]
+
+[messages.Cursor.fields.in_capture]
+tag = 3
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "in_capture"
+constraints = ["BOOL_0_1"]
+
+[messages.Cursor.fields.visible]
+tag = 4
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "visible"
+constraints = ["BOOL_0_1"]
+
+[messages.Cursor.fields.shape]
+tag = 5
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "CursorShape"
+handler = "shape"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.Cursor.fields.color]
+tag = 6
+kind = "message"
+cardinality = "singular"
+presence = "required"
+type_name = "Rgb"
+handler = "color"
+constraints = []
+
+[messages.Cursor.fields.blink]
+tag = 7
+kind = "bool"
+cardinality = "singular"
+presence = "optional"
+handler = "blink"
+constraints = ["BOOL_0_1"]
+
+[messages.Metadata]
+# fields declared below
+constraints = []
+
+[messages.Metadata.fields.captured_at_ms]
+tag = 1
+kind = "uint64"
+cardinality = "singular"
+presence = "required"
+handler = "captured_at_ms"
+constraints = ["UINT64"]
+
+[messages.Metadata.fields.revision]
+tag = 2
+kind = "uint64"
+cardinality = "singular"
+presence = "required"
+handler = "revision"
+constraints = ["UINT64"]
+
+[messages.Metadata.fields.backend]
+tag = 3
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "backend"
+constraints = ["UTF8"]
+
+[messages.Metadata.fields.session]
+tag = 4
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "session"
+constraints = ["UTF8"]
+
+[messages.Metadata.fields.source]
+tag = 5
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "Source"
+handler = "source"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.RenderContract]
+# fields declared below
+constraints = []
+
+[messages.RenderContract.fields.profile]
+tag = 1
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "profile"
+constraints = ["UTF8"]
+
+[messages.RenderContract.fields.contract_version]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "contract_version"
+constraints = ["UINT32", "CONTRACT_VERSION_EXPECTED"]
+
+[messages.RenderContract.fields.renderer_version]
+tag = 3
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "renderer_version"
+constraints = ["UTF8"]
+
+[messages.RenderContract.fields.raster_policy]
+tag = 4
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "raster_policy"
+constraints = ["UTF8"]
+
+[messages.RenderContract.fields.fonts]
+tag = 5
+kind = "message"
+cardinality = "repeated"
+presence = "repeated"
+type_name = "Font"
+handler = "fonts"
+constraints = []
+
+[messages.RenderContract.fields.cell_width]
+tag = 6
+kind = "float"
+cardinality = "singular"
+presence = "required"
+handler = "cell_width"
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
+
+[messages.RenderContract.fields.cell_height]
+tag = 7
+kind = "float"
+cardinality = "singular"
+presence = "required"
+handler = "cell_height"
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
+
+[messages.RenderContract.fields.font_size]
+tag = 8
+kind = "float"
+cardinality = "singular"
+presence = "required"
+handler = "font_size"
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
+
+[messages.RenderContract.fields.baseline]
+tag = 9
+kind = "float"
+cardinality = "singular"
+presence = "required"
+handler = "baseline"
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
+
+[messages.RenderContract.fields.scale]
+tag = 10
+kind = "double"
+cardinality = "singular"
+presence = "required"
+handler = "scale"
+constraints = ["FLOAT64_BITS", "FINITE_FLOAT"]
+
+[messages.RenderContract.fields.title_bar]
+tag = 11
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "title_bar"
+constraints = ["BOOL_0_1"]
+
+[messages.RenderContract.fields.palette_digest]
+tag = 12
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "palette_digest"
+constraints = ["UTF8"]
+
+[messages.RenderContract.fields.cursor_phase]
+tag = 13
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "CursorPhase"
+handler = "cursor_phase"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.RenderContract.fields.blink]
+tag = 14
+kind = "bool"
+cardinality = "singular"
+presence = "optional"
+handler = "blink"
+constraints = ["BOOL_0_1"]
+
+[messages.RenderContract.fields.platform_key]
+tag = 15
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "platform_key"
+constraints = ["UTF8"]
+
+[messages.Font]
+# fields declared below
+constraints = []
+
+[messages.Font.fields.digest]
+tag = 1
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "digest"
+constraints = ["UTF8"]
+
+[messages.Font.fields.face_index]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "face_index"
+constraints = ["UINT32"]
+
+[messages.Font.fields.bold]
+tag = 3
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "bold"
+constraints = ["BOOL_0_1"]
+
+[messages.Font.fields.italic]
+tag = 4
+kind = "bool"
+cardinality = "singular"
+presence = "required"
+handler = "italic"
+constraints = ["BOOL_0_1"]
+
+[messages.Font.fields.fallback_position]
+tag = 5
+kind = "uint64"
+cardinality = "singular"
+presence = "required"
+handler = "fallback_position"
+constraints = ["UINT64", "USIZE_CHECKED"]
+
+[messages.Image]
+# fields declared below
+constraints = ["IMAGE_PIXEL_DIMS_MATCH_GRID_10X20"]
+
+[messages.Image.fields.format]
+tag = 1
+kind = "enum"
+cardinality = "singular"
+presence = "required"
+type_name = "ImageFormat"
+handler = "format"
+constraints = ["ENUM_NONZERO_KNOWN"]
+
+[messages.Image.fields.width]
+tag = 2
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "width"
+constraints = ["UINT32", "IMAGE_DIM_1_32768_RGBA_MAX_268435456"]
+
+[messages.Image.fields.height]
+tag = 3
+kind = "uint32"
+cardinality = "singular"
+presence = "required"
+handler = "height"
+constraints = ["UINT32", "IMAGE_DIM_1_32768_RGBA_MAX_268435456"]
+
+[messages.Image.fields.png_sha256]
+tag = 4
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "png_sha256"
+constraints = ["UTF8"]
+
+[messages.Image.fields.rgba_sha256]
+tag = 5
+kind = "string"
+cardinality = "singular"
+presence = "required"
+handler = "rgba_sha256"
+constraints = ["UTF8"]
+
+[messages.Image.fields.png]
+tag = 6
+kind = "bytes"
+cardinality = "singular"
+presence = "required"
+handler = "png"
+constraints = []
+
+[messages.Observation]
+# fields declared below
+constraints = []
+
+[messages.Observation.fields.note]
+tag = 1
+kind = "string"
+cardinality = "singular"
+presence = "optional"
+handler = "note"
+constraints = ["UTF8"]
+
+[messages.Color.fields.default_color]
+tag = 1
+kind = "message"
+cardinality = "oneof"
+presence = "oneof"
+oneof = "value"
+type_name = "DefaultColor"
+handler = "default_color"
+constraints = ["EMPTY_MESSAGE"]
+
+[[enums.Gate]]
+number = 0
+name = "GATE_UNSPECIFIED"
+accepted = false
+
+[[enums.Gate]]
+number = 1
+name = "GATE_STATE"
+accepted = true
+
+[[enums.Gate]]
+number = 2
+name = "GATE_STATE_AND_PIXELS"
+accepted = true
+
+[[enums.Scope]]
+number = 0
+name = "SCOPE_UNSPECIFIED"
+accepted = false
+
+[[enums.Scope]]
+number = 1
+name = "SCOPE_VIEWPORT"
+accepted = true
+
+[[enums.Scope]]
+number = 2
+name = "SCOPE_ACTIVE_SCREEN"
+accepted = true
+
+[[enums.Scope]]
+number = 3
+name = "SCOPE_FULL_HISTORY"
+accepted = true
+
+[[enums.Underline]]
+number = 0
+name = "UNDERLINE_UNSPECIFIED"
+accepted = false
+
+[[enums.Underline]]
+number = 1
+name = "UNDERLINE_NONE"
+accepted = true
+
+[[enums.Underline]]
+number = 2
+name = "UNDERLINE_SINGLE"
+accepted = true
+
+[[enums.Underline]]
+number = 3
+name = "UNDERLINE_DOUBLE"
+accepted = true
+
+[[enums.Underline]]
+number = 4
+name = "UNDERLINE_CURLY"
+accepted = true
+
+[[enums.Underline]]
+number = 5
+name = "UNDERLINE_DOTTED"
+accepted = true
+
+[[enums.Underline]]
+number = 6
+name = "UNDERLINE_DASHED"
+accepted = true
+
+[[enums.CursorShape]]
+number = 0
+name = "CURSOR_SHAPE_UNSPECIFIED"
+accepted = false
+
+[[enums.CursorShape]]
+number = 1
+name = "CURSOR_SHAPE_BLOCK"
+accepted = true
+
+[[enums.CursorShape]]
+number = 2
+name = "CURSOR_SHAPE_UNDERLINE"
+accepted = true
+
+[[enums.CursorShape]]
+number = 3
+name = "CURSOR_SHAPE_BAR"
+accepted = true
+
+[[enums.Source]]
+number = 0
+name = "SOURCE_UNSPECIFIED"
+accepted = false
+
+[[enums.Source]]
+number = 1
+name = "SOURCE_LIVE"
+accepted = true
+
+[[enums.Source]]
+number = 2
+name = "SOURCE_OFFLINE"
+accepted = true
+
+[[enums.CursorPhase]]
+number = 0
+name = "CURSOR_PHASE_UNSPECIFIED"
+accepted = false
+
+[[enums.CursorPhase]]
+number = 1
+name = "CURSOR_PHASE_SHOWN"
+accepted = true
+
+[[enums.CursorPhase]]
+number = 2
+name = "CURSOR_PHASE_HIDDEN"
+accepted = true
+
+[[enums.ImageFormat]]
+number = 0
+name = "IMAGE_FORMAT_UNSPECIFIED"
+accepted = false
+
+[[enums.ImageFormat]]
+number = 1
+name = "IMAGE_FORMAT_PNG"
+accepted = true

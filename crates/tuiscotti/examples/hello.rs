@@ -66,7 +66,7 @@ fn draw_dashboard(frame: &mut Frame<'_>, dashboard: &Dashboard) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut out = PathBuf::from("hello.tui.json");
+    let mut out = PathBuf::from("hello.tui.pb");
     let mut pixels = false;
     for arg in std::env::args().skip(1) {
         if arg == "--pixels" {

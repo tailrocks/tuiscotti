@@ -46,7 +46,7 @@ CI is generated (see below); each lane has a local equivalent.
 |---|---|
 | `cargo fmt --all -- --check` | Format |
 | `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` | Clippy |
-| `cargo nextest run --workspace --locked --offline` (`--profile ci` in CI) | Nextest (`tuiscotti-cli` only; the lib declares `[lib] test = false`) |
+| `cargo nextest run --workspace --locked --offline` (`--profile ci` in CI) | Nextest (library and CLI suites) |
 | `cargo test --doc -p tuiscotti --locked --offline` | Doctests (2 doc tests in `crates/tuiscotti/docs/view.md`) |
 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked` | Documentation |
 

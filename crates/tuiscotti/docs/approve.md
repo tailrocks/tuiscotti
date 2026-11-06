@@ -17,7 +17,7 @@ actually approved.
 
 What approval does and does not do:
 
-- It validates the candidate with [`Sample::from_bytes`], which checks
+- It validates the candidate with `Sample::from_bytes`, which checks
   the schema, test ID, gate pairing, snapshot, and, for a
   `state-and-pixels` sample, the recorded PNG and RGBA digests against the
   decoded image bytes. Frame and image agreement is structural.
@@ -88,7 +88,7 @@ the open handle, so holders serialize across processes as well as
 threads, and a dead process leaves a stale file that never blocks. The
 wait stops after 30 seconds with a typed timeout.
 
-Frozen checking: [`FrozenStore`] has no approval method and gains none
+Frozen checking: `FrozenStore` has no approval method and gains none
 here; checking never writes the baseline root. Approval under a frozen
 store is refused in two shapes: a read-only baseline tree fails the lock
 or the write with a typed I/O error and writes nothing, and any set `CI`
@@ -364,7 +364,7 @@ Changed fields recorded for this approval, in comparison order:
 An explicit approval handle over one baseline root.
 
 The handle never approves through frozen comparison: checking stays on
-[`FrozenStore`], and only this type writes baselines. Roots that cannot
+`FrozenStore`, and only this type writes baselines. Roots that cannot
 be written (read-only trees) fail at lock acquisition with a typed I/O
 error; a set `CI` variable refuses every call before any write.
 
@@ -429,7 +429,7 @@ change summary, and the commit-last atomic upsert.
 
 Derive the store-relative baseline path for a candidate test ID.
 
-Every relative component must be [`Component::Normal`]: root, prefix,
+Every relative component must be `Component::Normal`: root, prefix,
 current-directory, and parent-directory components are rejected outright,
 never normalized, so no test ID can escape the baseline root through the
 derived path.
@@ -502,7 +502,7 @@ the upstream renderer just encoded these bytes.
 # fn `decode_stored_png`
 
 Decode the stored candidate PNG bytes: failures are image errors. These
-bytes already passed [`Sample::from_bytes`] validation, so failure here
+bytes already passed `Sample::from_bytes` validation, so failure here
 is unreachable outside memory corruption.
 
 # fn `decode_png`
@@ -599,3 +599,9 @@ the single changed field is the missing baseline itself.
 The change set from a present-baseline comparison, verbatim. The
 comparison never ran test-ID or gate cross-comparison; a pass is an
 empty change set.
+
+A failure to decode a re-rendered PNG is reported as
+`ApproveError::RenderedPngFailed`, with the concrete sample error in its
+source chain and the `RENDER_FAILED` code. PNG resource failures retain
+the `RESOURCE_LIMIT` code. Stored PNG decode failures retain
+`INVALID_IMAGE` and expose their sample error as a source.

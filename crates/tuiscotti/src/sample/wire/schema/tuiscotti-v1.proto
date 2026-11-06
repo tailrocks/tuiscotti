@@ -1,0 +1,21 @@
+syntax = "proto3";
+package tuiscotti.private.v1;
+message Sample { optional string schema = 1; optional string test_id = 2; optional Gate gate = 3; Snapshot snapshot = 4; RenderContract render_contract = 5; Image image = 6; Observation observation = 7; }
+enum Gate { GATE_UNSPECIFIED = 0; GATE_STATE = 1; GATE_STATE_AND_PIXELS = 2; }
+message Snapshot { optional uint32 schema = 1; optional uint32 cols = 2; optional uint32 rows = 3; optional Scope scope = 4; optional uint64 viewport_origin = 5; repeated Cell cells = 6; repeated Rgb palette = 7; Rgb default_foreground = 8; Rgb default_background = 9; Rgb default_cursor = 10; Cursor cursor = 11; optional string title = 12; Metadata metadata = 13; }
+enum Scope { SCOPE_UNSPECIFIED = 0; SCOPE_VIEWPORT = 1; SCOPE_ACTIVE_SCREEN = 2; SCOPE_FULL_HISTORY = 3; }
+message Rgb { optional uint32 red = 1; optional uint32 green = 2; optional uint32 blue = 3; }
+message DefaultColor {}
+message Color { oneof value { DefaultColor default_color = 1; uint32 indexed = 2; Rgb rgb = 3; } }
+message Cell { optional string text = 1; optional uint32 width = 2; Color fg = 3; Color bg = 4; optional bool bold = 5; optional bool dim = 6; optional bool italic = 7; optional bool inverse = 8; optional bool invisible = 9; optional bool strike = 10; optional bool blink = 11; optional Underline underline = 12; Color underline_color = 13; optional string link_uri = 14; optional string link_id = 15; }
+enum Underline { UNDERLINE_UNSPECIFIED = 0; UNDERLINE_NONE = 1; UNDERLINE_SINGLE = 2; UNDERLINE_DOUBLE = 3; UNDERLINE_CURLY = 4; UNDERLINE_DOTTED = 5; UNDERLINE_DASHED = 6; }
+message Cursor { optional uint32 col = 1; optional uint32 row = 2; optional bool in_capture = 3; optional bool visible = 4; optional CursorShape shape = 5; Rgb color = 6; optional bool blink = 7; }
+enum CursorShape { CURSOR_SHAPE_UNSPECIFIED = 0; CURSOR_SHAPE_BLOCK = 1; CURSOR_SHAPE_UNDERLINE = 2; CURSOR_SHAPE_BAR = 3; }
+message Metadata { optional uint64 captured_at_ms = 1; optional uint64 revision = 2; optional string backend = 3; optional string session = 4; optional Source source = 5; }
+enum Source { SOURCE_UNSPECIFIED = 0; SOURCE_LIVE = 1; SOURCE_OFFLINE = 2; }
+message RenderContract { optional string profile = 1; optional uint32 contract_version = 2; optional string renderer_version = 3; optional string raster_policy = 4; repeated Font fonts = 5; optional float cell_width = 6; optional float cell_height = 7; optional float font_size = 8; optional float baseline = 9; optional double scale = 10; optional bool title_bar = 11; optional string palette_digest = 12; optional CursorPhase cursor_phase = 13; optional bool blink = 14; optional string platform_key = 15; }
+message Font { optional string digest = 1; optional uint32 face_index = 2; optional bool bold = 3; optional bool italic = 4; optional uint64 fallback_position = 5; }
+enum CursorPhase { CURSOR_PHASE_UNSPECIFIED = 0; CURSOR_PHASE_SHOWN = 1; CURSOR_PHASE_HIDDEN = 2; }
+message Image { optional ImageFormat format = 1; optional uint32 width = 2; optional uint32 height = 3; optional string png_sha256 = 4; optional string rgba_sha256 = 5; optional bytes png = 6; }
+enum ImageFormat { IMAGE_FORMAT_UNSPECIFIED = 0; IMAGE_FORMAT_PNG = 1; }
+message Observation { optional string note = 1; }

@@ -1,0 +1,292 @@
+fn check_test_id(bytes: &[u8], offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if bytes.is_empty() || bytes[0] == b'/' || bytes.contains(&b'\\') || !bytes.is_ascii() {
+        return Err(fault(offset, path, "invalid test ID"));
+    }
+    let mut start = 0usize;
+    for end in 0..=bytes.len() {
+        if end != bytes.len() && bytes[end] != b'/' {
+            continue;
+        }
+        let segment = &bytes[start..end];
+        if segment.is_empty() || segment.len() > 64 || segment == b"." || segment == b".." {
+            return Err(fault(offset, path, "invalid test ID segment"));
+        }
+        if !segment.iter().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || *byte == b'_' || *byte == b'-'
+        }) {
+            return Err(fault(offset, path, "invalid test ID segment shape"));
+        }
+        let stem = segment
+            .split(|byte| *byte == b'.')
+            .next()
+            .unwrap_or(segment);
+        if matches!(stem, b"con" | b"prn" | b"aux" | b"nul")
+            || (stem.len() == 4
+                && (&stem[..3] == b"com" || &stem[..3] == b"lpt")
+                && matches!(stem[3], b'1'..=b'9'))
+        {
+            return Err(fault(offset, path, "reserved test ID segment"));
+        }
+        start = end + 1;
+    }
+    Ok(())
+}
+fn finish_frame(frame: &mut Frame<'_>, path: WirePath) -> Result<(), WireFault> {
+    let fields = fields_for(frame.kind)
+        .ok_or_else(|| fault(frame.span.start, path, "unknown message kind"))?;
+    check_required_fields(frame, fields, path)?;
+    match frame.kind {
+        "Snapshot" => finish_snapshot(frame, path)?,
+        "Image" => finish_image(frame, path)?,
+        "Sample" => finish_sample(frame, path)?,
+        _ => {}
+    }
+    Ok(())
+}
+fn check_required_fields(
+    frame: &Frame<'_>,
+    fields: &[FieldSpec],
+    path: WirePath,
+) -> Result<(), WireFault> {
+    for (index, field) in fields.iter().enumerate() {
+        if field.required && frame.seen & (1u64 << index) == 0 {
+            let mut p = path;
+            if !p.field(field.id) {
+                return Err(fault(
+                    frame.span.end,
+                    path,
+                    "wire path capacity proof violated",
+                ));
+            }
+            return Err(fault(frame.span.end, p, "missing required field"));
+        }
+    }
+    if fields.iter().any(|field| field.oneof.is_some()) && frame.oneofs != 1 {
+        return Err(fault(
+            frame.span.end,
+            path,
+            "oneof must select exactly one branch",
+        ));
+    }
+    for (index, field) in fields.iter().enumerate() {
+        if let Some(expected) = repeated_exact_count(frame.kind, field.name)
+            && frame.repeated[index] != expected
+        {
+            let mut field_path = path;
+            if !field_path.field(field.id) {
+                return Err(fault(
+                    frame.span.end,
+                    path,
+                    "wire path capacity proof violated",
+                ));
+            }
+            return Err(WireFault {
+                offset: frame.span.end,
+                path: field_path,
+                detail: "repeated field count differs from exact policy",
+                kind: FaultKind::InvalidSnapshot,
+            });
+        }
+    }
+    Ok(())
+}
+fn finish_snapshot(frame: &mut Frame<'_>, path: WirePath) -> Result<(), WireFault> {
+    let cells = frame.repeated[5];
+    let grid = frame.values[1]
+        .checked_mul(frame.values[2])
+        .ok_or_else(|| {
+            resource_fault(
+                frame.span.start,
+                path,
+                "grid product overflow",
+                "grid cells",
+                None,
+                1_000_000,
+            )
+        })?;
+    if grid > 1_000_000 {
+        return Err(resource_fault(
+            frame.span.end,
+            path,
+            "grid cells exceed 1000000",
+            "grid cells",
+            Some(grid),
+            1_000_000,
+        ));
+    }
+    if cells != grid {
+        return Err(WireFault {
+            offset: frame.span.end,
+            path,
+            detail: "grid cell count mismatch",
+            kind: FaultKind::InvalidSnapshot,
+        });
+    }
+    frame.summary.grid = Some((
+        checked_dimension(frame.values[1], frame.span.end, path)?,
+        checked_dimension(frame.values[2], frame.span.end, path)?,
+    ));
+    Ok(())
+}
+fn finish_image(frame: &mut Frame<'_>, path: WirePath) -> Result<(), WireFault> {
+    let rgba = frame.values[1]
+        .checked_mul(frame.values[2])
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| {
+            resource_fault(
+                frame.span.start,
+                path,
+                "RGBA size overflow",
+                "decoded RGBA bytes",
+                None,
+                268_435_456,
+            )
+        })?;
+    if rgba > 268_435_456 {
+        return Err(resource_fault(
+            frame.span.end,
+            path,
+            "RGBA bytes exceed limit",
+            "decoded RGBA bytes",
+            Some(rgba),
+            268_435_456,
+        ));
+    }
+    frame.summary.image = Some((
+        checked_dimension(frame.values[1], frame.span.end, path)?,
+        checked_dimension(frame.values[2], frame.span.end, path)?,
+    ));
+    Ok(())
+}
+fn finish_sample(frame: &Frame<'_>, path: WirePath) -> Result<(), WireFault> {
+    let gate = frame.values[2];
+    let contract = frame.seen & (1 << 4) != 0;
+    let image = frame.seen & (1 << 5) != 0;
+    if (gate == 1 && (contract || image)) || (gate == 2 && (!contract || !image)) {
+        return Err(WireFault {
+            offset: frame.span.end,
+            path,
+            detail: "gate evidence pair mismatch",
+            kind: FaultKind::GateMismatch,
+        });
+    }
+    validate_test_id_gate(frame, gate, path)?;
+    validate_image_grid(frame, image, path)?;
+    validate_aggregate_counts(frame, path)
+}
+fn validate_test_id_gate(frame: &Frame<'_>, gate: u64, path: WirePath) -> Result<(), WireFault> {
+    let (id_start, id_end) = frame
+        .summary
+        .test_id
+        .ok_or_else(|| fault(frame.span.end, path, "missing test ID summary"))?;
+    let id = &frame.span.bytes[id_start..id_end];
+    if gate == 1
+        && id
+            .rsplit(|byte| *byte == b'/')
+            .next()
+            .is_some_and(|tail| tail.starts_with(b"pixels-"))
+    {
+        return Err(WireFault {
+            offset: id_start,
+            path,
+            detail: "state test ID has a pixels suffix",
+            kind: FaultKind::GateMismatch,
+        });
+    }
+    if gate == 2 {
+        let (platform_start, platform_end) = frame
+            .summary
+            .platform_key
+            .ok_or_else(|| fault(frame.span.end, path, "missing platform key summary"))?;
+        let platform = &frame.span.bytes[platform_start..platform_end];
+        let suffix_len = platform.len().checked_add(8).ok_or_else(|| {
+            resource_fault(
+                id_start,
+                path,
+                "pixels test ID suffix overflow",
+                "test ID suffix",
+                None,
+                u64::MAX,
+            )
+        })?;
+        let tail_start = id.len().checked_sub(suffix_len).ok_or(WireFault {
+            offset: id_start,
+            path,
+            detail: "pixels test ID suffix mismatch",
+            kind: FaultKind::GateMismatch,
+        })?;
+        if &id[tail_start..tail_start + 8] != b"/pixels-" || &id[tail_start + 8..] != platform {
+            return Err(WireFault {
+                offset: id_start,
+                path,
+                detail: "pixels test ID suffix mismatch",
+                kind: FaultKind::GateMismatch,
+            });
+        }
+    }
+    Ok(())
+}
+fn validate_image_grid(frame: &Frame<'_>, image: bool, path: WirePath) -> Result<(), WireFault> {
+    if image
+        && let (Some((cols, rows)), Some((image_width, image_height))) =
+            (frame.summary.grid, frame.summary.image)
+    {
+        let (cell_width, cell_height) = image_grid_scale();
+        let expected_width = cols.checked_mul(cell_width).ok_or_else(|| {
+            resource_fault(
+                frame.span.end,
+                path,
+                "grid image width overflow",
+                "expected image width",
+                None,
+                u64::from(u32::MAX),
+            )
+        })?;
+        let expected_height = rows.checked_mul(cell_height).ok_or_else(|| {
+            resource_fault(
+                frame.span.end,
+                path,
+                "grid image height overflow",
+                "expected image height",
+                None,
+                u64::from(u32::MAX),
+            )
+        })?;
+        if (image_width, image_height) != (expected_width, expected_height) {
+            return Err(WireFault {
+                offset: frame.span.end,
+                path,
+                detail: "image pixel dimensions differ from rendered snapshot grid",
+                kind: FaultKind::DimensionMismatch,
+            });
+        }
+    }
+    Ok(())
+}
+fn validate_aggregate_counts(frame: &Frame<'_>, path: WirePath) -> Result<(), WireFault> {
+    if frame.summary.c > 1_000_000 {
+        return Err(resource_fault(
+            frame.span.end,
+            path,
+            "aggregate cell count exceeds limit",
+            "cells",
+            Some(frame.summary.c),
+            1_000_000,
+        ));
+    }
+    let font_limit = (frame.span.end - frame.span.start) as u64 / 2;
+    if frame.summary.f > font_limit {
+        return Err(resource_fault(
+            frame.span.end,
+            path,
+            "aggregate font count exceeds limit",
+            "fonts",
+            Some(frame.summary.f),
+            font_limit,
+        ));
+    }
+    Ok(())
+}
+fn checked_dimension(value: u64, offset: usize, path: WirePath) -> Result<u32, WireFault> {
+    u32::try_from(value).map_err(|_| fault(offset, path, "validated dimension exceeds u32"))
+}

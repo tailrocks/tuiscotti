@@ -1,0 +1,117 @@
+{
+  "schema": "tuiscotti-real-capture-bench.v1",
+  "capture_host": "aarch64-apple-darwin",
+  "inputs": [
+    {
+      "id": "showcase-home-120x40",
+      "binary": "showcase",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 120,
+      "rows": 40,
+      "client_platform": "macos"
+    },
+    {
+      "id": "showcase-large-240x80",
+      "binary": "showcase",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 240,
+      "rows": 80,
+      "client_platform": "macos"
+    },
+    {
+      "id": "tablepro-home-120x40",
+      "binary": "tablepro",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 120,
+      "rows": 40,
+      "client_platform": "macos"
+    },
+    {
+      "id": "holla-home-120x40",
+      "binary": "holla",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 120,
+      "rows": 40,
+      "client_platform": "macos"
+    },
+    {
+      "id": "jackin-home-120x40",
+      "binary": "jackin",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 120,
+      "rows": 40,
+      "client_platform": "macos"
+    },
+    {
+      "id": "showcase-compact-80x24",
+      "binary": "showcase",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 80,
+      "rows": 24,
+      "client_platform": "macos"
+    },
+    {
+      "id": "showcase-medium-160x50",
+      "binary": "showcase",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 160,
+      "rows": 50,
+      "client_platform": "macos"
+    },
+    {
+      "id": "tablepro-compact-80x24",
+      "binary": "tablepro",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 80,
+      "rows": 24,
+      "client_platform": "macos"
+    },
+    {
+      "id": "holla-compact-80x24",
+      "binary": "holla",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 80,
+      "rows": 24,
+      "client_platform": "macos"
+    },
+    {
+      "id": "jackin-compact-80x24",
+      "binary": "jackin",
+      "args": [
+        "--color",
+        "truecolor"
+      ],
+      "cols": 80,
+      "rows": 24,
+      "client_platform": "macos"
+    }
+  ],
+  "capture_execution": "host-native"
+}
