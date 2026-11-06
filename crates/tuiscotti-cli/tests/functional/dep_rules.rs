@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::super::helpers::{check_direct_dependencies, make_dir, write_bytes};
+use crate::helpers::{check_direct_dependencies, make_dir, write_bytes};
 
 const DEP_CRATE: &str =
     "[package]\nname = \"tuiscotti\"\nversion = \"0.2.0\"\nedition = \"2024\"\n";

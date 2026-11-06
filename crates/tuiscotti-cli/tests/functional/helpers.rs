@@ -93,10 +93,6 @@ pub(crate) fn accept_candidate(
     (exit_code(&out), out.stdout)
 }
 
-pub(crate) fn check_direct_dependencies(workspace: &Path, crate_manifest: &Path) -> i32 {
-    crate::dependencies::check_direct_dependencies(workspace, crate_manifest)
-}
-
 #[expect(clippy::expect_used, reason = "temp dirs anchor every case")]
 pub(crate) fn case_dir(name: &str) -> tempfile::TempDir {
     tempfile::Builder::new()

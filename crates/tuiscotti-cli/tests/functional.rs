@@ -2,8 +2,6 @@
 
 #[path = "functional/ci.rs"]
 mod ci;
-#[path = "functional/dependencies.rs"]
-mod dependencies;
 #[path = "functional/helpers.rs"]
 mod helpers;
 #[path = "functional/invalid_input.rs"]

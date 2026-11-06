@@ -9,9 +9,6 @@ use super::helpers::{
     make_dir, open_lane, parse_json_line, pixel_test_id, run_cli, sha256_file, utf8, write_bytes,
 };
 
-#[path = "dep_rules.rs"]
-mod dep_rules;
-
 pub(super) fn invalid_input() {
     const OVERSIZED: usize = 64 * 1024 * 1024 + 1;
     let root = case_dir("invalid-input");
@@ -79,7 +76,6 @@ pub(super) fn invalid_input() {
     assert_eq!(exit_code(&out), 3);
     assert_eq!(parse_json_line(&out.stdout)["error_code"], "RESOURCE_LIMIT");
     phase_usage_errors(&candidates, &sample, &baselines, &lane);
-    dep_rules::phase_direct_dep_rules(&candidates);
     #[cfg(unix)]
     approval_refuses_symlink_lock_without_external_write();
     phase_view_error_coordinates();

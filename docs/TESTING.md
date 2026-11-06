@@ -15,7 +15,7 @@ only.
 
 | Location | Suites (tests at HEAD) |
 |---|---|
-| `crates/tuiscotti-cli/tests/` | `functional`, `compressed_binary`, `compressed_oracle`, and `schema_generator` integration suites |
+| `crates/tuiscotti-cli/tests/` | `functional`, `compressed_binary`, `compressed_oracle`, `repository_policy`, and `schema_generator` integration suites |
 | `crates/tuiscotti/src/` | library unit tests, including embedded PNG and wire tests |
 | `crates/tuiscotti-cli/src/` | no tests |
 
@@ -24,9 +24,13 @@ only.
 | Test | Proves |
 |---|---|
 | `live_workflow` | A user captures a real terminal view from an in-memory Ratatui buffer, compares it, approves it, and reports on it: missing → accept → pass → changed → render (PNG decoding and dimensions, embedded-HTML page with markers) → indexed report with a report filename check. |
-| `invalid_input` | Malformed arguments, corrupt samples, oversize input, and unsupported output extensions fail with the documented exit codes and error codes and never create or replace a baseline. It also checks direct-dependency rules with temporary manifests. |
+| `invalid_input` | Malformed arguments, corrupt samples, oversize input, and unsupported output extensions fail with the documented exit codes and error codes and never create or replace a baseline. |
 | `ci_refuses_approval` | A set `CI` variable (empty, `false`, `true`) refuses approval without touching baselines; an unset `CI` approves. |
 | `closed_stdout` | A closed output pipe preserves the operation result, and nothing panics. |
+
+The standalone `repository_policy` suite checks that workspace and crate
+manifests do not declare direct PTY or terminal-engine dependencies. It
+also checks dependency parsing against temporary manifests.
 
 The suite runs the shipped CLI binary in fresh temporary stores. It checks selected exit codes and JSON fields, approved sample bytes, PNG decoding and dimensions, HTML markers, and the report filename in the index.
 

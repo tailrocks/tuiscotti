@@ -9,6 +9,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+exclude = ["tests/repository_policy.rs", "tests/schema_generator.rs"]
 
 [[bin]]
 name = "tuiscotti"
