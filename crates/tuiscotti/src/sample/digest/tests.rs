@@ -78,9 +78,7 @@ fn snapshot_projection_matches_legacy_value_bytes() -> io::Result<()> {
     if !snapshot_order_preserved() {
         assert_eq!(
             actual,
-            include_bytes!(
-                "../../../../../crates/tuiscotti-cli/tests/fixtures/rich_state_projection.canonical.json"
-            )
+            include_bytes!("../../../tests/fixtures/rich_state_projection.canonical.json")
         );
     }
     Ok(())
@@ -169,11 +167,15 @@ fn contract_projection_matches_legacy_declared_bytes_for_float_and_blink_cases()
         assert_eq!(actual, expected);
     }
     for fixture in [
-        include_bytes!("../../../../../crates/tuiscotti-cli/tests/fixtures/render_contract_none.canonical.json").as_slice(),
-        include_bytes!("../../../../../crates/tuiscotti-cli/tests/fixtures/render_contract_some_false.canonical.json").as_slice(),
-        include_bytes!("../../../../../crates/tuiscotti-cli/tests/fixtures/render_contract_some_true.canonical.json").as_slice(),
-        include_bytes!("../../../../../crates/tuiscotti-cli/tests/fixtures/render_contract_positive_zero.canonical.json").as_slice(),
-        include_bytes!("../../../../../crates/tuiscotti-cli/tests/fixtures/render_contract_negative_zero.canonical.json").as_slice(),
+        include_bytes!("../../../tests/fixtures/render_contract_none.canonical.json").as_slice(),
+        include_bytes!("../../../tests/fixtures/render_contract_some_false.canonical.json")
+            .as_slice(),
+        include_bytes!("../../../tests/fixtures/render_contract_some_true.canonical.json")
+            .as_slice(),
+        include_bytes!("../../../tests/fixtures/render_contract_positive_zero.canonical.json")
+            .as_slice(),
+        include_bytes!("../../../tests/fixtures/render_contract_negative_zero.canonical.json")
+            .as_slice(),
     ] {
         let contract = contract_from_fixture(fixture)?;
         let mut actual = Vec::new();
