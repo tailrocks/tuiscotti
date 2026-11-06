@@ -5,8 +5,9 @@ documented here. Versions follow Semantic Versioning.
 
 ## Unreleased — proposed paired version 0.5.0
 
-The two package manifests now carry the proposed paired version
-`0.5.0`. It has not been published or released.
+The proposed paired release version is `0.5.0`. The package manifests
+remain at `0.4.0`; release-plz will bump them for the release PR. This
+version has not been published or released.
 
 - Persisted samples and baselines use versioned Protobuf messages in
   Zstandard-compressed `.tui.pb` containers. JSON result records and
