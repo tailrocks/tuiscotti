@@ -96,44 +96,44 @@ url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/carg
 url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471599057"
 
 [[tools."github:asamarts/alint"]]
-version = "0.21.0"
+version = "0.21.1"
 backend = "github:asamarts/alint"
-specifiers = ["0.21.0"]
+specifiers = ["0.21.1"]
 
 [tools."github:asamarts/alint"."platforms.linux-arm64"]
-checksum = "sha256:c72ed301a414d0aa27f6ecbae4da53eee8e219f2ad6ee5cd8d5edac72809c667"
-url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121276"
+checksum = "sha256:02b92f34efa79bb9082247fe173874a77867d3af5136728e53df772b504ccc6b"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.1/alint-v0.21.1-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/714596353"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.linux-arm64-musl"]
-checksum = "sha256:c72ed301a414d0aa27f6ecbae4da53eee8e219f2ad6ee5cd8d5edac72809c667"
-url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121276"
+checksum = "sha256:02b92f34efa79bb9082247fe173874a77867d3af5136728e53df772b504ccc6b"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.1/alint-v0.21.1-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/714596353"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.linux-x64"]
-checksum = "sha256:33d8fe0463e2f5eaff7586c7748dac3e37ffabb41df0973d544be3d7ebe17ce0"
-url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121287"
+checksum = "sha256:6b9c9654dfd6b154037236d75c3504c5bb2290562bb05a324511e11556f22125"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.1/alint-v0.21.1-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/714596382"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.linux-x64-musl"]
-checksum = "sha256:33d8fe0463e2f5eaff7586c7748dac3e37ffabb41df0973d544be3d7ebe17ce0"
-url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121287"
+checksum = "sha256:6b9c9654dfd6b154037236d75c3504c5bb2290562bb05a324511e11556f22125"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.1/alint-v0.21.1-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/714596382"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.macos-arm64"]
-checksum = "sha256:698ac7870c8ed4bdf18f36de9537ecadd140c70fe1bb4fa142c4a5951825ab96"
-url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121247"
+checksum = "sha256:cdd02200a144aad877a95c5749b120608c87c0c1f4d35729f086374ef1af2039"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.1/alint-v0.21.1-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/714596351"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.windows-x64"]
-checksum = "sha256:004d4326c14befae9a15bff9800a22ba82e73c5484e1b98f1520c603a437886f"
-url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-x86_64-pc-windows-msvc.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121268"
+checksum = "sha256:361b156921fd0e19af93307414ddef9440f98ce9e2fced385563d2603f2edcbc"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.1/alint-v0.21.1-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/714596372"
 provenance = "github-attestations"
 
 [[tools.mr-boxington]]
