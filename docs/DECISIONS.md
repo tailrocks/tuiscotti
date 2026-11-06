@@ -351,11 +351,33 @@ and 72-hour cumulative caps with substantial margin. The level is a
 provisional implementation choice, not release approval or final
 cross-platform proof.
 
+An independently reviewed exact-head follow-up at
+`9e8eab42e072936824186bbaa17919181410a6e9` exercised the public writer and
+reader on 20 real captures across five release-mode processes. All 100 output
+files matched the preserved outputs, and every process stayed within the
+absolute RSS/time limits. It establishes exact-head resource feasibility and
+output identity for that corpus. Its process timing includes output writes;
+the harness's per-record timing field stops before writing and is not an
+end-to-end measurement. The heavily contended host makes timing unsuitable
+for codec ranking. The harness and inputs are local untracked evidence, so a
+fresh clone cannot reproduce the result without restoring them.
+
+A real downstream-history storage experiment used 105 unapproved candidate
+snapshots: 104 replacements, one new PB file, and five retained JSON files.
+The measured repacked history grew by 292,207 bytes; its incremental thin pack
+was 286,339 bytes, and a fresh PB-only pack was 286,025 bytes. This is a
+single-snapshot storage measurement, not a full multi-revision migration or
+proof of equivalence to historical JSON content. The inputs and results are
+also local untracked evidence. Neither follow-up is release approval or
+cross-platform proof.
+
 The run was made under sustained unrelated host load after the original
 benchmark freeze. The later contended-run amendment permits provisional
 selection only from absolute cap results; the run cannot support relative
-speed rankings. Evidence is native macOS/aarch64 only. Linux, broader
-workloads, and final-source end-to-end costs remain unverified. Details,
+speed rankings. Evidence is native macOS/aarch64 only. Linux behavior and
+broader workloads remain unverified, including accept and check over the full
+capture corpus, report generation over realistic non-empty evidence, and
+workloads beyond the measured 20 captures. Details,
 comparisons, hashes, and reproduction commands are in
 [the provisional level 22 benchmark record](benchmarks/zstd-level-22-provisional.md).
 Before release, complete the remaining format and resource checks in

@@ -86,7 +86,37 @@ cargo nextest run -p tuiscotti --lib --locked --offline public_sample_encoder_us
 cargo nextest run --workspace --locked --offline
 ```
 
-## Final-source public-path follow-up
+## Exact-head public-writer follow-up
+
+An independently reviewed release-mode run used a disposable clean worktree
+at exact reviewed source commit `9e8eab42e072936824186bbaa17919181410a6e9`,
+with only a test-only harness overlay. It exercised the public
+`Sample::to_bytes()` / `Sample::from_bytes()` path for 20 real captures (10
+state and 10 state-and-pixels), including reconstruction, validation,
+pixel re-rendering, round-trip equality, digest and PNG/RGBA checks, and output
+writes. Five independent processes each completed all 20 captures; all 100
+outputs matched the preserved level-22 outputs byte for byte. No approval or
+baseline write ran.
+
+Process wall time, measured around the whole test binary and including output
+writes, had a 3.99 s median and 3.88–4.38 s range. Maximum RSS was
+350,978,048 bytes. Each run wrote 727,524 bytes. These measurements passed the
+1 GiB/process, 3,600 s/pass, and 259,200 s cumulative caps. Host load was
+elevated (one-minute averages 60.74–75.63 on 18 logical CPUs), so this is
+resource-feasibility and output-equivalence evidence, not a timing comparison.
+The harness JSON field `end_to_end_ns_includes_parse_validate_encode_decode_digest_write`
+is mislabeled: its timer stops before `fs::write`, and therefore excludes
+output writes. Use the process-level timing for the end-to-end cap comparison.
+
+The source record, raw run data, overlay, inputs, and output hashes are local
+untracked evidence at `.audit/benchmark-evidence/public-writer-9e8eab42/` in
+the original workspace; they are not present in a fresh clone or this
+documentation-only checkout. Reproduction requires the preserved capture
+archive and matching prior output reference, the exact commit above, the
+test-only overlay, macOS arm64, Rust 1.99.1, and the recorded release test
+binary/build procedure. The evidence README documents the commands and hashes.
+
+## Earlier final-source public-path follow-up
 
 A later macOS arm64 run exercised the public writer from the final reviewed
 source, including sample reconstruction, validation, pixel re-rendering,
@@ -105,7 +135,7 @@ are preserved locally under `.audit/benchmark-evidence/final-source/`; the
 harness archive is not a production sample reader. Native Linux behavior and independent regeneration of the captures remain
 unverified.
 
-## Final-source Git history follow-up
+## Synthetic Git history follow-up
 
 The final public writer reproduced all 25 encoded inputs in the earlier
 synthetic history byte for byte. Two new eight-commit history builds also
@@ -129,3 +159,29 @@ The local untracked evidence archive is
 (SHA-256 `f32b07f7f93fdc9e6095b8ffaa57af4d9a2e3ce5d84cdaeeac57ed5000d0c247`).
 It contains replay checks and raw records. It did not invoke approval or inject
 CLI/report failures, and it does not establish Linux behavior.
+
+## Real downstream-history migration measurement
+
+A separate storage experiment used 105 unapproved candidate snapshots against
+a real downstream JSON-history prefix. It replaced 104 matching `.tui.json`
+files with the captured `.tui.pb` bytes, added one new PB snapshot, and retained
+five unmatched JSON files. It did not call `accept`, modify an active baseline,
+or rewrite full historical revisions. In the measured checkout, the functional
+baseline changed from 109 JSON files (125,135,015 bytes) to 105 PB files
+(280,900 bytes) plus five retained JSON files (5,635,106 bytes), 5,916,006
+bytes total.
+
+With the recorded Git 2.54.0 repack settings, the real-history pack grew by
+292,207 bytes (30,929,432 to 31,221,639 bytes); the one-commit thin fetch pack
+was 286,339 bytes. A fresh PB-only history containing the same 105 candidate
+inputs produced a 286,025-byte pack. These are Git storage observations, not
+codec speed results. The candidate captures are unapproved and no equivalence
+between these PB bytes and older JSON revisions is claimed. The dataset is a
+single current snapshot, not a multi-revision PB update history; complete
+historical migration evidence requires exact captures from each historical
+application revision. The raw results, inputs, scratch repositories, and
+checksums are local untracked evidence in the original workspace under
+`.audit/real-history-migration-benchmark-20261106/`; they are not included in
+a fresh clone. Reproduction depends on that evidence, source prefix
+`60b5fb2762d91a3549bd4ac63b1d77d534ee53d2`, the exact captured inputs, and the
+recorded Git version and repack flags.
