@@ -129,6 +129,36 @@ fn check_schema_value(
     }
     Ok(())
 }
+
+fn check_fixed(
+    field: &FieldSpec,
+    bytes: &[u8],
+    offset: usize,
+    path: WirePath,
+) -> Result<(), WireFault> {
+    if field.constraints.contains(&"FINITE_FLOAT") {
+        let finite = if field.kind == WireKind::Fixed32 {
+            f32::from_le_bytes(
+                bytes
+                    .try_into()
+                    .map_err(|_| fault(offset, path, "invalid float width"))?,
+            )
+            .is_finite()
+        } else {
+            f64::from_le_bytes(
+                bytes
+                    .try_into()
+                    .map_err(|_| fault(offset, path, "invalid double width"))?,
+            )
+            .is_finite()
+        };
+        if !finite {
+            return Err(fault(offset, path, "non-finite float"));
+        }
+    }
+    Ok(())
+}
+
 fn check_length(
     field: &FieldSpec,
     bytes: &[u8],

@@ -9,6 +9,7 @@ pub(super) fn validate_constraint_catalog(p: &Policy) -> Result<(), String> {
         "UINT64",
         "BOOL_0_1",
         "ENUM_NONZERO_KNOWN",
+        "FINITE_FLOAT",
         "FLOAT32_BITS",
         "FLOAT64_BITS",
         "SAMPLE_SCHEMA_EXPECTED",

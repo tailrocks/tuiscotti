@@ -130,6 +130,9 @@ sample (`cargo run -p tuiscotti --example hello -- <out.tui.pb>
 [--pixels]`); the first run is walked through in
 [docs/FIRST-SUCCESS.md](docs/FIRST-SUCCESS.md).
 
+Render contract geometry and scale must be finite; sample validation and
+the binary reader reject NaN and infinity.
+
 The binary sample reader rejects JSON and does not convert it.
 Regenerate old samples from their source before using this version.
 

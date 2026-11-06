@@ -76,6 +76,7 @@ fn read_field_value<'a>(top: &mut Frame<'a>, step: FieldStep, depth: usize) -> R
             let width = if field.kind == WireKind::Fixed64 { 8 } else { 4 };
             let finish = top.cursor.checked_add(width).ok_or_else(|| fault(top.cursor, step.path, "fixed field overflow"))?;
             if finish > top.span.end { return Err(fault(top.cursor, step.path, "truncated fixed field")); }
+            check_fixed(field, &top.span.bytes[top.cursor..finish], step.offset, step.path)?;
             top.cursor = finish;
         }
         WireKind::LengthDelimited => {
@@ -139,6 +140,19 @@ fn check_schema_value(field: &FieldSpec, value: u64, offset: usize, path: WirePa
     if field.constraints.contains(&"USIZE_CHECKED") && usize::try_from(value).is_err() { return Err(fault(offset, path, "value does not fit usize")); }
     Ok(())
 }
+
+fn check_fixed(field: &FieldSpec, bytes: &[u8], offset: usize, path: WirePath) -> Result<(), WireFault> {
+    if field.constraints.contains(&"FINITE_FLOAT") {
+        let finite = if field.kind == WireKind::Fixed32 {
+            f32::from_le_bytes(bytes.try_into().map_err(|_| fault(offset, path, "invalid float width"))?).is_finite()
+        } else {
+            f64::from_le_bytes(bytes.try_into().map_err(|_| fault(offset, path, "invalid double width"))?).is_finite()
+        };
+        if !finite { return Err(fault(offset, path, "non-finite float")); }
+    }
+    Ok(())
+}
+
 fn check_length(field: &FieldSpec, bytes: &[u8], offset: usize, path: WirePath) -> Result<(), WireFault> {
     if field.constraints.contains(&"UTF8") && std::str::from_utf8(bytes).is_err() { return Err(fault(offset, path, "invalid UTF-8")); }
     let limit = if field.constraints.contains(&"CELL_TEXT_UTF8_4096") || field.constraints.contains(&"LINK_UTF8_4096") { 4096 }

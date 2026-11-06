@@ -17,6 +17,9 @@ phase = "field"
 [constraints.ENUM_NONZERO_KNOWN]
 phase = "field"
 
+[constraints.FINITE_FLOAT]
+phase = "field"
+
 [constraints.FLOAT32_BITS]
 phase = "field"
 
@@ -608,7 +611,7 @@ kind = "float"
 cardinality = "singular"
 presence = "required"
 handler = "cell_width"
-constraints = ["FLOAT32_BITS"]
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
 
 [messages.RenderContract.fields.cell_height]
 tag = 7
@@ -616,7 +619,7 @@ kind = "float"
 cardinality = "singular"
 presence = "required"
 handler = "cell_height"
-constraints = ["FLOAT32_BITS"]
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
 
 [messages.RenderContract.fields.font_size]
 tag = 8
@@ -624,7 +627,7 @@ kind = "float"
 cardinality = "singular"
 presence = "required"
 handler = "font_size"
-constraints = ["FLOAT32_BITS"]
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
 
 [messages.RenderContract.fields.baseline]
 tag = 9
@@ -632,7 +635,7 @@ kind = "float"
 cardinality = "singular"
 presence = "required"
 handler = "baseline"
-constraints = ["FLOAT32_BITS"]
+constraints = ["FLOAT32_BITS", "FINITE_FLOAT"]
 
 [messages.RenderContract.fields.scale]
 tag = 10
@@ -640,7 +643,7 @@ kind = "double"
 cardinality = "singular"
 presence = "required"
 handler = "scale"
-constraints = ["FLOAT64_BITS"]
+constraints = ["FLOAT64_BITS", "FINITE_FLOAT"]
 
 [messages.RenderContract.fields.title_bar]
 tag = 11

@@ -403,7 +403,8 @@ Structural validation (no font resolution) accepts a historical contract
 that parses under this schema; rendering and approval re-rendering
 resolve the profile by name instead. Style slots, fallback order, font
 digests with face indices, geometry, palette digest, cursor phase, and
-the platform key are all recorded here.
+the platform key are all recorded here. Geometry and scale must be finite;
+finite values retain their exact floating-point bits.
 
 # `pub(crate) fn from_rendered(`
 
@@ -635,7 +636,7 @@ Returns [`SampleError`] when the embedded image fails to decode.
 # `pub fn validate_structure(&self) -> Result<(), SampleError> {`
 
 Structural validation without font resolution: gate pairing, test
-ID, contract version, grid limits, and cell text limits. Used both
+ID, contract version, finite geometry and scale, grid limits, and cell text limits. Used both
 after construction and at comparison time for historical contracts.
 The pixels suffix checks against the stored contract identity, so a
 sample recorded on another platform parses wherever its own ID and

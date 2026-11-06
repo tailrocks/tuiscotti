@@ -305,3 +305,85 @@ fn unsupported_schema_error_retains_the_exact_bounded_wire_value() -> Result<(),
     assert_eq!(value, rejected);
     Ok(())
 }
+
+#[test]
+fn geometry_rejects_nonfinite_wire_values_with_field_paths() -> Result<(), Box<dyn Error>> {
+    for (tag, name) in [
+        (6, "cell_width"),
+        (7, "cell_height"),
+        (8, "font_size"),
+        (9, "baseline"),
+        (10, "scale"),
+    ] {
+        for bits in [0, 1, 2] {
+            let mut contract = Vec::new();
+            if tag == 10 {
+                fixed64(
+                    tag,
+                    [f64::NAN, f64::INFINITY, f64::NEG_INFINITY][bits].to_bits(),
+                    &mut contract,
+                );
+            } else {
+                fixed32(
+                    tag,
+                    [f32::NAN, f32::INFINITY, f32::NEG_INFINITY][bits].to_bits(),
+                    &mut contract,
+                );
+            }
+            let mut wire = Vec::new();
+            bytes(5, &contract, &mut wire);
+            let mut budget = checked(DecodeBudget::new())?;
+            let error = expected_error(scan_sample(&wire, &mut budget))?;
+            let DecodeError::Format(BinaryFormatError::Wire { path, .. }) = error else {
+                return Err(io::Error::other(format!("expected wire error: {error:?}")).into());
+            };
+            assert_eq!(path.to_string(), format!("render_contract.{name}"));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn finite_geometry_bits_round_trip_and_nonfinite_samples_cannot_encode()
+-> Result<(), Box<dyn Error>> {
+    let (message, _) = pixel_wire()?;
+    let encoded = checked(super::super::super::super::container::encode_container(
+        &message, 3,
+    ))?;
+    let mut sample = checked(super::super::super::decode_sample(&encoded))?;
+    let contract = sample
+        .render_contract
+        .as_mut()
+        .ok_or_else(|| io::Error::other("missing contract"))?;
+    contract.cell_width = -0.0;
+    contract.cell_height = f32::from_bits(1);
+    contract.font_size = f32::MAX;
+    contract.baseline = f32::MIN;
+    contract.scale = f64::from_bits(1);
+    let encoded = checked(sample.to_bytes())?;
+    let decoded = checked(Sample::from_bytes(&encoded))?;
+    let actual = decoded
+        .render_contract()
+        .ok_or_else(|| io::Error::other("missing contract"))?;
+    assert_eq!(actual.cell_width().to_bits(), (-0.0_f32).to_bits());
+    assert_eq!(actual.cell_height().to_bits(), 1);
+    assert_eq!(actual.font_size().to_bits(), f32::MAX.to_bits());
+    assert_eq!(actual.baseline().to_bits(), f32::MIN.to_bits());
+    assert_eq!(actual.scale().to_bits(), 1);
+    for field in 0..5 {
+        let mut invalid = sample.clone();
+        let contract = invalid
+            .render_contract
+            .as_mut()
+            .ok_or_else(|| io::Error::other("missing contract"))?;
+        match field {
+            0 => contract.cell_width = f32::NAN,
+            1 => contract.cell_height = f32::INFINITY,
+            2 => contract.font_size = f32::NEG_INFINITY,
+            3 => contract.baseline = f32::NAN,
+            _ => contract.scale = f64::INFINITY,
+        }
+        assert!(invalid.to_bytes().is_err());
+    }
+    Ok(())
+}

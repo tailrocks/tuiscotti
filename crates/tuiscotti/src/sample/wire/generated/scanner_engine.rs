@@ -198,6 +198,12 @@ fn read_field_value<'a>(
             if finish > top.span.end {
                 return Err(fault(top.cursor, step.path, "truncated fixed field"));
             }
+            check_fixed(
+                field,
+                &top.span.bytes[top.cursor..finish],
+                step.offset,
+                step.path,
+            )?;
             top.cursor = finish;
         }
         WireKind::LengthDelimited => {

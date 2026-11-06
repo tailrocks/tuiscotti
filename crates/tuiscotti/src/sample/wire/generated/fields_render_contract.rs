@@ -69,7 +69,7 @@ pub(super) const FIELDS_RENDERCONTRACT: &[FieldSpec] = &[
         repeated: false,
         required: true,
         type_name: None,
-        constraints: &["FLOAT32_BITS"],
+        constraints: &["FLOAT32_BITS", "FINITE_FLOAT"],
         oneof: None,
     },
     FieldSpec {
@@ -81,7 +81,7 @@ pub(super) const FIELDS_RENDERCONTRACT: &[FieldSpec] = &[
         repeated: false,
         required: true,
         type_name: None,
-        constraints: &["FLOAT32_BITS"],
+        constraints: &["FLOAT32_BITS", "FINITE_FLOAT"],
         oneof: None,
     },
     FieldSpec {
@@ -93,7 +93,7 @@ pub(super) const FIELDS_RENDERCONTRACT: &[FieldSpec] = &[
         repeated: false,
         required: true,
         type_name: None,
-        constraints: &["FLOAT32_BITS"],
+        constraints: &["FLOAT32_BITS", "FINITE_FLOAT"],
         oneof: None,
     },
     FieldSpec {
@@ -105,7 +105,7 @@ pub(super) const FIELDS_RENDERCONTRACT: &[FieldSpec] = &[
         repeated: false,
         required: true,
         type_name: None,
-        constraints: &["FLOAT32_BITS"],
+        constraints: &["FLOAT32_BITS", "FINITE_FLOAT"],
         oneof: None,
     },
     FieldSpec {
@@ -117,7 +117,7 @@ pub(super) const FIELDS_RENDERCONTRACT: &[FieldSpec] = &[
         repeated: false,
         required: true,
         type_name: None,
-        constraints: &["FLOAT64_BITS"],
+        constraints: &["FLOAT64_BITS", "FINITE_FLOAT"],
         oneof: None,
     },
     FieldSpec {

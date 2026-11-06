@@ -8,6 +8,8 @@ The sample file is the approved input to a frozen check. A check never writes a 
 
 Baseline files use `<baseline-root>/<test-id>.tui.pb`. Candidate evidence uses `sample.tui.pb` and `expected.tui.pb`. The header and compressed payload are part of the sample file bytes. The SHA-256 digest covers both.
 
+Render contract geometry and scale must be finite; readers and writers reject NaN and infinity. Finite values retain their exact floating-point bits.
+
 The reader accepts only the supported binary container. JSON samples, unknown formats, unsupported versions, malformed messages, and resource-limit violations fail closed. The reader does not fall back to `.tui.json`. An old JSON file beside a missing `.tui.pb` does not count as a baseline. The reader does not convert old samples. Regenerate samples from their source, then review them before approval.
 
 ## Comparison gates

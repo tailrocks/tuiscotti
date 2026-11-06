@@ -190,7 +190,7 @@ impl Sample {
         sha256_hex(bytes)
     }
 
-    #[doc = "Structural validation without font resolution: gate pairing, test ID, contract version, grid limits, and cell text limits.\n\n# Errors\n\nReturns [`SampleError`] for every structural rejection."]
+    #[doc = "Structural validation without font resolution: gate pairing, test ID, contract version, finite geometry and scale, grid limits, and cell text limits.\n\n# Errors\n\nReturns [`SampleError`] for every structural rejection."]
     pub fn validate_structure(&self) -> Result<(), SampleError> {
         let current_platform;
         let pixels_platform = if let Some(contract) = &self.render_contract {
@@ -221,6 +221,16 @@ impl Sample {
                     .ok_or_else(|| SampleError::GateMismatch {
                         detail: "state-and-pixels gate requires an image".to_string(),
                     })?;
+                if !contract.cell_width.is_finite()
+                    || !contract.cell_height.is_finite()
+                    || !contract.font_size.is_finite()
+                    || !contract.baseline.is_finite()
+                    || !contract.scale.is_finite()
+                {
+                    return Err(SampleError::GateMismatch {
+                        detail: "render contract geometry must be finite".to_string(),
+                    });
+                }
                 if contract.contract_version != CONTRACT_VERSION {
                     return Err(SampleError::UnsupportedContract {
                         version: contract.contract_version,
