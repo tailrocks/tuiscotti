@@ -8,17 +8,26 @@ mod helpers {
 
     pub(crate) use crate::dependencies::check_direct_dependencies;
 
-    #[expect(clippy::expect_used, reason = "repository policy test directories must build")]
+    #[expect(
+        clippy::expect_used,
+        reason = "repository policy test directories must build"
+    )]
     pub(crate) fn make_dir(path: &Path) {
         std::fs::create_dir_all(path).expect("repository policy test directory builds");
     }
 
-    #[expect(clippy::expect_used, reason = "repository policy test files must persist")]
+    #[expect(
+        clippy::expect_used,
+        reason = "repository policy test files must persist"
+    )]
     pub(crate) fn write_bytes(path: &Path, bytes: &[u8]) {
         std::fs::write(path, bytes).expect("repository policy test file writes");
     }
 
-    #[expect(clippy::expect_used, reason = "repository policy test directory must build")]
+    #[expect(
+        clippy::expect_used,
+        reason = "repository policy test directory must build"
+    )]
     pub(crate) fn temp_dir() -> tempfile::TempDir {
         tempfile::tempdir().expect("repository policy test directory builds")
     }
