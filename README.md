@@ -135,6 +135,8 @@ the binary reader reject NaN and infinity.
 
 The binary sample reader rejects JSON and does not convert it.
 Regenerate old samples from their source before using this version.
+Embedded PNG decoding limits the conservative metadata and chunk-framing
+allocation envelope to 64 MiB; image-data payloads are excluded.
 
 ## Offline means offline
 

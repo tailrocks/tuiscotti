@@ -770,7 +770,11 @@ PNG decoder source where applicable. Resource limits retain the
 `RESOURCE_LIMIT` classification; other PNG failures retain `INVALID_IMAGE`.
 Dimension failures may use `ZeroImageDimensions` or
 `ImageDimensionsMismatch` without allocating diagnostic text.
-The decoder checks valid header dimensions before reading later PNG chunks.
+Before reading later PNG chunks, the decoder checks valid header dimensions and
+a conservative 64 MiB allocation envelope for PNG metadata and chunk framing.
+The envelope includes the number and size of chunks and excludes image-data
+payloads. Excess metadata fails with `RESOURCE_LIMIT`; accepted PNG bytes and
+decoded pixels are preserved.
 When an oversized image is also malformed later in the file, the dimension
 limit is reported first; an invalid header is still reported as a PNG error.
 The PNG library performs some internal allocations infallibly. The

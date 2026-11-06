@@ -47,6 +47,43 @@ fn bounded(value: u128, resource: &'static str) -> Result<u64, SampleError> {
     u64::try_from(value).map_err(|_| arithmetic_error(resource))
 }
 
+const MAX_METADATA_ENVELOPE: u64 = 64 * 1024 * 1024;
+
+fn metadata_input_bytes(bytes: &[u8]) -> Result<u64, SampleError> {
+    let mut remaining = bytes.get(8..).unwrap_or_default();
+    let mut total = 8_u64;
+    while !remaining.is_empty() {
+        if remaining.len() < 8 {
+            total = total
+                .checked_add(remaining.len() as u64)
+                .ok_or_else(|| arithmetic_error("PNG metadata input bytes"))?;
+            break;
+        }
+        let length =
+            u32::from_be_bytes([remaining[0], remaining[1], remaining[2], remaining[3]]) as usize;
+        let available = remaining.len().saturating_sub(8);
+        let payload = length.min(available);
+        let crc_bytes = (available - payload).min(4);
+        let complete = crc_bytes == 4;
+        let consumed = 8 + payload + crc_bytes;
+        let image_data = matches!(&remaining[4..8], b"IDAT" | b"fdAT");
+        let end = &remaining[4..8] == b"IEND";
+        let metadata = if image_data {
+            consumed - payload
+        } else {
+            consumed
+        };
+        total = total
+            .checked_add(metadata as u64)
+            .ok_or_else(|| arithmetic_error("PNG metadata input bytes"))?;
+        remaining = &remaining[consumed..];
+        if !complete || end {
+            break;
+        }
+    }
+    Ok(total)
+}
+
 fn metadata_envelope(p: u64) -> Result<u64, SampleError> {
     let p = u128::from(p);
     let n = p / 12;
@@ -200,8 +237,16 @@ pub(crate) fn decode_png<B: PngBudget>(
     budget: &mut B,
 ) -> Result<PngPixels<B::Token>, SampleError> {
     const INITIAL_HEADER_COUNTER: usize = 128;
-    let p = u64::try_from(bytes.len()).map_err(|_| arithmetic_error("PNG input bytes"))?;
-    let header_charge = budget.charge("PNG header and metadata", header_envelope(p)?)?;
+    let p = metadata_input_bytes(bytes)?;
+    let metadata = metadata_envelope(p)?;
+    let header_charge = budget.charge(
+        "PNG header and metadata",
+        header_envelope(if metadata > MAX_METADATA_ENVELOPE {
+            0
+        } else {
+            p
+        })?,
+    )?;
     // `read_header_info` only grows the raw chunk vector for the 13-byte IHDR, whose first
     // reservation is exactly the embedded decoder's 128-byte chunk-buffer request.
     let initial_counter = INITIAL_HEADER_COUNTER;
@@ -218,6 +263,14 @@ pub(crate) fn decode_png<B: PngBudget>(
         .map_err(|source| png_error(source, initial_counter))?;
     let (width, height) = (info.width, info.height);
     check_image_dims(width, height)?;
+    if metadata > MAX_METADATA_ENVELOPE {
+        return Err(SampleError::ResourceLimit {
+            resource: "PNG metadata allocation bytes",
+            claimed: Some(metadata),
+            limit: MAX_METADATA_ENVELOPE,
+            source: None,
+        });
+    }
     let counter = counter_limit(p, width, height)?;
     decoder.set_limits(png::Limits { bytes: counter });
     let row_charge = budget.charge("PNG rows and transform", row_envelope(width, height)?)?;
