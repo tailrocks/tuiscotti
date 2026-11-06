@@ -17,7 +17,7 @@ Two entry points share one conversion:
   explicit cursor state.
 
 Both pass the converted cells through the upstream validated constructor
-[`TerminalSnapshot::try_new`], so one snapshot model serves live tests and
+[`tui_test::TerminalSnapshot::try_new`], so one snapshot model serves live tests and
 production-view tests.
 
 # `pub type ViewResult<T> = Result<T, ViewError>;`
@@ -266,9 +266,9 @@ crosses a row boundary.
 
 Reject grid dimensions before any allocation or conversion, mirroring
 the upstream validated constructor's limits field for field: zero stays
-[`ViewError::EmptyDimensions`], a dimension above [`MAX_SNAPSHOT_DIM`]
+[`ViewError::EmptyDimensions`], a dimension above [`tui_test::MAX_SNAPSHOT_DIM`]
 reports `DimensionTooLarge`, and a `cols * rows` product above
-[`MAX_SNAPSHOT_CELLS`] reports `TooManyCells`. Both entry points call
+[`tui_test::MAX_SNAPSHOT_CELLS`] reports `TooManyCells`. Both entry points call
 this first so an oversize grid never reaches `TestBackend` or the cell
 converter: the snapshot validator would reject the same grid only after
 those allocations ran.

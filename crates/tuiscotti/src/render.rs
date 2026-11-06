@@ -153,20 +153,27 @@ pub fn render_sample(sample_bytes: &[u8], out: &Path) -> Result<RenderOutcome, R
     let candidate_sha256 = Sample::candidate_id(sample_bytes);
     let sample = Sample::from_bytes(sample_bytes)?;
     let test_id = sample.test_id().to_string();
-    let (png_bytes, profile_text, reason) = if let Some(image) = sample.image() {
-        match decode_stored_png(image.png_base64(), image.width(), image.height()) {
-            Ok(png) => (png, "stored image".to_string(), None),
-            Err(detail) => return Err(RenderError::StoredImage { detail }),
-        }
-    } else {
-        let png = render_state_only(&sample)?;
+    let (png_bytes, width, height, profile_text, reason) = if let Some(image) = sample.image() {
+        let png = decode_stored_png(image.png_base64())
+            .map_err(|detail| RenderError::StoredImage { detail })?;
         (
             png,
+            image.width(),
+            image.height(),
+            "stored image".to_string(),
+            None,
+        )
+    } else {
+        let (png, width, height) = render_state_only(&sample)?;
+        (
+            png,
+            width,
+            height,
             PROFILE_NAME.to_string(),
             Some(PROFILE_NAME.to_string()),
         )
     };
-    write_output(out, &sample, &profile_text, &png_bytes)?;
+    write_output(out, &sample, &profile_text, &png_bytes, width, height)?;
     Ok(RenderOutcome {
         test_id,
         candidate_sha256,
@@ -188,6 +195,8 @@ fn write_output(
     sample: &Sample,
     profile_text: &str,
     png_bytes: &[u8],
+    width: u32,
+    height: u32,
 ) -> Result<(), RenderError> {
     if wants_png(out) {
         return std::fs::write(out, png_bytes).map_err(|source| RenderError::Io {
@@ -195,7 +204,6 @@ fn write_output(
         });
     }
     let encoded = base64::engine::general_purpose::STANDARD.encode(png_bytes);
-    let (width, height) = image_dimensions(png_bytes);
     let page = render_page(sample, profile_text, &encoded, width, height);
     std::fs::write(out, page.as_bytes()).map_err(|source| RenderError::Io {
         source: write_error(out, &source),
@@ -218,28 +226,19 @@ fn render_page(
     )
 }
 
-fn decode_stored_png(encoded: &str, width: u32, height: u32) -> Result<Vec<u8>, String> {
+fn decode_stored_png(encoded: &str) -> Result<Vec<u8>, String> {
     let raw = base64::engine::general_purpose::STANDARD
         .decode(encoded.as_bytes())
         .map_err(|error| format!("stored PNG is not valid Base64: {error}"))?;
-    let parsed = image::load_from_memory(&raw)
-        .map_err(|error| format!("stored PNG does not parse: {error}"))?;
-    let rgba = parsed.to_rgba8();
-    if rgba.width() != width || rgba.height() != height {
-        return Err(format!(
-            "stored PNG decodes to {}x{} but the sample records {width}x{height}",
-            rgba.width(),
-            rgba.height()
-        ));
-    }
+    // Sample::from_bytes already validated this exact PNG with the bounded decoder.
     Ok(raw)
 }
 
-fn render_state_only(sample: &Sample) -> Result<Vec<u8>, RenderError> {
+fn render_state_only(sample: &Sample) -> Result<(Vec<u8>, u32, u32), RenderError> {
     let profile = resolve_profile(PROFILE_NAME).map_err(RenderError::Profile)?;
     let rendered = tui_test::render_snapshot_png(sample.snapshot(), &profile.render_options())
         .map_err(|source| RenderError::Render { source })?;
-    Ok(rendered.png().to_vec())
+    Ok((rendered.png().to_vec(), rendered.width(), rendered.height()))
 }
 
 fn write_error(out: &Path, source: &std::io::Error) -> std::io::Error {
@@ -247,14 +246,4 @@ fn write_error(out: &Path, source: &std::io::Error) -> std::io::Error {
         source.kind(),
         format!("cannot write {}: {source}", out.display()),
     )
-}
-
-fn image_dimensions(png: &[u8]) -> (u32, u32) {
-    match image::load_from_memory(png) {
-        Ok(parsed) => {
-            let rgba = parsed.to_rgba8();
-            (rgba.width(), rgba.height())
-        }
-        Err(_) => (0, 0),
-    }
 }

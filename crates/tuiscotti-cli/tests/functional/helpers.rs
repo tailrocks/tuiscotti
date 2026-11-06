@@ -70,6 +70,29 @@ pub(crate) fn open_lane() -> ChildEnv<'static> {
     }
 }
 
+pub(crate) fn accept_candidate(
+    candidate: &Path,
+    candidate_sha256: &str,
+    expect_baseline: &str,
+    baselines: &Path,
+    env: &ChildEnv<'_>,
+) -> (i32, Vec<u8>) {
+    let args = [
+        "accept",
+        "--candidate",
+        utf8(candidate),
+        "--candidate-sha256",
+        candidate_sha256,
+        "--expect-baseline",
+        expect_baseline,
+        "--baselines",
+        utf8(baselines),
+        "--json",
+    ];
+    let out = run_cli(&args, env);
+    (exit_code(&out), out.stdout)
+}
+
 pub(crate) fn check_direct_dependencies(workspace: &Path, crate_manifest: &Path) -> i32 {
     crate::dependencies::check_direct_dependencies(workspace, crate_manifest)
 }
@@ -197,7 +220,7 @@ pub(crate) fn exit_code(out: &Output) -> i32 {
 pub(crate) fn baseline_samples(root: &Path) -> Vec<PathBuf> {
     walk_files(root)
         .into_iter()
-        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .filter(|path| path.extension().is_some_and(|ext| ext == "pb"))
         .collect()
 }
 

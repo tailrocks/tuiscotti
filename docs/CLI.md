@@ -11,6 +11,8 @@ Global shape: `tuiscotti [--json] <COMMAND>` with
 stdout; diagnostics stay on stderr); otherwise only clap's
 `-h/--help` and `-V/--version` exist.
 
+The `check`, `accept`, and `render` commands read binary sample files. Use `.tui.pb` for samples and baselines. The reader rejects JSON samples without converting them. CLI output and check result records remain JSON metadata. They keep their existing schemas.
+
 Exit codes: `0` for a pass or a successful offline operation;
 `1` for a missing baseline or a differing sample; `2` for invalid
 arguments (clap usage errors exit 2 with no JSON result, as does
@@ -48,7 +50,7 @@ baseline):
    digest (`missing` for a first approval).
 3. The transaction re-locks the baseline root, re-validates both
    digests, re-renders image samples through the upstream renderer,
-   and atomically installs the baseline — or rejects with a typed
+   and atomically installs the exact candidate bytes — or rejects with a typed
    code and writes nothing.
 
 Refusals: when `CI` is set in any form, approval stops before it

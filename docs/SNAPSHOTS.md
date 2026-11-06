@@ -1,57 +1,37 @@
 # Snapshot and approval semantics
 
-Three gates, one rule: **actuals are written before any assertion,
-approvals change only by explicit review.** CI must never approve by
-itself — there is no bless flag, env var, or accepting CI mode.
+The sample file is the approved input to a frozen check. A check never writes a baseline. Only an explicit, workstation approval can replace one.
 
-## Sample (`sample.rs`)
+## Binary sample files
 
-A sample is versioned canonical JSON: the test ID, the gate
-(`state` or `state-and-pixels`), the snapshot payload, the render
-contract (profile + font digest), and SHA-256 digests sealing each
-part. `state` compares the full canonical state; `state-and-pixels`
-additionally compares the render contract and decoded RGBA pixels. A
-gate change is a policy mismatch — never weaken a gate after a failure.
-State-only samples carry no pixel requirement.
+`Sample::to_bytes` writes one versioned Protobuf message in a Zstandard-compressed binary container. `Sample::from_bytes` validates and reads it. Persistence message types stay private. The logical sample identifier remains `tuiscotti.sample.v1`.
 
-## Frozen check (`check.rs`)
+Baseline files use `<baseline-root>/<test-id>.tui.pb`. Candidate evidence uses `sample.tui.pb` and `expected.tui.pb`. The header and compressed payload are part of the sample file bytes. The SHA-256 digest covers both.
 
-`FrozenStore::check` / `check_file` reads a saved sample and a baseline
-tree and reports a `CheckOutcome`: pass, missing baseline, or differ.
-The check never writes to the baseline tree — evidence lands in a
-separate artifacts directory, which may live outside the baseline root.
-Contained roots, symlink escapes, and read-only baselines are rejected
-with typed errors. Concurrent checks for the same test ID keep every
-candidate; gate data never clobbers.
+The reader accepts only the supported binary container. JSON samples, unknown formats, unsupported versions, malformed messages, and resource-limit violations fail closed. The reader does not fall back to `.tui.json`. An old JSON file beside a missing `.tui.pb` does not count as a baseline. The reader does not convert old samples. Regenerate samples from their source, then review them before approval.
 
-## Approval (`approve.rs`)
+## Comparison gates
 
-`ApprovalStore::accept` runs the full transaction: hold the OS lock on
-the stable `.tuiscotti-approval.lock` (kept after release, never
-unlinked), read the candidate, compare digests (a changed candidate is
-`STALE_CANDIDATE`, a changed baseline `STALE_BASELINE`), then —
-mandatory — resolve the candidate's profile and re-render through the
-upstream renderer. Unknown profiles reject with `UNKNOWN_PROFILE`;
-pixels that differ from the stored candidate pixels reject with
-`INCONSISTENT_SAMPLE`. First approval for a test validates the
-candidate test ID; a present baseline skips the ID comparison. Temp
-files use exclusive creation with owner-only mode and never follow
-symlinks; the baseline is replaced atomically. `CI` in the environment
-refuses approval (`CI_APPROVAL_FORBIDDEN`). Malformed samples map to
-`INVALID_SAMPLE`.
+The `state` gate compares canonical snapshot state. It excludes snapshot metadata and sample observation. The `state-and-pixels` gate also compares the render contract and decoded RGBA pixels. PNG bytes identify the saved image. PNG or compressed-file byte equality does not replace pixel comparison.
 
-## Report (`report.rs`)
+A gate change is a policy mismatch. Keep the `pixels-<os>-<arch>` suffix paired with the recorded render-contract platform. Historical samples can parse on another platform.
 
-`report` builds a static index from saved candidate evidence. It
-captures no state and changes no approvals.
+The state digest keeps the existing `tuiscotti-state-v1` algorithm. It remains independent of persistence encoding and keeps its metadata exclusions. Candidate and baseline SHA-256 values cover exact saved file bytes. PNG and RGBA digests keep their existing scopes.
 
-## CLI mapping
+## Frozen checks
 
-`tuiscotti check` applies the frozen check to a saved sample.
-`tuiscotti accept` applies the approval transaction (no `--all`, no
-glob, no CI override). `tuiscotti render` writes `.png` or `.html` from
-a saved sample (other extensions rejected). `tuiscotti report` writes
-the static index. Exit codes: 0 pass, 1 missing/different, 2 invalid
-arguments, 3 file/format/profile/rendering/approval/I/O failure.
-Machine-readable `--json` output uses the `tuiscotti.cli.v1` schema;
-see the [CLI guide](CLI.md).
+`FrozenStore::check` and `check_file` read the candidate and baseline. They return a `CheckOutcome`: pass, missing baseline, or different sample. A check never writes to the baseline root. It writes candidate evidence and JSON result metadata under the separate artifact root.
+
+Result records, approval receipts, configuration, CLI output, and the private state-digest projection remain separate from binary sample persistence. `result.json` remains JSON. It records digests of the exact candidate and baseline bytes.
+
+## Approval
+
+`ApprovalStore::accept` reads both files while holding `.tuiscotti-approval.lock`. The lock stays in place after release. The transaction checks the candidate digest and expected prior baseline digest. It validates the binary sample, resolves its render profile, and verifies render identity and pixels. If both digests match, approval atomically installs the exact candidate bytes. The accepted baseline digest therefore equals the candidate digest.
+
+The transaction rejects JSON candidates, stale digests, unknown profiles, invalid samples, and mismatched render identity or pixels. A rejection does not create or replace a baseline. Approval refuses if `CI` is set to any value, including an empty value. The refusal occurs before writes. There is no override.
+
+## Reports and CLI
+
+`tuiscotti report` reads JSON result metadata and links to binary candidate evidence. It does not decode sample payloads or change approvals. `check`, `accept`, and `render` share the bounded binary sample decoder.
+
+CLI `--json` output keeps the `tuiscotti.cli.v1` schema. Exit code 0 means pass or successful operation. Exit code 1 means `check` found a missing or different baseline. Exit code 2 means invalid arguments. Exit code 3 means an operational failure. See the [CLI reference](CLI.md).

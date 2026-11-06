@@ -3,39 +3,62 @@
 lockfile_version = 2
 
 [[tools."aqua:nextest-rs/nextest/cargo-nextest"]]
-version = "0.9.148"
+version = "0.9.151"
 backend = "aqua:nextest-rs/nextest/cargo-nextest"
-specifiers = ["0.9.148"]
+specifiers = ["0.9.151"]
 
 [tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.linux-arm64"]
-checksum = "sha256:81469eb963ef883fd590e60189e77d6aba3d91b418591d3391f50fe3e9480d2b"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620598703"
+checksum = "sha256:3e35e8f6913af92558ba09d7155f74e35dd1f0024ef3cd891637433ae4eacbdd"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/703601411"
 
 [tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.linux-arm64-musl"]
-checksum = "sha256:81469eb963ef883fd590e60189e77d6aba3d91b418591d3391f50fe3e9480d2b"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620598703"
+checksum = "sha256:3e35e8f6913af92558ba09d7155f74e35dd1f0024ef3cd891637433ae4eacbdd"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/703601411"
 
 [tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.linux-x64"]
-checksum = "sha256:223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620598748"
+checksum = "sha256:1d4ce302b820c41f4b89c5fb9bce45f0f0c94882c1cf08fc360caf08be6e7df4"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/703600788"
 
 [tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.linux-x64-musl"]
-checksum = "sha256:bf92cb81450872d960ffa13857a83084d557ec0cdc141663d263bb23ef756f97"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620598791"
+checksum = "sha256:6b284d6fde9670dfb6ee10ea9d9abbc85f95643d3f592472d420d82e257b3a6c"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/703602745"
 
 [tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.macos-arm64"]
-checksum = "sha256:6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620608067"
+checksum = "sha256:d1d7d025d4bfc9fb154cd76aea3949bd78534829a0589abefa6e5dd4edb135dd"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/703616437"
 
 [tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.windows-x64"]
-checksum = "sha256:bef17504bed9d4994cf860c122e84a90d613b92e6d89584fa9e28bd53ad42e15"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.148/cargo-nextest-0.9.148-x86_64-pc-windows-msvc.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/620604883"
+checksum = "sha256:e51bdb4b5883df48f335381b287378edb244318fac65ae0adaf6b9e69298246b"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.151/cargo-nextest-0.9.151-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/703606897"
+
+[[tools.gh]]
+version = "2.103.3"
+backend = "aqua:cli/cli"
+specifiers = ["2.103.3"]
+
+[tools.gh."platforms.linux-x64"]
+checksum = "sha256:4c806978ffce1cec70853302a56d70ac6da4f19bae7adca4e1a8ab00633dd91d"
+url = "https://github.com/cli/cli/releases/download/v2.103.3/gh_2.103.3_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/679195621"
+provenance = "github-attestations"
+
+[tools.gh."platforms.macos-arm64"]
+checksum = "sha256:d700207eae9ae98fe2b89535c2c087c07823d4628c56364695a5a07ef311c062"
+url = "https://github.com/cli/cli/releases/download/v2.103.3/gh_2.103.3_macOS_arm64.zip"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/679195704"
+provenance = "github-attestations"
 
 [[tools."github:EmbarkStudios/cargo-deny"]]
 version = "0.20.2"
@@ -73,82 +96,104 @@ url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/carg
 url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471599057"
 
 [[tools."github:asamarts/alint"]]
-version = "0.15.2"
+version = "0.21.0"
 backend = "github:asamarts/alint"
-specifiers = ["0.15.2"]
+specifiers = ["0.21.0"]
 
 [tools."github:asamarts/alint"."platforms.linux-arm64"]
-checksum = "sha256:a452485095b0c62fc395eb226529f2b6be9afbf817e92e4bee30f46de824d9f7"
-url = "https://github.com/asamarts/alint/releases/download/v0.15.2/alint-v0.15.2-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/525561599"
+checksum = "sha256:c72ed301a414d0aa27f6ecbae4da53eee8e219f2ad6ee5cd8d5edac72809c667"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121276"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.linux-arm64-musl"]
-checksum = "sha256:a452485095b0c62fc395eb226529f2b6be9afbf817e92e4bee30f46de824d9f7"
-url = "https://github.com/asamarts/alint/releases/download/v0.15.2/alint-v0.15.2-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/525561599"
+checksum = "sha256:c72ed301a414d0aa27f6ecbae4da53eee8e219f2ad6ee5cd8d5edac72809c667"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121276"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.linux-x64"]
-checksum = "sha256:b67ef64d6461573e4a40c54cd543238cbbf8126d4161e3c4385ac60cf6920295"
-url = "https://github.com/asamarts/alint/releases/download/v0.15.2/alint-v0.15.2-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/525561603"
+checksum = "sha256:33d8fe0463e2f5eaff7586c7748dac3e37ffabb41df0973d544be3d7ebe17ce0"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121287"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.linux-x64-musl"]
-checksum = "sha256:b67ef64d6461573e4a40c54cd543238cbbf8126d4161e3c4385ac60cf6920295"
-url = "https://github.com/asamarts/alint/releases/download/v0.15.2/alint-v0.15.2-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/525561603"
+checksum = "sha256:33d8fe0463e2f5eaff7586c7748dac3e37ffabb41df0973d544be3d7ebe17ce0"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121287"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.macos-arm64"]
-checksum = "sha256:6496585ede7b07d9aed3df321196c90725b48c6f41289c1c5a7fb28483426481"
-url = "https://github.com/asamarts/alint/releases/download/v0.15.2/alint-v0.15.2-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/525561597"
+checksum = "sha256:698ac7870c8ed4bdf18f36de9537ecadd140c70fe1bb4fa142c4a5951825ab96"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121247"
 provenance = "github-attestations"
 
 [tools."github:asamarts/alint"."platforms.windows-x64"]
-checksum = "sha256:ef557017c901e2ebf1e3a22d8461ebe93c2abb20d8950838de6b3aec576d5612"
-url = "https://github.com/asamarts/alint/releases/download/v0.15.2/alint-v0.15.2-x86_64-pc-windows-msvc.tar.gz"
-url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/525561600"
+checksum = "sha256:004d4326c14befae9a15bff9800a22ba82e73c5484e1b98f1520c603a437886f"
+url = "https://github.com/asamarts/alint/releases/download/v0.21.0/alint-v0.21.0-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/asamarts/alint/releases/assets/699121268"
 provenance = "github-attestations"
 
 [[tools.mr-boxington]]
-version = "1.21.1"
+version = "1.29.2"
 backend = "packslip:github.com/jdx/mr-boxington"
-specifiers = ["1.21.1"]
+specifiers = ["1.29.2"]
 
 [tools.mr-boxington."platforms.linux-arm64"]
-checksum = "sha256:a783ff78192a3cd299cfbf2b4b8a8dc16b8142c7bb962e9e3a027b64085189b8"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.21.1/mbx-aarch64-unknown-linux-gnu.tar.gz"
+checksum = "sha256:1b6fbaebe0ea2c9b565c862a2b46e4756394ad530ce95b07333743104750a6fb"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.2/mbx-aarch64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 
 [tools.mr-boxington."platforms.linux-arm64-musl"]
-checksum = "sha256:80fbd510a3e9cee763ad40cbadbfbf22fc54af02589fcfd8f0070d7058493553"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.21.1/mbx-aarch64-unknown-linux-musl.tar.gz"
+checksum = "sha256:bd7904aedff78a48b0339ab8efce0c3b86505c0b77fe63964504dae2f843b9d6"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.2/mbx-aarch64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 
 [tools.mr-boxington."platforms.linux-x64"]
-checksum = "sha256:1ecb4d55582a40a1227e8ca3450da054ea464e5ff976bb5762943fb1ce6f31da"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.21.1/mbx-x86_64-unknown-linux-gnu.tar.gz"
+checksum = "sha256:73e135d3e9e8b8ddc938b42407179a239917b7f02d3fa5f601f6783e5c0d36d6"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.2/mbx-x86_64-unknown-linux-gnu.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 
 [tools.mr-boxington."platforms.linux-x64-musl"]
-checksum = "sha256:780ccb52aa3a95ac1b0ee0ecf5184561b1a4bdf1fe88180333dc0e11a92980f5"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.21.1/mbx-x86_64-unknown-linux-musl.tar.gz"
+checksum = "sha256:60be3ffbb4d71418827ed28686c776b86bdbb804edd43739b1dbfcdf162fbcb5"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.2/mbx-x86_64-unknown-linux-musl.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 
 [tools.mr-boxington."platforms.macos-arm64"]
-checksum = "sha256:99464a5bad96c3a472714faa4277aac22193ea9a385dd09892f5c1bbee9c56ba"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.21.1/mbx-aarch64-apple-darwin.tar.gz"
+checksum = "sha256:621ce235d8f241c5a3728ca03d34b9864f466f4e8b3307d8a6d7101a24a71a60"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.2/mbx-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 
 [tools.mr-boxington."platforms.windows-x64"]
-checksum = "sha256:44a48ef26aa6a6545a636b70d78ccef725338732df926f5df544ae9a1b3c599c"
-url = "https://github.com/jdx/mr-boxington/releases/download/v1.21.1/mbx-x86_64-pc-windows-msvc.zip"
+checksum = "sha256:5ccfe5942c224844ffc50eb689de9c02033e401b210d3c80fffe4b94c929b0a2"
+url = "https://github.com/jdx/mr-boxington/releases/download/v1.29.2/mbx-x86_64-pc-windows-msvc.zip"
 signer = "sigstore-oidc:https://github.com/jdx/mr-boxington/.github/workflows/release.yml"
 
 [[tools.rust]]
 version = "1.99.1"
 backend = "core:rust"
 specifiers = ["1.99.1"]
+
+[tools.rust.options]
+components = "clippy,rustfmt"
+profile = "minimal"
+targets = "aarch64-unknown-linux-gnu,x86_64-unknown-linux-gnu"
+
+[[tools.shellcheck]]
+version = "0.11.0"
+backend = "aqua:koalaman/shellcheck"
+specifiers = ["0.11.0"]
+
+[tools.shellcheck."platforms.linux-x64"]
+checksum = "sha256:8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+checksum_source = "mise-versions"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056942"
+
+[tools.shellcheck."platforms.macos-arm64"]
+checksum = "sha256:56affdd8de5527894dca6dc3d7e0a99a873b0f004d7aabc30ae407d3f48b0a79"
+checksum_source = "mise-versions"
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.xz"
+url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056932"

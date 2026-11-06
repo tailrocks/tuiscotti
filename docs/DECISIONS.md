@@ -333,3 +333,42 @@ the old source builds used, but CI-fresh-runner installs download
 binaries instead of compiling). The `rust` 1.99.1 pin stays consistent
 with `rust-toolchain.toml`. Root `mise.toml` matches the Renovate
 `mise` manager file patterns and the Velnor Rust-unit watch list.
+
+## 18. Binary sample persistence; Zstandard level 22 provisional
+
+The current sample API writes and reads versioned Protobuf messages in
+Zstandard-compressed `.tui.pb` containers. The reader rejects JSON
+samples without converting them; result records and CLI output remain
+JSON. This implementation contract is covered by binary reader and CLI
+integration tests and described in [SNAPSHOTS.md](SNAPSHOTS.md).
+
+The public sample writer provisionally uses Zstandard level 22 with a
+32 MiB window ceiling, content size and frame checksum enabled, dictionary
+ID disabled, and zero workers. The level is the maximum regular level in
+the pinned vendored Zstandard 1.5.7 build. This follows five release-mode
+real-corpus runs that passed the 1 GiB per-process RSS, 60-minute per-pass,
+and 72-hour cumulative caps with substantial margin. The level is a
+provisional implementation choice, not release approval or final
+cross-platform proof.
+
+The run was made under sustained unrelated host load after the original
+benchmark freeze. The later contended-run amendment permits provisional
+selection only from absolute cap results; the run cannot support relative
+speed rankings. Evidence is native macOS/aarch64 only. Linux, broader
+workloads, and final-source end-to-end costs remain unverified. Details,
+comparisons, hashes, and reproduction commands are in
+[the provisional level 22 benchmark record](benchmarks/zstd-level-22-provisional.md).
+Before release, complete the remaining format and resource checks in
+[COMPRESSED-BASELINES.md](COMPRESSED-BASELINES.md) and the cross-platform
+evidence described by the benchmark record.
+
+A read-only audit of the inventoried downstream legacy corpora examined
+2,608 path occurrences: 2,600 valid state samples and eight deliberately
+invalid coverage fixtures. A field-based upper bound for every valid sample's
+Protobuf message is 5,641,690 bytes. For the pinned encoder's no-flush
+streaming path, the independently reviewed conservative container bound is
+5,789,892 bytes, below the 64 MiB limit. This is evidence for those enumerated
+corpora, not for arbitrary future samples; pixel-gated legacy samples were not
+present in that inventory. The audit did not convert or approve baselines.
+The local evidence archive is `.audit/benchmark-evidence/legacy-cap-results-20261106.tar.gz`
+(SHA-256 `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`).

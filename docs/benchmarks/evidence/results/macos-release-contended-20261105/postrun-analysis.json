@@ -1,0 +1,4985 @@
+{
+  "schema": "tuiscotti-codec-postrun-analysis.v1",
+  "analysis_script_sha256": "042140e475c93f2a90dfc21ca98fed4a3e5ffe9125100aaa184e728036928233",
+  "raw_timing_parse": "macOS time -l writes real/user/sys on one line; parse each token from preserved per-task .time.txt logs. External child CPU/RSS comes from codec-task JSON. Candidate per-encode/decode CPU-region wall measurements and logical digest checks come from candidate test output records.",
+  "run_status": "PASS",
+  "passes": [
+    {
+      "pass": 1,
+      "task_count": 52,
+      "wall_seconds": 123.93395175,
+      "status": "PASS",
+      "failed": null
+    },
+    {
+      "pass": 2,
+      "task_count": 52,
+      "wall_seconds": 91.371684833,
+      "status": "PASS",
+      "failed": null
+    },
+    {
+      "pass": 3,
+      "task_count": 52,
+      "wall_seconds": 146.905306542,
+      "status": "PASS",
+      "failed": null
+    },
+    {
+      "pass": 4,
+      "task_count": 52,
+      "wall_seconds": 110.84430725,
+      "status": "PASS",
+      "failed": null
+    },
+    {
+      "pass": 5,
+      "task_count": 52,
+      "wall_seconds": 89.142120209,
+      "status": "PASS",
+      "failed": null
+    }
+  ],
+  "pass_wall_median_seconds": 110.84430725,
+  "pass_wall_range_seconds": [
+    89.142120209,
+    146.905306542
+  ],
+  "cumulative_wall_seconds": 562.197370584,
+  "timing_selection_eligible": false,
+  "rss_cap_bytes": 1073741824,
+  "pass_cap_seconds": 3600,
+  "cumulative_cap_seconds": 259200,
+  "host": {
+    "logical_cpus": 18,
+    "min_observed_load_1m": 40.751953125,
+    "max_observed_load_1m": 86.96875,
+    "host_snapshots": 520,
+    "snapshots_with_active_builds": 219,
+    "snapshots_with_active_benchmarks": 0
+  },
+  "missing_or_failed_checks": [],
+  "groups": [
+    {
+      "codec": "brotli",
+      "source_kind": "json",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 19283968,
+        "min": 17448960,
+        "max": 21282816
+      },
+      "decoder_system_seconds": {
+        "median": 0.011985,
+        "min": 0.011373,
+        "max": 0.013009
+      },
+      "decoder_user_seconds": {
+        "median": 0.017617999999999998,
+        "min": 0.014793,
+        "max": 0.018148
+      },
+      "encoder_system_seconds": {
+        "median": 0.009120999999999999,
+        "min": 0.008872999999999999,
+        "max": 0.010863999999999999
+      },
+      "encoder_user_seconds": {
+        "median": 0.015347999999999999,
+        "min": 0.012979,
+        "max": 0.016694999999999998
+      },
+      "output_bytes": {
+        "median": 1428333,
+        "min": 1428333,
+        "max": 1428333
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.05,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.09,
+        "min": 0.08,
+        "max": 0.1
+      },
+      "process_wall_seconds": {
+        "median": 0.175312875,
+        "min": 0.152032709,
+        "max": 0.200828583
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 71172096,
+        "min": 69632000,
+        "max": 73400320
+      },
+      "time_reported_real_seconds": {
+        "median": 0.16,
+        "min": 0.14,
+        "max": 0.19
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 21282816
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "json",
+      "setting": 5,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 28344320,
+        "min": 24444928,
+        "max": 30162944
+      },
+      "decoder_system_seconds": {
+        "median": 0.012527,
+        "min": 0.010412999999999999,
+        "max": 0.013132999999999999
+      },
+      "decoder_user_seconds": {
+        "median": 0.015633999999999995,
+        "min": 0.014326999999999993,
+        "max": 0.01672499999999999
+      },
+      "encoder_system_seconds": {
+        "median": 0.01172,
+        "min": 0.011387999999999999,
+        "max": 0.014253
+      },
+      "encoder_user_seconds": {
+        "median": 0.068329,
+        "min": 0.065438,
+        "max": 0.074561
+      },
+      "output_bytes": {
+        "median": 1089298,
+        "min": 1089298,
+        "max": 1089298
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.05,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.13,
+        "min": 0.13,
+        "max": 0.15
+      },
+      "process_wall_seconds": {
+        "median": 0.239176917,
+        "min": 0.226321375,
+        "max": 0.261290334
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 72073216,
+        "min": 71237632,
+        "max": 72810496
+      },
+      "time_reported_real_seconds": {
+        "median": 0.23,
+        "min": 0.22,
+        "max": 0.25
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 30162944
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "json",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 81133568,
+        "min": 80510976,
+        "max": 81182720
+      },
+      "decoder_system_seconds": {
+        "median": 0.011699999999999999,
+        "min": 0.010259999999999998,
+        "max": 0.015549999999999998
+      },
+      "decoder_user_seconds": {
+        "median": 0.014892000000000002,
+        "min": 0.014370000000000008,
+        "max": 0.016211000000000003
+      },
+      "encoder_system_seconds": {
+        "median": 0.016359,
+        "min": 0.013685,
+        "max": 0.022358
+      },
+      "encoder_user_seconds": {
+        "median": 0.121655,
+        "min": 0.117823,
+        "max": 0.141292
+      },
+      "output_bytes": {
+        "median": 1065890,
+        "min": 1065890,
+        "max": 1065890
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 0.19,
+        "min": 0.18,
+        "max": 0.22
+      },
+      "process_wall_seconds": {
+        "median": 0.322009458,
+        "min": 0.267390125,
+        "max": 0.412952375
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 81133568,
+        "min": 80510976,
+        "max": 81182720
+      },
+      "time_reported_real_seconds": {
+        "median": 0.31,
+        "min": 0.26,
+        "max": 0.4
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 81182720
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "json",
+      "setting": 11,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 123617280,
+        "min": 120651776,
+        "max": 124207104
+      },
+      "decoder_system_seconds": {
+        "median": 0.01373,
+        "min": 0.010112999999999997,
+        "max": 0.01887599999999995
+      },
+      "decoder_user_seconds": {
+        "median": 0.018150999999999584,
+        "min": 0.015567000000000775,
+        "max": 0.019340999999998942
+      },
+      "encoder_system_seconds": {
+        "median": 0.061515,
+        "min": 0.059294,
+        "max": 0.477082
+      },
+      "encoder_user_seconds": {
+        "median": 13.497328,
+        "min": 12.118557,
+        "max": 15.961114
+      },
+      "output_bytes": {
+        "median": 1007466,
+        "min": 1007466,
+        "max": 1007466
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.11,
+        "min": 0.1,
+        "max": 0.55
+      },
+      "process_user_seconds": {
+        "median": 13.58,
+        "min": 12.19,
+        "max": 16.05
+      },
+      "process_wall_seconds": {
+        "median": 19.252233167,
+        "min": 13.297216667,
+        "max": 30.144250125
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 123617280,
+        "min": 120651776,
+        "max": 124207104
+      },
+      "time_reported_real_seconds": {
+        "median": 19.24,
+        "min": 13.28,
+        "max": 30.1
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 124207104
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "protobuf-raw",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 7913472,
+        "min": 7847936,
+        "max": 9748480
+      },
+      "decoder_system_seconds": {
+        "median": 0.009435,
+        "min": 0.007371999999999999,
+        "max": 0.013823
+      },
+      "decoder_user_seconds": {
+        "median": 0.011253999999999998,
+        "min": 0.010160999999999998,
+        "max": 0.011585999999999999
+      },
+      "encoder_system_seconds": {
+        "median": 0.009448,
+        "min": 0.007286,
+        "max": 0.014313999999999999
+      },
+      "encoder_user_seconds": {
+        "median": 0.010307,
+        "min": 0.009559,
+        "max": 0.011658
+      },
+      "output_bytes": {
+        "median": 1160507,
+        "min": 1160507,
+        "max": 1160507
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.03,
+        "max": 0.07
+      },
+      "process_user_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.07
+      },
+      "process_wall_seconds": {
+        "median": 0.178517792,
+        "min": 0.11264525,
+        "max": 0.264849
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35520512,
+        "min": 34570240,
+        "max": 37453824
+      },
+      "time_reported_real_seconds": {
+        "median": 0.17,
+        "min": 0.1,
+        "max": 0.25
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 9748480
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "protobuf-raw",
+      "setting": 5,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 14024704,
+        "min": 12435456,
+        "max": 18104320
+      },
+      "decoder_system_seconds": {
+        "median": 0.008552,
+        "min": 0.008095000000000001,
+        "max": 0.014082
+      },
+      "decoder_user_seconds": {
+        "median": 0.008837999999999999,
+        "min": 0.008578000000000002,
+        "max": 0.009601000000000005
+      },
+      "encoder_system_seconds": {
+        "median": 0.010726,
+        "min": 0.008804,
+        "max": 0.018012999999999998
+      },
+      "encoder_user_seconds": {
+        "median": 0.043695,
+        "min": 0.037221,
+        "max": 0.047597999999999994
+      },
+      "output_bytes": {
+        "median": 789951,
+        "min": 789951,
+        "max": 789951
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 0.09,
+        "min": 0.09,
+        "max": 0.11
+      },
+      "process_wall_seconds": {
+        "median": 0.206365167,
+        "min": 0.15991625,
+        "max": 0.298310166
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 34160640,
+        "min": 33865728,
+        "max": 35438592
+      },
+      "time_reported_real_seconds": {
+        "median": 0.19,
+        "min": 0.15,
+        "max": 0.29
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 18104320
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "protobuf-raw",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 44023808,
+        "min": 43515904,
+        "max": 44482560
+      },
+      "decoder_system_seconds": {
+        "median": 0.007505999999999999,
+        "min": 0.007023999999999999,
+        "max": 0.009556
+      },
+      "decoder_user_seconds": {
+        "median": 0.007336999999999996,
+        "min": 0.006251,
+        "max": 0.009041000000000007
+      },
+      "encoder_system_seconds": {
+        "median": 0.010622,
+        "min": 0.009703,
+        "max": 0.013625
+      },
+      "encoder_user_seconds": {
+        "median": 0.065838,
+        "min": 0.061043999999999994,
+        "max": 0.07113699999999999
+      },
+      "output_bytes": {
+        "median": 770056,
+        "min": 770056,
+        "max": 770056
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.03,
+        "max": 0.05
+      },
+      "process_user_seconds": {
+        "median": 0.11,
+        "min": 0.1,
+        "max": 0.12
+      },
+      "process_wall_seconds": {
+        "median": 0.190443875,
+        "min": 0.17376575,
+        "max": 0.214710041
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 44023808,
+        "min": 43515904,
+        "max": 44482560
+      },
+      "time_reported_real_seconds": {
+        "median": 0.18,
+        "min": 0.16,
+        "max": 0.21
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 44482560
+    },
+    {
+      "codec": "brotli",
+      "source_kind": "protobuf-raw",
+      "setting": 11,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 62095360,
+        "min": 60211200,
+        "max": 62898176
+      },
+      "decoder_system_seconds": {
+        "median": 0.009015000000000002,
+        "min": 0.006824,
+        "max": 0.012294
+      },
+      "decoder_user_seconds": {
+        "median": 0.009265999999999774,
+        "min": 0.00779799999999975,
+        "max": 0.009734999999999605
+      },
+      "encoder_system_seconds": {
+        "median": 0.030733999999999997,
+        "min": 0.020943,
+        "max": 0.10004099999999999
+      },
+      "encoder_user_seconds": {
+        "median": 3.75942,
+        "min": 3.515813,
+        "max": 4.260197
+      },
+      "output_bytes": {
+        "median": 719979,
+        "min": 719979,
+        "max": 719979
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.05,
+        "max": 0.15
+      },
+      "process_user_seconds": {
+        "median": 3.8,
+        "min": 3.56,
+        "max": 4.32
+      },
+      "process_wall_seconds": {
+        "median": 4.280226875,
+        "min": 3.90183875,
+        "max": 7.824545542
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 62095360,
+        "min": 60211200,
+        "max": 62898176
+      },
+      "time_reported_real_seconds": {
+        "median": 4.27,
+        "min": 3.89,
+        "max": 7.81
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 62898176
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.264569833,
+        "min": 0.235519584,
+        "max": 0.917174921
+      },
+      "candidate_encode_seconds": {
+        "median": 0.167532545,
+        "min": 0.153098334,
+        "max": 0.470373875
+      },
+      "output_bytes": {
+        "median": 1187635,
+        "min": 1187635,
+        "max": 1187635
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.04,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.07,
+        "min": 1.04,
+        "max": 1.25
+      },
+      "process_wall_seconds": {
+        "median": 1.254343833,
+        "min": 1.167355709,
+        "max": 4.588425042
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.156163541,
+        "min": 0.142971831,
+        "max": 0.659023416
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 165838848,
+        "min": 161955840,
+        "max": 183975936
+      },
+      "time_reported_real_seconds": {
+        "median": 1.24,
+        "min": 1.16,
+        "max": 4.58
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 183975936,
+      "raw_protobuf_history_checkout_bytes": 1153739,
+      "raw_protobuf_history_pack_bytes": 1227169,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 3,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.266702959,
+        "min": 0.241850042,
+        "max": 0.586277333
+      },
+      "candidate_encode_seconds": {
+        "median": 0.169910248,
+        "min": 0.153564291,
+        "max": 0.307002212
+      },
+      "output_bytes": {
+        "median": 890854,
+        "min": 890854,
+        "max": 890854
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.04,
+        "max": 0.14
+      },
+      "process_user_seconds": {
+        "median": 1.08,
+        "min": 1.01,
+        "max": 1.24
+      },
+      "process_wall_seconds": {
+        "median": 1.29199075,
+        "min": 1.207240292,
+        "max": 2.70302775
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.161181539,
+        "min": 0.152205039,
+        "max": 0.414255792
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 183762944,
+        "min": 167804928,
+        "max": 187236352
+      },
+      "time_reported_real_seconds": {
+        "median": 1.28,
+        "min": 1.2,
+        "max": 2.69
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 187236352,
+      "raw_protobuf_history_checkout_bytes": 877149,
+      "raw_protobuf_history_pack_bytes": 970250,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.260896628,
+        "min": 0.250938959,
+        "max": 0.344296999
+      },
+      "candidate_encode_seconds": {
+        "median": 0.18777208,
+        "min": 0.176246248,
+        "max": 0.311708084
+      },
+      "output_bytes": {
+        "median": 819288,
+        "min": 819288,
+        "max": 819288
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.11,
+        "min": 1.08,
+        "max": 1.15
+      },
+      "process_wall_seconds": {
+        "median": 1.252664125,
+        "min": 1.218153416,
+        "max": 1.894250459
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.157236459,
+        "min": 0.147238546,
+        "max": 0.312048709
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 185679872,
+        "min": 169181184,
+        "max": 187957248
+      },
+      "time_reported_real_seconds": {
+        "median": 1.24,
+        "min": 1.21,
+        "max": 1.88
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 187957248,
+      "raw_protobuf_history_checkout_bytes": 810028,
+      "raw_protobuf_history_pack_bytes": 900025,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 12,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.253084918,
+        "min": 0.251008917,
+        "max": 0.311929959
+      },
+      "candidate_encode_seconds": {
+        "median": 0.228858376,
+        "min": 0.224495375,
+        "max": 0.278167
+      },
+      "output_bytes": {
+        "median": 815850,
+        "min": 815850,
+        "max": 815850
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.04,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.15,
+        "min": 1.12,
+        "max": 1.17
+      },
+      "process_wall_seconds": {
+        "median": 1.298482542,
+        "min": 1.255154083,
+        "max": 1.495249666
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.156081085,
+        "min": 0.151932041,
+        "max": 0.185163538
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 193167360,
+        "min": 181764096,
+        "max": 206454784
+      },
+      "time_reported_real_seconds": {
+        "median": 1.29,
+        "min": 1.25,
+        "max": 1.49
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 206454784,
+      "raw_protobuf_history_checkout_bytes": 806747,
+      "raw_protobuf_history_pack_bytes": 895272,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 15,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.265606873,
+        "min": 0.233959002,
+        "max": 0.511576669
+      },
+      "candidate_encode_seconds": {
+        "median": 0.305612999,
+        "min": 0.281877706,
+        "max": 0.513924293
+      },
+      "output_bytes": {
+        "median": 807201,
+        "min": 807201,
+        "max": 807201
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.05,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.22,
+        "min": 1.15,
+        "max": 1.31
+      },
+      "process_wall_seconds": {
+        "median": 1.378413708,
+        "min": 1.298450083,
+        "max": 2.163481375
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.14403625,
+        "min": 0.139780874,
+        "max": 0.246428751
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 199426048,
+        "min": 195821568,
+        "max": 226213888
+      },
+      "time_reported_real_seconds": {
+        "median": 1.37,
+        "min": 1.29,
+        "max": 2.15
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 226213888,
+      "raw_protobuf_history_checkout_bytes": 798251,
+      "raw_protobuf_history_pack_bytes": 885190,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 18,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.270448916,
+        "min": 0.240138167,
+        "max": 0.803009997
+      },
+      "candidate_encode_seconds": {
+        "median": 0.61941896,
+        "min": 0.531660457,
+        "max": 2.649367711
+      },
+      "output_bytes": {
+        "median": 732760,
+        "min": 732760,
+        "max": 732760
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.04,
+        "max": 0.13
+      },
+      "process_user_seconds": {
+        "median": 1.44,
+        "min": 1.41,
+        "max": 1.74
+      },
+      "process_wall_seconds": {
+        "median": 1.804006125,
+        "min": 1.5434765,
+        "max": 6.624278583
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.161107166,
+        "min": 0.149897332,
+        "max": 0.646788586
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 217726976,
+        "min": 215334912,
+        "max": 221839360
+      },
+      "time_reported_real_seconds": {
+        "median": 1.79,
+        "min": 1.53,
+        "max": 6.61
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 221839360,
+      "raw_protobuf_history_checkout_bytes": 731758,
+      "raw_protobuf_history_pack_bytes": 811617,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 19,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.266410919,
+        "min": 0.247053835,
+        "max": 0.4331825
+      },
+      "candidate_encode_seconds": {
+        "median": 0.94058592,
+        "min": 0.739693751,
+        "max": 1.527630084
+      },
+      "output_bytes": {
+        "median": 728596,
+        "min": 728596,
+        "max": 728596
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.06,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 1.67,
+        "min": 1.62,
+        "max": 1.81
+      },
+      "process_wall_seconds": {
+        "median": 2.1154735,
+        "min": 1.812259625,
+        "max": 3.548209708
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.159138581,
+        "min": 0.154210541,
+        "max": 0.28528521
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 211435520,
+        "min": 198115328,
+        "max": 219332608
+      },
+      "time_reported_real_seconds": {
+        "median": 2.1,
+        "min": 1.8,
+        "max": 3.53
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 219332608,
+      "raw_protobuf_history_checkout_bytes": 727602,
+      "raw_protobuf_history_pack_bytes": 809528,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 20,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.260686916,
+        "min": 0.250865503,
+        "max": 0.766007041
+      },
+      "candidate_encode_seconds": {
+        "median": 0.830658834,
+        "min": 0.774825208,
+        "max": 1.528812914
+      },
+      "output_bytes": {
+        "median": 728434,
+        "min": 728434,
+        "max": 728434
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.07
+      },
+      "process_user_seconds": {
+        "median": 1.71,
+        "min": 1.64,
+        "max": 1.83
+      },
+      "process_wall_seconds": {
+        "median": 1.912929542,
+        "min": 1.816320417,
+        "max": 3.623058417
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.161981671,
+        "min": 0.148671377,
+        "max": 0.253160835
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 203472896,
+        "min": 198262784,
+        "max": 217759744
+      },
+      "time_reported_real_seconds": {
+        "median": 1.9,
+        "min": 1.81,
+        "max": 3.61
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 217759744,
+      "raw_protobuf_history_checkout_bytes": 727452,
+      "raw_protobuf_history_pack_bytes": 809361,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 21,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.294848124,
+        "min": 0.244276084,
+        "max": 0.328841418
+      },
+      "candidate_encode_seconds": {
+        "median": 1.023296375,
+        "min": 0.891707332,
+        "max": 1.27085996
+      },
+      "output_bytes": {
+        "median": 728070,
+        "min": 728070,
+        "max": 728070
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.06,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 1.84,
+        "min": 1.76,
+        "max": 1.92
+      },
+      "process_wall_seconds": {
+        "median": 2.152872458,
+        "min": 1.96983175,
+        "max": 2.590984708
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.157705831,
+        "min": 0.146875832,
+        "max": 0.182047039
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 219578368,
+        "min": 212844544,
+        "max": 220561408
+      },
+      "time_reported_real_seconds": {
+        "median": 2.14,
+        "min": 1.96,
+        "max": 2.58
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 220561408,
+      "raw_protobuf_history_checkout_bytes": 727088,
+      "raw_protobuf_history_pack_bytes": 808985,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 22,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.258013171,
+        "min": 0.238653001,
+        "max": 0.414426124
+      },
+      "candidate_encode_seconds": {
+        "median": 1.193613458,
+        "min": 1.095489086,
+        "max": 1.782255586
+      },
+      "output_bytes": {
+        "median": 727524,
+        "min": 727524,
+        "max": 727524
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.04,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 2.04,
+        "min": 1.93,
+        "max": 2.25
+      },
+      "process_wall_seconds": {
+        "median": 2.227353458,
+        "min": 2.094868459,
+        "max": 3.336616916
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.148812585,
+        "min": 0.147767999,
+        "max": 0.218949917
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 201981952,
+        "min": 197361664,
+        "max": 216645632
+      },
+      "time_reported_real_seconds": {
+        "median": 2.22,
+        "min": 2.09,
+        "max": 3.32
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 216645632,
+      "raw_protobuf_history_checkout_bytes": 726450,
+      "raw_protobuf_history_pack_bytes": 808289,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "gzip",
+      "source_kind": "json",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 2621440,
+        "min": 2211840,
+        "max": 2654208
+      },
+      "decoder_system_seconds": {
+        "median": 0.019488,
+        "min": 0.017567,
+        "max": 0.029379999999999996
+      },
+      "decoder_user_seconds": {
+        "median": 0.008681999999999995,
+        "min": 0.008001000000000008,
+        "max": 0.010417999999999997
+      },
+      "encoder_system_seconds": {
+        "median": 0.011156,
+        "min": 0.010298,
+        "max": 0.017658
+      },
+      "encoder_user_seconds": {
+        "median": 0.062899,
+        "min": 0.060037999999999994,
+        "max": 0.073686
+      },
+      "output_bytes": {
+        "median": 1740287,
+        "min": 1740287,
+        "max": 1740287
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.11
+      },
+      "process_user_seconds": {
+        "median": 0.13,
+        "min": 0.12,
+        "max": 0.15
+      },
+      "process_wall_seconds": {
+        "median": 0.230372042,
+        "min": 0.213823291,
+        "max": 0.414536208
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 71221248,
+        "min": 68960256,
+        "max": 74842112
+      },
+      "time_reported_real_seconds": {
+        "median": 0.22,
+        "min": 0.2,
+        "max": 0.37
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 2654208
+    },
+    {
+      "codec": "gzip",
+      "source_kind": "json",
+      "setting": 6,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 2654208,
+        "min": 2572288,
+        "max": 2670592
+      },
+      "decoder_system_seconds": {
+        "median": 0.018338,
+        "min": 0.017356,
+        "max": 0.019843999999999997
+      },
+      "decoder_user_seconds": {
+        "median": 0.007327,
+        "min": 0.0069079999999999975,
+        "max": 0.00850999999999999
+      },
+      "encoder_system_seconds": {
+        "median": 0.011038,
+        "min": 0.010747999999999999,
+        "max": 0.013656999999999999
+      },
+      "encoder_user_seconds": {
+        "median": 0.12787199999999999,
+        "min": 0.126964,
+        "max": 0.143071
+      },
+      "output_bytes": {
+        "median": 1471620,
+        "min": 1471620,
+        "max": 1471620
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.07
+      },
+      "process_user_seconds": {
+        "median": 0.19,
+        "min": 0.18,
+        "max": 0.21
+      },
+      "process_wall_seconds": {
+        "median": 0.294816625,
+        "min": 0.272754125,
+        "max": 0.345609167
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 71434240,
+        "min": 69091328,
+        "max": 73662464
+      },
+      "time_reported_real_seconds": {
+        "median": 0.29,
+        "min": 0.26,
+        "max": 0.34
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 2670592
+    },
+    {
+      "codec": "gzip",
+      "source_kind": "json",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 2605056,
+        "min": 2211840,
+        "max": 2654208
+      },
+      "decoder_system_seconds": {
+        "median": 0.019687000000000003,
+        "min": 0.018244999999999997,
+        "max": 0.030824
+      },
+      "decoder_user_seconds": {
+        "median": 0.008168000000000009,
+        "min": 0.008010000000000017,
+        "max": 0.00905599999999998
+      },
+      "encoder_system_seconds": {
+        "median": 0.012414,
+        "min": 0.011287,
+        "max": 0.023489
+      },
+      "encoder_user_seconds": {
+        "median": 0.16747299999999998,
+        "min": 0.15848399999999999,
+        "max": 0.194217
+      },
+      "output_bytes": {
+        "median": 1452912,
+        "min": 1452912,
+        "max": 1452912
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 0.23,
+        "min": 0.22,
+        "max": 0.27
+      },
+      "process_wall_seconds": {
+        "median": 0.338398,
+        "min": 0.322931375,
+        "max": 0.489793166
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 71368704,
+        "min": 71090176,
+        "max": 72794112
+      },
+      "time_reported_real_seconds": {
+        "median": 0.33,
+        "min": 0.31,
+        "max": 0.48
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 2654208
+    },
+    {
+      "codec": "gzip",
+      "source_kind": "protobuf-raw",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 2228224,
+        "min": 1769472,
+        "max": 2670592
+      },
+      "decoder_system_seconds": {
+        "median": 0.009942000000000001,
+        "min": 0.009190999999999998,
+        "max": 0.011395999999999998
+      },
+      "decoder_user_seconds": {
+        "median": 0.005261999999999999,
+        "min": 0.0047799999999999995,
+        "max": 0.005912000000000001
+      },
+      "encoder_system_seconds": {
+        "median": 0.008485999999999999,
+        "min": 0.008147,
+        "max": 0.011682
+      },
+      "encoder_user_seconds": {
+        "median": 0.028360999999999997,
+        "min": 0.025634999999999998,
+        "max": 0.030622999999999997
+      },
+      "output_bytes": {
+        "median": 1083943,
+        "min": 1083943,
+        "max": 1083943
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.04,
+        "max": 0.05
+      },
+      "process_user_seconds": {
+        "median": 0.07,
+        "min": 0.06,
+        "max": 0.08
+      },
+      "process_wall_seconds": {
+        "median": 0.156452792,
+        "min": 0.137584167,
+        "max": 0.180391292
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35504128,
+        "min": 34570240,
+        "max": 35831808
+      },
+      "time_reported_real_seconds": {
+        "median": 0.15,
+        "min": 0.13,
+        "max": 0.17
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 2670592
+    },
+    {
+      "codec": "gzip",
+      "source_kind": "protobuf-raw",
+      "setting": 6,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 2637824,
+        "min": 2588672,
+        "max": 2670592
+      },
+      "decoder_system_seconds": {
+        "median": 0.009949999999999999,
+        "min": 0.009467999999999999,
+        "max": 0.015609999999999997
+      },
+      "decoder_user_seconds": {
+        "median": 0.0050090000000000065,
+        "min": 0.004000999999999998,
+        "max": 0.005496000000000001
+      },
+      "encoder_system_seconds": {
+        "median": 0.010669,
+        "min": 0.008064,
+        "max": 0.014593
+      },
+      "encoder_user_seconds": {
+        "median": 0.062528,
+        "min": 0.054409,
+        "max": 0.075613
+      },
+      "output_bytes": {
+        "median": 954877,
+        "min": 954877,
+        "max": 954877
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.04,
+        "max": 0.07
+      },
+      "process_user_seconds": {
+        "median": 0.11,
+        "min": 0.09,
+        "max": 0.13
+      },
+      "process_wall_seconds": {
+        "median": 0.203474875,
+        "min": 0.168991375,
+        "max": 0.278654166
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35323904,
+        "min": 34504704,
+        "max": 35684352
+      },
+      "time_reported_real_seconds": {
+        "median": 0.19,
+        "min": 0.16,
+        "max": 0.27
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 2670592
+    },
+    {
+      "codec": "gzip",
+      "source_kind": "protobuf-raw",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 2637824,
+        "min": 2228224,
+        "max": 2670592
+      },
+      "decoder_system_seconds": {
+        "median": 0.011286000000000001,
+        "min": 0.008902,
+        "max": 0.012559999999999998
+      },
+      "decoder_user_seconds": {
+        "median": 0.005075999999999997,
+        "min": 0.003908999999999996,
+        "max": 0.005437999999999998
+      },
+      "encoder_system_seconds": {
+        "median": 0.011363999999999999,
+        "min": 0.008673,
+        "max": 0.012438999999999999
+      },
+      "encoder_user_seconds": {
+        "median": 0.099783,
+        "min": 0.095249,
+        "max": 0.11229
+      },
+      "output_bytes": {
+        "median": 944707,
+        "min": 944707,
+        "max": 944707
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.14,
+        "min": 0.14,
+        "max": 0.16
+      },
+      "process_wall_seconds": {
+        "median": 0.245473083,
+        "min": 0.216205667,
+        "max": 0.495490208
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 34914304,
+        "min": 34553856,
+        "max": 36323328
+      },
+      "time_reported_real_seconds": {
+        "median": 0.23,
+        "min": 0.2,
+        "max": 0.48
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 2670592
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "json",
+      "setting": 0,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 5079040,
+        "min": 5062656,
+        "max": 5079040
+      },
+      "decoder_system_seconds": {
+        "median": 0.081675,
+        "min": 0.079869,
+        "max": 0.09113199999999999
+      },
+      "decoder_user_seconds": {
+        "median": 0.07752600000000001,
+        "min": 0.073773,
+        "max": 0.086808
+      },
+      "encoder_system_seconds": {
+        "median": 0.014889,
+        "min": 0.014421999999999999,
+        "max": 0.019556999999999998
+      },
+      "encoder_user_seconds": {
+        "median": 0.22056099999999998,
+        "min": 0.21218399999999998,
+        "max": 0.23098
+      },
+      "output_bytes": {
+        "median": 1161564,
+        "min": 1161564,
+        "max": 1161564
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.13,
+        "min": 0.12,
+        "max": 0.14
+      },
+      "process_user_seconds": {
+        "median": 0.35,
+        "min": 0.35,
+        "max": 0.36
+      },
+      "process_wall_seconds": {
+        "median": 0.536948792,
+        "min": 0.51551025,
+        "max": 0.693369333
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 70631424,
+        "min": 68468736,
+        "max": 75268096
+      },
+      "time_reported_real_seconds": {
+        "median": 0.53,
+        "min": 0.5,
+        "max": 0.68
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 5079040
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "json",
+      "setting": 3,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 33603584,
+        "min": 33603584,
+        "max": 33636352
+      },
+      "decoder_system_seconds": {
+        "median": 0.082637,
+        "min": 0.07879499999999999,
+        "max": 0.08878799999999999
+      },
+      "decoder_user_seconds": {
+        "median": 0.07607400000000003,
+        "min": 0.07127499999999998,
+        "max": 0.08074299999999995
+      },
+      "encoder_system_seconds": {
+        "median": 0.020021,
+        "min": 0.017485,
+        "max": 0.021589999999999998
+      },
+      "encoder_user_seconds": {
+        "median": 0.30771,
+        "min": 0.29278899999999997,
+        "max": 0.322087
+      },
+      "output_bytes": {
+        "median": 1032124,
+        "min": 1032124,
+        "max": 1032124
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.14,
+        "min": 0.13,
+        "max": 0.14
+      },
+      "process_user_seconds": {
+        "median": 0.43,
+        "min": 0.43,
+        "max": 0.47
+      },
+      "process_wall_seconds": {
+        "median": 0.660148625,
+        "min": 0.616133792,
+        "max": 0.854145959
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 72351744,
+        "min": 70811648,
+        "max": 73416704
+      },
+      "time_reported_real_seconds": {
+        "median": 0.65,
+        "min": 0.61,
+        "max": 0.84
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 33636352
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "json",
+      "setting": 6,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 69468160,
+        "min": 69451776,
+        "max": 69468160
+      },
+      "decoder_system_seconds": {
+        "median": 0.08015,
+        "min": 0.078635,
+        "max": 0.081154
+      },
+      "decoder_user_seconds": {
+        "median": 0.07312799999999997,
+        "min": 0.06642400000000004,
+        "max": 0.09484900000000007
+      },
+      "encoder_system_seconds": {
+        "median": 0.023465999999999997,
+        "min": 0.022216,
+        "max": 0.036537
+      },
+      "encoder_user_seconds": {
+        "median": 0.747552,
+        "min": 0.7394799999999999,
+        "max": 0.931048
+      },
+      "output_bytes": {
+        "median": 994108,
+        "min": 994108,
+        "max": 994108
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.13,
+        "min": 0.13,
+        "max": 0.16
+      },
+      "process_user_seconds": {
+        "median": 0.88,
+        "min": 0.86,
+        "max": 1.09
+      },
+      "process_wall_seconds": {
+        "median": 1.110807583,
+        "min": 1.092174667,
+        "max": 3.17586975
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 70926336,
+        "min": 70811648,
+        "max": 71974912
+      },
+      "time_reported_real_seconds": {
+        "median": 1.1,
+        "min": 1.08,
+        "max": 3.16
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 69468160
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "json",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 119783424,
+        "min": 119767040,
+        "max": 119816192
+      },
+      "decoder_system_seconds": {
+        "median": 0.08079199999999999,
+        "min": 0.068476,
+        "max": 0.085591
+      },
+      "decoder_user_seconds": {
+        "median": 0.07279499999999994,
+        "min": 0.06820099999999996,
+        "max": 0.08332600000000001
+      },
+      "encoder_system_seconds": {
+        "median": 0.027445999999999998,
+        "min": 0.023965999999999998,
+        "max": 0.038014
+      },
+      "encoder_user_seconds": {
+        "median": 0.789771,
+        "min": 0.7663209999999999,
+        "max": 0.859493
+      },
+      "output_bytes": {
+        "median": 994108,
+        "min": 994108,
+        "max": 994108
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.14,
+        "min": 0.12,
+        "max": 0.16
+      },
+      "process_user_seconds": {
+        "median": 0.92,
+        "min": 0.89,
+        "max": 1.0
+      },
+      "process_wall_seconds": {
+        "median": 1.14458925,
+        "min": 1.086745958,
+        "max": 1.41441975
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 119783424,
+        "min": 119767040,
+        "max": 119816192
+      },
+      "time_reported_real_seconds": {
+        "median": 1.13,
+        "min": 1.08,
+        "max": 1.4
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 119816192
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "protobuf-raw",
+      "setting": 0,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 5079040,
+        "min": 5062656,
+        "max": 5095424
+      },
+      "decoder_system_seconds": {
+        "median": 0.027399,
+        "min": 0.025698,
+        "max": 0.034451999999999997
+      },
+      "decoder_user_seconds": {
+        "median": 0.04201200000000001,
+        "min": 0.036993999999999985,
+        "max": 0.04402600000000001
+      },
+      "encoder_system_seconds": {
+        "median": 0.011732,
+        "min": 0.009887,
+        "max": 0.015560999999999998
+      },
+      "encoder_user_seconds": {
+        "median": 0.09948,
+        "min": 0.09600099999999999,
+        "max": 0.113994
+      },
+      "output_bytes": {
+        "median": 837228,
+        "min": 837228,
+        "max": 837228
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 0.18,
+        "min": 0.17,
+        "max": 0.2
+      },
+      "process_wall_seconds": {
+        "median": 0.308230792,
+        "min": 0.2641485,
+        "max": 0.424347708
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35586048,
+        "min": 34783232,
+        "max": 36782080
+      },
+      "time_reported_real_seconds": {
+        "median": 0.29,
+        "min": 0.25,
+        "max": 0.41
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 5095424
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "protobuf-raw",
+      "setting": 3,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 19922944,
+        "min": 19906560,
+        "max": 19955712
+      },
+      "decoder_system_seconds": {
+        "median": 0.026326999999999996,
+        "min": 0.025956,
+        "max": 0.045498
+      },
+      "decoder_user_seconds": {
+        "median": 0.03412299999999999,
+        "min": 0.030356999999999995,
+        "max": 0.040773000000000004
+      },
+      "encoder_system_seconds": {
+        "median": 0.011996999999999999,
+        "min": 0.011224999999999999,
+        "max": 0.022746
+      },
+      "encoder_user_seconds": {
+        "median": 0.152496,
+        "min": 0.134288,
+        "max": 0.197845
+      },
+      "output_bytes": {
+        "median": 740508,
+        "min": 740508,
+        "max": 740508
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.12
+      },
+      "process_user_seconds": {
+        "median": 0.22,
+        "min": 0.2,
+        "max": 0.29
+      },
+      "process_wall_seconds": {
+        "median": 0.342155167,
+        "min": 0.301258583,
+        "max": 0.8562825
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35160064,
+        "min": 33849344,
+        "max": 35323904
+      },
+      "time_reported_real_seconds": {
+        "median": 0.33,
+        "min": 0.29,
+        "max": 0.84
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 19955712
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "protobuf-raw",
+      "setting": 6,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 35307520,
+        "min": 35291136,
+        "max": 35323904
+      },
+      "decoder_system_seconds": {
+        "median": 0.027297000000000002,
+        "min": 0.024557000000000002,
+        "max": 0.034158999999999995
+      },
+      "decoder_user_seconds": {
+        "median": 0.03626400000000002,
+        "min": 0.03252100000000002,
+        "max": 0.03917700000000002
+      },
+      "encoder_system_seconds": {
+        "median": 0.017166999999999998,
+        "min": 0.014143999999999999,
+        "max": 0.018883999999999998
+      },
+      "encoder_user_seconds": {
+        "median": 0.424293,
+        "min": 0.38595599999999997,
+        "max": 0.5053949999999999
+      },
+      "output_bytes": {
+        "median": 718560,
+        "min": 718560,
+        "max": 718560
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 0.51,
+        "min": 0.45,
+        "max": 0.59
+      },
+      "process_wall_seconds": {
+        "median": 0.693542125,
+        "min": 0.559451959,
+        "max": 1.334248291
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35307520,
+        "min": 35291136,
+        "max": 36339712
+      },
+      "time_reported_real_seconds": {
+        "median": 0.68,
+        "min": 0.55,
+        "max": 1.32
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 35323904
+    },
+    {
+      "codec": "xz-lzma2",
+      "source_kind": "protobuf-raw",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 85639168,
+        "min": 85606400,
+        "max": 85671936
+      },
+      "decoder_system_seconds": {
+        "median": 0.027267999999999997,
+        "min": 0.02645,
+        "max": 0.030885000000000003
+      },
+      "decoder_user_seconds": {
+        "median": 0.033577000000000023,
+        "min": 0.031111,
+        "max": 0.03919300000000003
+      },
+      "encoder_system_seconds": {
+        "median": 0.017553,
+        "min": 0.016477,
+        "max": 0.028360999999999997
+      },
+      "encoder_user_seconds": {
+        "median": 0.42562099999999997,
+        "min": 0.417971,
+        "max": 0.535048
+      },
+      "output_bytes": {
+        "median": 718560,
+        "min": 718560,
+        "max": 718560
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.06,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 0.5,
+        "min": 0.48,
+        "max": 0.62
+      },
+      "process_wall_seconds": {
+        "median": 0.622961834,
+        "min": 0.600775917,
+        "max": 1.735283334
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 85639168,
+        "min": 85606400,
+        "max": 85671936
+      },
+      "time_reported_real_seconds": {
+        "median": 0.61,
+        "min": 0.59,
+        "max": 1.72
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 85671936
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 15482880,
+        "min": 14647296,
+        "max": 15892480
+      },
+      "decoder_system_seconds": {
+        "median": 0.012946,
+        "min": 0.011160999999999999,
+        "max": 0.013545
+      },
+      "decoder_user_seconds": {
+        "median": 0.007877000000000002,
+        "min": 0.007156000000000003,
+        "max": 0.008190999999999997
+      },
+      "encoder_system_seconds": {
+        "median": 0.013238,
+        "min": 0.011176,
+        "max": 0.013996
+      },
+      "encoder_user_seconds": {
+        "median": 0.040336,
+        "min": 0.039709999999999995,
+        "max": 0.042973
+      },
+      "output_bytes": {
+        "median": 1525525,
+        "min": 1525525,
+        "max": 1525525
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.05,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.1,
+        "min": 0.1,
+        "max": 0.11
+      },
+      "process_wall_seconds": {
+        "median": 0.210075584,
+        "min": 0.1868655,
+        "max": 0.250450291
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 73760768,
+        "min": 69500928,
+        "max": 75563008
+      },
+      "time_reported_real_seconds": {
+        "median": 0.2,
+        "min": 0.18,
+        "max": 0.24
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 15892480
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 3,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 17154048,
+        "min": 15843328,
+        "max": 17268736
+      },
+      "decoder_system_seconds": {
+        "median": 0.0123,
+        "min": 0.011702,
+        "max": 0.014631
+      },
+      "decoder_user_seconds": {
+        "median": 0.008281000000000004,
+        "min": 0.007755999999999999,
+        "max": 0.009495999999999997
+      },
+      "encoder_system_seconds": {
+        "median": 0.012861,
+        "min": 0.012239,
+        "max": 0.014905
+      },
+      "encoder_user_seconds": {
+        "median": 0.046834,
+        "min": 0.044350999999999995,
+        "max": 0.051787
+      },
+      "output_bytes": {
+        "median": 1214713,
+        "min": 1214713,
+        "max": 1214713
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.05,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.11,
+        "min": 0.11,
+        "max": 0.12
+      },
+      "process_wall_seconds": {
+        "median": 0.2171375,
+        "min": 0.198053959,
+        "max": 0.259856625
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 71925760,
+        "min": 69976064,
+        "max": 72531968
+      },
+      "time_reported_real_seconds": {
+        "median": 0.21,
+        "min": 0.19,
+        "max": 0.25
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 17268736
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 34979840,
+        "min": 34684928,
+        "max": 35209216
+      },
+      "decoder_system_seconds": {
+        "median": 0.013439999999999999,
+        "min": 0.010361,
+        "max": 0.015857999999999997
+      },
+      "decoder_user_seconds": {
+        "median": 0.007859999999999992,
+        "min": 0.0071390000000000065,
+        "max": 0.009993000000000002
+      },
+      "encoder_system_seconds": {
+        "median": 0.014985,
+        "min": 0.013054999999999999,
+        "max": 0.019247
+      },
+      "encoder_user_seconds": {
+        "median": 0.07867299999999999,
+        "min": 0.076725,
+        "max": 0.09716999999999999
+      },
+      "output_bytes": {
+        "median": 1111759,
+        "min": 1111759,
+        "max": 1111759
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 0.14,
+        "min": 0.13,
+        "max": 0.17
+      },
+      "process_wall_seconds": {
+        "median": 0.255923333,
+        "min": 0.224918042,
+        "max": 0.510973291
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 71057408,
+        "min": 68485120,
+        "max": 72744960
+      },
+      "time_reported_real_seconds": {
+        "median": 0.24,
+        "min": 0.21,
+        "max": 0.49
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 35209216
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 12,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 100139008,
+        "min": 99893248,
+        "max": 100352000
+      },
+      "decoder_system_seconds": {
+        "median": 0.011032,
+        "min": 0.010365000000000001,
+        "max": 0.011917
+      },
+      "decoder_user_seconds": {
+        "median": 0.007729,
+        "min": 0.007081999999999991,
+        "max": 0.008509000000000003
+      },
+      "encoder_system_seconds": {
+        "median": 0.01629,
+        "min": 0.01555,
+        "max": 0.018514
+      },
+      "encoder_user_seconds": {
+        "median": 0.090904,
+        "min": 0.086368,
+        "max": 0.103962
+      },
+      "output_bytes": {
+        "median": 1107492,
+        "min": 1107492,
+        "max": 1107492
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.15,
+        "min": 0.14,
+        "max": 0.17
+      },
+      "process_wall_seconds": {
+        "median": 0.246460209,
+        "min": 0.232803333,
+        "max": 0.284606416
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 100139008,
+        "min": 99893248,
+        "max": 100352000
+      },
+      "time_reported_real_seconds": {
+        "median": 0.24,
+        "min": 0.22,
+        "max": 0.26
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 100352000
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 15,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 143081472,
+        "min": 142508032,
+        "max": 143458304
+      },
+      "decoder_system_seconds": {
+        "median": 0.013818999999999998,
+        "min": 0.011462999999999997,
+        "max": 0.018685999999999994
+      },
+      "decoder_user_seconds": {
+        "median": 0.008244000000000001,
+        "min": 0.0065840000000000065,
+        "max": 0.009454999999999991
+      },
+      "encoder_system_seconds": {
+        "median": 0.026447,
+        "min": 0.018706,
+        "max": 0.040471
+      },
+      "encoder_user_seconds": {
+        "median": 0.184805,
+        "min": 0.169762,
+        "max": 0.23000199999999998
+      },
+      "output_bytes": {
+        "median": 1095790,
+        "min": 1095790,
+        "max": 1095790
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.06,
+        "max": 0.12
+      },
+      "process_user_seconds": {
+        "median": 0.25,
+        "min": 0.23,
+        "max": 0.31
+      },
+      "process_wall_seconds": {
+        "median": 0.437314167,
+        "min": 0.357538875,
+        "max": 0.973975542
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 143081472,
+        "min": 142508032,
+        "max": 143458304
+      },
+      "time_reported_real_seconds": {
+        "median": 0.43,
+        "min": 0.35,
+        "max": 0.96
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 143458304
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 18,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 128352256,
+        "min": 128040960,
+        "max": 128761856
+      },
+      "decoder_system_seconds": {
+        "median": 0.011970000000000001,
+        "min": 0.010078,
+        "max": 0.017529999999999997
+      },
+      "decoder_user_seconds": {
+        "median": 0.00850099999999998,
+        "min": 0.00662000000000007,
+        "max": 0.009220000000000006
+      },
+      "encoder_system_seconds": {
+        "median": 0.022283,
+        "min": 0.020426,
+        "max": 0.045383
+      },
+      "encoder_user_seconds": {
+        "median": 0.7142809999999999,
+        "min": 0.68179,
+        "max": 0.8465149999999999
+      },
+      "output_bytes": {
+        "median": 1061208,
+        "min": 1061208,
+        "max": 1061208
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.12
+      },
+      "process_user_seconds": {
+        "median": 0.78,
+        "min": 0.74,
+        "max": 0.93
+      },
+      "process_wall_seconds": {
+        "median": 0.989693792,
+        "min": 0.882161041,
+        "max": 2.124690958
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 128352256,
+        "min": 128040960,
+        "max": 128761856
+      },
+      "time_reported_real_seconds": {
+        "median": 0.98,
+        "min": 0.87,
+        "max": 2.04
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 128761856
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 19,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 166199296,
+        "min": 165101568,
+        "max": 166739968
+      },
+      "decoder_system_seconds": {
+        "median": 0.014775999999999997,
+        "min": 0.011273000000000002,
+        "max": 0.018354000000000002
+      },
+      "decoder_user_seconds": {
+        "median": 0.008629999999999916,
+        "min": 0.007870000000000044,
+        "max": 0.009714
+      },
+      "encoder_system_seconds": {
+        "median": 0.027946,
+        "min": 0.024069999999999998,
+        "max": 0.058572
+      },
+      "encoder_user_seconds": {
+        "median": 1.08193,
+        "min": 1.016415,
+        "max": 1.237434
+      },
+      "output_bytes": {
+        "median": 1055478,
+        "min": 1055478,
+        "max": 1055478
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.06,
+        "max": 0.11
+      },
+      "process_user_seconds": {
+        "median": 1.14,
+        "min": 1.08,
+        "max": 1.31
+      },
+      "process_wall_seconds": {
+        "median": 1.805539,
+        "min": 1.276585459,
+        "max": 3.093875792
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 166199296,
+        "min": 165101568,
+        "max": 166739968
+      },
+      "time_reported_real_seconds": {
+        "median": 1.79,
+        "min": 1.27,
+        "max": 3.0
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 166739968
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 20,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 182812672,
+        "min": 182763520,
+        "max": 183451648
+      },
+      "decoder_system_seconds": {
+        "median": 0.011648999999999996,
+        "min": 0.011384000000000002,
+        "max": 0.012957000000000003
+      },
+      "decoder_user_seconds": {
+        "median": 0.008273000000000197,
+        "min": 0.0069109999999998895,
+        "max": 0.008952000000000071
+      },
+      "encoder_system_seconds": {
+        "median": 0.025675,
+        "min": 0.024534,
+        "max": 0.048584999999999996
+      },
+      "encoder_user_seconds": {
+        "median": 1.0753,
+        "min": 1.008804,
+        "max": 1.10493
+      },
+      "output_bytes": {
+        "median": 1055478,
+        "min": 1055478,
+        "max": 1055478
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.07,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 1.14,
+        "min": 1.07,
+        "max": 1.17
+      },
+      "process_wall_seconds": {
+        "median": 1.292742625,
+        "min": 1.237484917,
+        "max": 1.677762958
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 182812672,
+        "min": 182763520,
+        "max": 183451648
+      },
+      "time_reported_real_seconds": {
+        "median": 1.28,
+        "min": 1.23,
+        "max": 1.67
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 183451648
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 21,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 216612864,
+        "min": 215662592,
+        "max": 217841664
+      },
+      "decoder_system_seconds": {
+        "median": 0.012167999999999998,
+        "min": 0.010654,
+        "max": 0.014560999999999998
+      },
+      "decoder_user_seconds": {
+        "median": 0.008166999999999813,
+        "min": 0.007902000000000076,
+        "max": 0.009040999999999855
+      },
+      "encoder_system_seconds": {
+        "median": 0.031103,
+        "min": 0.027850999999999997,
+        "max": 0.049922
+      },
+      "encoder_user_seconds": {
+        "median": 2.098166,
+        "min": 1.9918289999999998,
+        "max": 2.297661
+      },
+      "output_bytes": {
+        "median": 1054146,
+        "min": 1054146,
+        "max": 1054146
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.07,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 2.16,
+        "min": 2.05,
+        "max": 2.37
+      },
+      "process_wall_seconds": {
+        "median": 2.421078458,
+        "min": 2.335085459,
+        "max": 3.544172167
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 216612864,
+        "min": 215662592,
+        "max": 217841664
+      },
+      "time_reported_real_seconds": {
+        "median": 2.41,
+        "min": 2.33,
+        "max": 3.53
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 217841664
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "json",
+      "setting": 22,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 217169920,
+        "min": 215580672,
+        "max": 217350144
+      },
+      "decoder_system_seconds": {
+        "median": 0.011625999999999997,
+        "min": 0.010300999999999998,
+        "max": 0.02568899999999999
+      },
+      "decoder_user_seconds": {
+        "median": 0.008823999999999721,
+        "min": 0.007417999999999925,
+        "max": 0.009788000000000352
+      },
+      "encoder_system_seconds": {
+        "median": 0.036432,
+        "min": 0.031687,
+        "max": 0.171124
+      },
+      "encoder_user_seconds": {
+        "median": 3.936354,
+        "min": 3.717691,
+        "max": 4.961097
+      },
+      "output_bytes": {
+        "median": 1052673,
+        "min": 1052673,
+        "max": 1052673
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.07,
+        "max": 0.25
+      },
+      "process_user_seconds": {
+        "median": 4.0,
+        "min": 3.78,
+        "max": 5.04
+      },
+      "process_wall_seconds": {
+        "median": 4.258230292,
+        "min": 4.040077916,
+        "max": 18.04212575
+      },
+      "source_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 217169920,
+        "min": 215580672,
+        "max": 217350144
+      },
+      "time_reported_real_seconds": {
+        "median": 4.24,
+        "min": 4.03,
+        "max": 18.03
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 217350144
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 9633792,
+        "min": 8699904,
+        "max": 9666560
+      },
+      "decoder_system_seconds": {
+        "median": 0.008774,
+        "min": 0.008363,
+        "max": 0.012688
+      },
+      "decoder_user_seconds": {
+        "median": 0.004472,
+        "min": 0.004045,
+        "max": 0.005090999999999998
+      },
+      "encoder_system_seconds": {
+        "median": 0.008629,
+        "min": 0.007793,
+        "max": 0.012263999999999999
+      },
+      "encoder_user_seconds": {
+        "median": 0.01565,
+        "min": 0.014537999999999999,
+        "max": 0.019215
+      },
+      "output_bytes": {
+        "median": 1180666,
+        "min": 1180666,
+        "max": 1180666
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.03,
+        "max": 0.06
+      },
+      "process_user_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.07
+      },
+      "process_wall_seconds": {
+        "median": 0.1381995,
+        "min": 0.115737417,
+        "max": 0.191968083
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35651584,
+        "min": 34406400,
+        "max": 36077568
+      },
+      "time_reported_real_seconds": {
+        "median": 0.12,
+        "min": 0.11,
+        "max": 0.18
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 9666560
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 3,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 11010048,
+        "min": 10321920,
+        "max": 11550720
+      },
+      "decoder_system_seconds": {
+        "median": 0.008738999999999999,
+        "min": 0.007704000000000001,
+        "max": 0.010216999999999999
+      },
+      "decoder_user_seconds": {
+        "median": 0.004874999999999997,
+        "min": 0.0039359999999999985,
+        "max": 0.004989
+      },
+      "encoder_system_seconds": {
+        "median": 0.009042999999999999,
+        "min": 0.008825999999999999,
+        "max": 0.01316
+      },
+      "encoder_user_seconds": {
+        "median": 0.018605,
+        "min": 0.018387,
+        "max": 0.021747
+      },
+      "output_bytes": {
+        "median": 886009,
+        "min": 886009,
+        "max": 886009
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.03,
+        "max": 0.05
+      },
+      "process_user_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.07
+      },
+      "process_wall_seconds": {
+        "median": 0.165430416,
+        "min": 0.129233792,
+        "max": 0.384583625
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 35799040,
+        "min": 34258944,
+        "max": 35848192
+      },
+      "time_reported_real_seconds": {
+        "median": 0.15,
+        "min": 0.12,
+        "max": 0.35
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 11550720
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 33374208,
+        "min": 33259520,
+        "max": 33619968
+      },
+      "decoder_system_seconds": {
+        "median": 0.008823,
+        "min": 0.007280999999999999,
+        "max": 0.009969
+      },
+      "decoder_user_seconds": {
+        "median": 0.004388000000000003,
+        "min": 0.004282000000000001,
+        "max": 0.005282999999999996
+      },
+      "encoder_system_seconds": {
+        "median": 0.01011,
+        "min": 0.009420999999999999,
+        "max": 0.010745
+      },
+      "encoder_user_seconds": {
+        "median": 0.037059,
+        "min": 0.033680999999999996,
+        "max": 0.038262
+      },
+      "output_bytes": {
+        "median": 828647,
+        "min": 828647,
+        "max": 828647
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.03,
+        "max": 0.04
+      },
+      "process_user_seconds": {
+        "median": 0.08,
+        "min": 0.07,
+        "max": 0.08
+      },
+      "process_wall_seconds": {
+        "median": 0.159582959,
+        "min": 0.150174708,
+        "max": 0.191811292
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 34734080,
+        "min": 34029568,
+        "max": 35553280
+      },
+      "time_reported_real_seconds": {
+        "median": 0.15,
+        "min": 0.14,
+        "max": 0.18
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 33619968
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 12,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 45039616,
+        "min": 44990464,
+        "max": 45072384
+      },
+      "decoder_system_seconds": {
+        "median": 0.01029,
+        "min": 0.008115,
+        "max": 0.013698000000000002
+      },
+      "decoder_user_seconds": {
+        "median": 0.004736999999999998,
+        "min": 0.00401,
+        "max": 0.005479000000000005
+      },
+      "encoder_system_seconds": {
+        "median": 0.013073999999999999,
+        "min": 0.01129,
+        "max": 0.023420999999999997
+      },
+      "encoder_user_seconds": {
+        "median": 0.060222,
+        "min": 0.053451,
+        "max": 0.065119
+      },
+      "output_bytes": {
+        "median": 825159,
+        "min": 825159,
+        "max": 825159
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 0.1,
+        "min": 0.09,
+        "max": 0.12
+      },
+      "process_wall_seconds": {
+        "median": 0.212986833,
+        "min": 0.168802,
+        "max": 0.327228209
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 45039616,
+        "min": 44990464,
+        "max": 45072384
+      },
+      "time_reported_real_seconds": {
+        "median": 0.2,
+        "min": 0.16,
+        "max": 0.31
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 45072384
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 15,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 64372736,
+        "min": 64323584,
+        "max": 64438272
+      },
+      "decoder_system_seconds": {
+        "median": 0.009401000000000001,
+        "min": 0.007895,
+        "max": 0.017865
+      },
+      "decoder_user_seconds": {
+        "median": 0.004900999999999989,
+        "min": 0.004026000000000002,
+        "max": 0.005860000000000004
+      },
+      "encoder_system_seconds": {
+        "median": 0.014032999999999999,
+        "min": 0.012674999999999999,
+        "max": 0.020689
+      },
+      "encoder_user_seconds": {
+        "median": 0.146902,
+        "min": 0.130856,
+        "max": 0.17097199999999999
+      },
+      "output_bytes": {
+        "median": 809966,
+        "min": 809966,
+        "max": 809966
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 0.2,
+        "min": 0.17,
+        "max": 0.22
+      },
+      "process_wall_seconds": {
+        "median": 0.300192708,
+        "min": 0.234652208,
+        "max": 0.465815375
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 64372736,
+        "min": 64323584,
+        "max": 64438272
+      },
+      "time_reported_real_seconds": {
+        "median": 0.28,
+        "min": 0.22,
+        "max": 0.45
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 64438272
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 18,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 57163776,
+        "min": 57131008,
+        "max": 57212928
+      },
+      "decoder_system_seconds": {
+        "median": 0.009772999999999999,
+        "min": 0.008931000000000001,
+        "max": 0.014820000000000007
+      },
+      "decoder_user_seconds": {
+        "median": 0.005365999999999982,
+        "min": 0.005166000000000004,
+        "max": 0.005882999999999972
+      },
+      "encoder_system_seconds": {
+        "median": 0.016425,
+        "min": 0.012595,
+        "max": 0.051663999999999995
+      },
+      "encoder_user_seconds": {
+        "median": 0.49394,
+        "min": 0.419639,
+        "max": 0.527556
+      },
+      "output_bytes": {
+        "median": 731005,
+        "min": 731005,
+        "max": 731005
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.11
+      },
+      "process_user_seconds": {
+        "median": 0.54,
+        "min": 0.47,
+        "max": 0.58
+      },
+      "process_wall_seconds": {
+        "median": 0.679509291,
+        "min": 0.572029042,
+        "max": 1.128963375
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 57163776,
+        "min": 57131008,
+        "max": 57212928
+      },
+      "time_reported_real_seconds": {
+        "median": 0.67,
+        "min": 0.56,
+        "max": 1.09
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 57212928
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 19,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 57950208,
+        "min": 57950208,
+        "max": 57982976
+      },
+      "decoder_system_seconds": {
+        "median": 0.008022000000000001,
+        "min": 0.007186999999999999,
+        "max": 0.009165
+      },
+      "decoder_user_seconds": {
+        "median": 0.004697000000000062,
+        "min": 0.00396300000000005,
+        "max": 0.005191999999999974
+      },
+      "encoder_system_seconds": {
+        "median": 0.013841,
+        "min": 0.012367,
+        "max": 0.017091
+      },
+      "encoder_user_seconds": {
+        "median": 0.664053,
+        "min": 0.638906,
+        "max": 0.714478
+      },
+      "output_bytes": {
+        "median": 727563,
+        "min": 727563,
+        "max": 727563
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.04,
+        "min": 0.04,
+        "max": 0.05
+      },
+      "process_user_seconds": {
+        "median": 0.71,
+        "min": 0.68,
+        "max": 0.76
+      },
+      "process_wall_seconds": {
+        "median": 0.801591958,
+        "min": 0.783774875,
+        "max": 0.943994416
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 57950208,
+        "min": 57950208,
+        "max": 57982976
+      },
+      "time_reported_real_seconds": {
+        "median": 0.79,
+        "min": 0.77,
+        "max": 0.93
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 57982976
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 20,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 57966592,
+        "min": 57901056,
+        "max": 57999360
+      },
+      "decoder_system_seconds": {
+        "median": 0.009747999999999996,
+        "min": 0.007773,
+        "max": 0.015341
+      },
+      "decoder_user_seconds": {
+        "median": 0.004817000000000071,
+        "min": 0.004074000000000022,
+        "max": 0.0062069999999999625
+      },
+      "encoder_system_seconds": {
+        "median": 0.016004,
+        "min": 0.014088,
+        "max": 0.044678999999999996
+      },
+      "encoder_user_seconds": {
+        "median": 0.796338,
+        "min": 0.702128,
+        "max": 0.8809429999999999
+      },
+      "output_bytes": {
+        "median": 727372,
+        "min": 727372,
+        "max": 727372
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.11
+      },
+      "process_user_seconds": {
+        "median": 0.84,
+        "min": 0.74,
+        "max": 0.93
+      },
+      "process_wall_seconds": {
+        "median": 0.958852,
+        "min": 0.882087709,
+        "max": 2.849850291
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 57966592,
+        "min": 57901056,
+        "max": 57999360
+      },
+      "time_reported_real_seconds": {
+        "median": 0.95,
+        "min": 0.87,
+        "max": 2.84
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 57999360
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 21,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 58015744,
+        "min": 57982976,
+        "max": 58048512
+      },
+      "decoder_system_seconds": {
+        "median": 0.009321999999999997,
+        "min": 0.007766000000000002,
+        "max": 0.015735999999999997
+      },
+      "decoder_user_seconds": {
+        "median": 0.005231000000000097,
+        "min": 0.004496999999999973,
+        "max": 0.006241000000000163
+      },
+      "encoder_system_seconds": {
+        "median": 0.017374,
+        "min": 0.013668999999999999,
+        "max": 0.022579
+      },
+      "encoder_user_seconds": {
+        "median": 0.8987729999999999,
+        "min": 0.8386659999999999,
+        "max": 1.028088
+      },
+      "output_bytes": {
+        "median": 727012,
+        "min": 727012,
+        "max": 727012
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.07
+      },
+      "process_user_seconds": {
+        "median": 0.94,
+        "min": 0.88,
+        "max": 1.09
+      },
+      "process_wall_seconds": {
+        "median": 1.058435375,
+        "min": 0.969150166,
+        "max": 2.063127625
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 58015744,
+        "min": 57982976,
+        "max": 58048512
+      },
+      "time_reported_real_seconds": {
+        "median": 1.05,
+        "min": 0.96,
+        "max": 2.05
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 58048512
+    },
+    {
+      "codec": "zstd-cli",
+      "source_kind": "protobuf-raw",
+      "setting": 22,
+      "runs": 5,
+      "verified_all": true,
+      "child_peak_rss_bytes": {
+        "median": 58032128,
+        "min": 57982976,
+        "max": 58097664
+      },
+      "decoder_system_seconds": {
+        "median": 0.009230000000000002,
+        "min": 0.008113,
+        "max": 0.014234999999999998
+      },
+      "decoder_user_seconds": {
+        "median": 0.005120000000000013,
+        "min": 0.0044999999999999485,
+        "max": 0.0060949999999999616
+      },
+      "encoder_system_seconds": {
+        "median": 0.017849999999999998,
+        "min": 0.015222999999999999,
+        "max": 0.05481
+      },
+      "encoder_user_seconds": {
+        "median": 1.273902,
+        "min": 1.258804,
+        "max": 1.39819
+      },
+      "output_bytes": {
+        "median": 726461,
+        "min": 726461,
+        "max": 726461
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.05,
+        "min": 0.04,
+        "max": 0.13
+      },
+      "process_user_seconds": {
+        "median": 1.32,
+        "min": 1.3,
+        "max": 1.46
+      },
+      "process_wall_seconds": {
+        "median": 1.547592667,
+        "min": 1.428074292,
+        "max": 2.650091959
+      },
+      "source_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 58032128,
+        "min": 57982976,
+        "max": 58097664
+      },
+      "time_reported_real_seconds": {
+        "median": 1.54,
+        "min": 1.42,
+        "max": 2.61
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 58097664
+    }
+  ],
+  "candidate_levels": [
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 1,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.264569833,
+        "min": 0.235519584,
+        "max": 0.917174921
+      },
+      "candidate_encode_seconds": {
+        "median": 0.167532545,
+        "min": 0.153098334,
+        "max": 0.470373875
+      },
+      "output_bytes": {
+        "median": 1187635,
+        "min": 1187635,
+        "max": 1187635
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.04,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.07,
+        "min": 1.04,
+        "max": 1.25
+      },
+      "process_wall_seconds": {
+        "median": 1.254343833,
+        "min": 1.167355709,
+        "max": 4.588425042
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.156163541,
+        "min": 0.142971831,
+        "max": 0.659023416
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 165838848,
+        "min": 161955840,
+        "max": 183975936
+      },
+      "time_reported_real_seconds": {
+        "median": 1.24,
+        "min": 1.16,
+        "max": 4.58
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 183975936,
+      "raw_protobuf_history_checkout_bytes": 1153739,
+      "raw_protobuf_history_pack_bytes": 1227169,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 3,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.266702959,
+        "min": 0.241850042,
+        "max": 0.586277333
+      },
+      "candidate_encode_seconds": {
+        "median": 0.169910248,
+        "min": 0.153564291,
+        "max": 0.307002212
+      },
+      "output_bytes": {
+        "median": 890854,
+        "min": 890854,
+        "max": 890854
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.04,
+        "max": 0.14
+      },
+      "process_user_seconds": {
+        "median": 1.08,
+        "min": 1.01,
+        "max": 1.24
+      },
+      "process_wall_seconds": {
+        "median": 1.29199075,
+        "min": 1.207240292,
+        "max": 2.70302775
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.161181539,
+        "min": 0.152205039,
+        "max": 0.414255792
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 183762944,
+        "min": 167804928,
+        "max": 187236352
+      },
+      "time_reported_real_seconds": {
+        "median": 1.28,
+        "min": 1.2,
+        "max": 2.69
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 187236352,
+      "raw_protobuf_history_checkout_bytes": 877149,
+      "raw_protobuf_history_pack_bytes": 970250,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 9,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.260896628,
+        "min": 0.250938959,
+        "max": 0.344296999
+      },
+      "candidate_encode_seconds": {
+        "median": 0.18777208,
+        "min": 0.176246248,
+        "max": 0.311708084
+      },
+      "output_bytes": {
+        "median": 819288,
+        "min": 819288,
+        "max": 819288
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.06,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.11,
+        "min": 1.08,
+        "max": 1.15
+      },
+      "process_wall_seconds": {
+        "median": 1.252664125,
+        "min": 1.218153416,
+        "max": 1.894250459
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.157236459,
+        "min": 0.147238546,
+        "max": 0.312048709
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 185679872,
+        "min": 169181184,
+        "max": 187957248
+      },
+      "time_reported_real_seconds": {
+        "median": 1.24,
+        "min": 1.21,
+        "max": 1.88
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 187957248,
+      "raw_protobuf_history_checkout_bytes": 810028,
+      "raw_protobuf_history_pack_bytes": 900025,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 12,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.253084918,
+        "min": 0.251008917,
+        "max": 0.311929959
+      },
+      "candidate_encode_seconds": {
+        "median": 0.228858376,
+        "min": 0.224495375,
+        "max": 0.278167
+      },
+      "output_bytes": {
+        "median": 815850,
+        "min": 815850,
+        "max": 815850
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.04,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.15,
+        "min": 1.12,
+        "max": 1.17
+      },
+      "process_wall_seconds": {
+        "median": 1.298482542,
+        "min": 1.255154083,
+        "max": 1.495249666
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.156081085,
+        "min": 0.151932041,
+        "max": 0.185163538
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 193167360,
+        "min": 181764096,
+        "max": 206454784
+      },
+      "time_reported_real_seconds": {
+        "median": 1.29,
+        "min": 1.25,
+        "max": 1.49
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 206454784,
+      "raw_protobuf_history_checkout_bytes": 806747,
+      "raw_protobuf_history_pack_bytes": 895272,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 15,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.265606873,
+        "min": 0.233959002,
+        "max": 0.511576669
+      },
+      "candidate_encode_seconds": {
+        "median": 0.305612999,
+        "min": 0.281877706,
+        "max": 0.513924293
+      },
+      "output_bytes": {
+        "median": 807201,
+        "min": 807201,
+        "max": 807201
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.05,
+        "max": 0.09
+      },
+      "process_user_seconds": {
+        "median": 1.22,
+        "min": 1.15,
+        "max": 1.31
+      },
+      "process_wall_seconds": {
+        "median": 1.378413708,
+        "min": 1.298450083,
+        "max": 2.163481375
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.14403625,
+        "min": 0.139780874,
+        "max": 0.246428751
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 199426048,
+        "min": 195821568,
+        "max": 226213888
+      },
+      "time_reported_real_seconds": {
+        "median": 1.37,
+        "min": 1.29,
+        "max": 2.15
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 226213888,
+      "raw_protobuf_history_checkout_bytes": 798251,
+      "raw_protobuf_history_pack_bytes": 885190,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 18,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.270448916,
+        "min": 0.240138167,
+        "max": 0.803009997
+      },
+      "candidate_encode_seconds": {
+        "median": 0.61941896,
+        "min": 0.531660457,
+        "max": 2.649367711
+      },
+      "output_bytes": {
+        "median": 732760,
+        "min": 732760,
+        "max": 732760
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.04,
+        "max": 0.13
+      },
+      "process_user_seconds": {
+        "median": 1.44,
+        "min": 1.41,
+        "max": 1.74
+      },
+      "process_wall_seconds": {
+        "median": 1.804006125,
+        "min": 1.5434765,
+        "max": 6.624278583
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.161107166,
+        "min": 0.149897332,
+        "max": 0.646788586
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 217726976,
+        "min": 215334912,
+        "max": 221839360
+      },
+      "time_reported_real_seconds": {
+        "median": 1.79,
+        "min": 1.53,
+        "max": 6.61
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 221839360,
+      "raw_protobuf_history_checkout_bytes": 731758,
+      "raw_protobuf_history_pack_bytes": 811617,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 19,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.266410919,
+        "min": 0.247053835,
+        "max": 0.4331825
+      },
+      "candidate_encode_seconds": {
+        "median": 0.94058592,
+        "min": 0.739693751,
+        "max": 1.527630084
+      },
+      "output_bytes": {
+        "median": 728596,
+        "min": 728596,
+        "max": 728596
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.08,
+        "min": 0.06,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 1.67,
+        "min": 1.62,
+        "max": 1.81
+      },
+      "process_wall_seconds": {
+        "median": 2.1154735,
+        "min": 1.812259625,
+        "max": 3.548209708
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.159138581,
+        "min": 0.154210541,
+        "max": 0.28528521
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 211435520,
+        "min": 198115328,
+        "max": 219332608
+      },
+      "time_reported_real_seconds": {
+        "median": 2.1,
+        "min": 1.8,
+        "max": 3.53
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 219332608,
+      "raw_protobuf_history_checkout_bytes": 727602,
+      "raw_protobuf_history_pack_bytes": 809528,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 20,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.260686916,
+        "min": 0.250865503,
+        "max": 0.766007041
+      },
+      "candidate_encode_seconds": {
+        "median": 0.830658834,
+        "min": 0.774825208,
+        "max": 1.528812914
+      },
+      "output_bytes": {
+        "median": 728434,
+        "min": 728434,
+        "max": 728434
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.06,
+        "min": 0.05,
+        "max": 0.07
+      },
+      "process_user_seconds": {
+        "median": 1.71,
+        "min": 1.64,
+        "max": 1.83
+      },
+      "process_wall_seconds": {
+        "median": 1.912929542,
+        "min": 1.816320417,
+        "max": 3.623058417
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.161981671,
+        "min": 0.148671377,
+        "max": 0.253160835
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 203472896,
+        "min": 198262784,
+        "max": 217759744
+      },
+      "time_reported_real_seconds": {
+        "median": 1.9,
+        "min": 1.81,
+        "max": 3.61
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 217759744,
+      "raw_protobuf_history_checkout_bytes": 727452,
+      "raw_protobuf_history_pack_bytes": 809361,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 21,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.294848124,
+        "min": 0.244276084,
+        "max": 0.328841418
+      },
+      "candidate_encode_seconds": {
+        "median": 1.023296375,
+        "min": 0.891707332,
+        "max": 1.27085996
+      },
+      "output_bytes": {
+        "median": 728070,
+        "min": 728070,
+        "max": 728070
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.06,
+        "max": 0.1
+      },
+      "process_user_seconds": {
+        "median": 1.84,
+        "min": 1.76,
+        "max": 1.92
+      },
+      "process_wall_seconds": {
+        "median": 2.152872458,
+        "min": 1.96983175,
+        "max": 2.590984708
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.157705831,
+        "min": 0.146875832,
+        "max": 0.182047039
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 219578368,
+        "min": 212844544,
+        "max": 220561408
+      },
+      "time_reported_real_seconds": {
+        "median": 2.14,
+        "min": 1.96,
+        "max": 2.58
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 220561408,
+      "raw_protobuf_history_checkout_bytes": 727088,
+      "raw_protobuf_history_pack_bytes": 808985,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    },
+    {
+      "codec": "candidate-container",
+      "source_kind": "json",
+      "setting": 22,
+      "runs": 5,
+      "verified_all": true,
+      "candidate_decode_seconds": {
+        "median": 0.258013171,
+        "min": 0.238653001,
+        "max": 0.414426124
+      },
+      "candidate_encode_seconds": {
+        "median": 1.193613458,
+        "min": 1.095489086,
+        "max": 1.782255586
+      },
+      "output_bytes": {
+        "median": 727524,
+        "min": 727524,
+        "max": 727524
+      },
+      "pass": {
+        "median": 3,
+        "min": 1,
+        "max": 5
+      },
+      "process_system_seconds": {
+        "median": 0.07,
+        "min": 0.04,
+        "max": 0.08
+      },
+      "process_user_seconds": {
+        "median": 2.04,
+        "min": 1.93,
+        "max": 2.25
+      },
+      "process_wall_seconds": {
+        "median": 2.227353458,
+        "min": 2.094868459,
+        "max": 3.336616916
+      },
+      "raw_protobuf_bytes": {
+        "median": 7379815,
+        "min": 7379815,
+        "max": 7379815
+      },
+      "raw_protobuf_encode_seconds": {
+        "median": 0.148812585,
+        "min": 0.147767999,
+        "max": 0.218949917
+      },
+      "source_json_bytes": {
+        "median": 27954874,
+        "min": 27954874,
+        "max": 27954874
+      },
+      "time_reported_peak_rss_bytes": {
+        "median": 201981952,
+        "min": 197361664,
+        "max": 216645632
+      },
+      "time_reported_real_seconds": {
+        "median": 2.22,
+        "min": 2.09,
+        "max": 3.32
+      },
+      "verified": {
+        "median": true,
+        "min": true,
+        "max": true
+      },
+      "peak_rss_bytes_max": 216645632,
+      "raw_protobuf_history_checkout_bytes": 726450,
+      "raw_protobuf_history_pack_bytes": 808289,
+      "history_source_snapshot_status": "provisional; exact 20 initial encoded outputs match this run at all 10 levels"
+    }
+  ],
+  "git_history_json": {
+    "commit_count": 8,
+    "checkout_files": 19,
+    "checkout_bytes": 26678979,
+    "git_object_dir_bytes": 1254356,
+    "git_pack_bytes": 1251002,
+    "pack_sha256": [
+      "9523eb915c6fe4fadd78895b79bbd24401ed63dbb26a7cc946da7860af754fc0"
+    ]
+  },
+  "git_history_protobuf_zstd": [
+    {
+      "level": 1,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 1153739,
+      "git_object_dir_bytes": 1230523,
+      "git_pack_bytes": 1227169,
+      "pack_sha256": [
+        "f259e58ea4edd5a03a02399a16137faf026f5700497820ff0528df8f9571d35b"
+      ]
+    },
+    {
+      "level": 3,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 877149,
+      "git_object_dir_bytes": 973604,
+      "git_pack_bytes": 970250,
+      "pack_sha256": [
+        "ed316ccf158efa92be9d48fa54a79dc35454f2dcc002b00c57dfce5927e5d7b6"
+      ]
+    },
+    {
+      "level": 9,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 810028,
+      "git_object_dir_bytes": 903379,
+      "git_pack_bytes": 900025,
+      "pack_sha256": [
+        "9e98160b77eb40f226b43c657d5e16eb0ecd4baef3c314a9720ca8748d0b82c5"
+      ]
+    },
+    {
+      "level": 12,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 806747,
+      "git_object_dir_bytes": 898626,
+      "git_pack_bytes": 895272,
+      "pack_sha256": [
+        "2b816f7492da524b3b6fbf8938a8f9db5be2c34c93728d6fc239571aabf88c65"
+      ]
+    },
+    {
+      "level": 15,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 798251,
+      "git_object_dir_bytes": 888544,
+      "git_pack_bytes": 885190,
+      "pack_sha256": [
+        "6e931ab99321544caefe51a32d3b5b5e54d91c8cab20e4fa6ca8c930d188d76b"
+      ]
+    },
+    {
+      "level": 18,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 731758,
+      "git_object_dir_bytes": 814971,
+      "git_pack_bytes": 811617,
+      "pack_sha256": [
+        "203208818aa9c5669eacc0a81a498ab4f557655df311ba5fe5d96819260e5d82"
+      ]
+    },
+    {
+      "level": 19,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 727602,
+      "git_object_dir_bytes": 812882,
+      "git_pack_bytes": 809528,
+      "pack_sha256": [
+        "288359cf34cd343df06c6ab47a3f454b7c2d23d6d344823c35922e1976512e22"
+      ]
+    },
+    {
+      "level": 20,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 727452,
+      "git_object_dir_bytes": 812715,
+      "git_pack_bytes": 809361,
+      "pack_sha256": [
+        "7909ad283824055dea479d16c871d38b0f4c8511f4db70483a196bef924d80d2"
+      ]
+    },
+    {
+      "level": 21,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 727088,
+      "git_object_dir_bytes": 812339,
+      "git_pack_bytes": 808985,
+      "pack_sha256": [
+        "33ddf2e4835e9c470f127426b468a8537ec5b80e8ee35a675bbf043a67737914"
+      ]
+    },
+    {
+      "level": 22,
+      "commit_count": 8,
+      "checkout_files": 19,
+      "checkout_bytes": 726450,
+      "git_object_dir_bytes": 811643,
+      "git_pack_bytes": 808289,
+      "pack_sha256": [
+        "c1c821efaa1b8219a380e90d7583b9d02eafc1a23b7b2c2fb2252826d25b0a81"
+      ]
+    }
+  ],
+  "git_history_evidence_note": "Provisional trial-gates history measurement; raw Protobuf files identical 20/20, and exact compressed outputs for all 20 current samples match base/addition history outputs at all ten levels. History mutation stage storage sizes were not recomputed on this final snapshot."
+}

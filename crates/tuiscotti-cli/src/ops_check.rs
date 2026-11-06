@@ -107,7 +107,7 @@ pub(crate) fn cmd_check(sample: &Path, baselines: &Path, artifacts: &Path, as_js
             return emit_error(reason, code, sample, Some(candidate_sha256), as_json);
         }
     };
-    match store.check(&bytes) {
+    match store.check_owned(bytes) {
         Ok(tuiscotti::check::CheckOutcome::Pass(success)) => emit_pass(
             success.test_id(),
             sample,

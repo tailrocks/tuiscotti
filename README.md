@@ -20,13 +20,16 @@ capture -> sample -> check -> inspect -> accept -> recheck
    `tuiscotti::view::capture_view` (no shell, no child, no PTY).
 2. **sample** — bind the snapshot as a versioned sample
    (`tuiscotti.sample.v1`) with `Sample::with_pixels` or
-   `Sample::state`.
+   `Sample::state`. `Sample::to_bytes` writes a Zstandard-compressed
+   Protobuf container to a `.tui.pb` file.
+   Benchmark results and local replay instructions: [compression evidence](docs/benchmarks/REPRODUCING.md).
 3. **check** — run `tuiscotti check --sample <file>
    --baselines <dir> --artifacts <dir>` (or `FrozenStore::check`).
    A pass exits 0. A missing baseline reports `missing`; a changed
    sample reports `different` with a typed reason. Both exit 1 and
    write candidate evidence into the artifact root. Baselines are
-   never written by a check.
+   never written by a check. Sample and baseline files use `.tui.pb`;
+   result metadata remains JSON.
 4. **inspect** — read the candidate evidence: `tuiscotti render
    --sample <file> --out <file.png|html>` and `tuiscotti report
    --artifacts <dir> --out <file.html>`.
@@ -123,9 +126,12 @@ The `functional` suite in `crates/tuiscotti-cli/tests/` drives the
 real binary through check, accept, render, and report end to end.
 The maintained example in `crates/tuiscotti/examples/hello.rs`
 renders one production-style view and saves it as a versioned
-sample (`cargo run -p tuiscotti --example hello -- <out.tui.json>
-[--pixels]`); the full first run is walked through in
+sample (`cargo run -p tuiscotti --example hello -- <out.tui.pb>
+[--pixels]`); the first run is walked through in
 [docs/FIRST-SUCCESS.md](docs/FIRST-SUCCESS.md).
+
+The binary sample reader rejects JSON and does not convert it.
+Regenerate old samples from their source before using this version.
 
 ## Offline means offline
 

@@ -73,7 +73,7 @@ pub(crate) enum Cmd {
     Check {
         #[arg(long, help = "Saved sample file to compare")]
         sample: PathBuf,
-        #[arg(long, help = "Baseline root holding `<test-id>.tui.json` files")]
+        #[arg(long, help = "Baseline root holding `<test-id>.tui.pb` files")]
         baselines: PathBuf,
         #[arg(long, help = "Artifact root receiving candidate evidence on mismatch")]
         artifacts: PathBuf,
