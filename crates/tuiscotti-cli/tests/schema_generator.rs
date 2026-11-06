@@ -38,6 +38,7 @@ fn standalone_schema_generator_tests_and_freshness_pass() -> Result<(), Box<dyn 
             "--offline",
         ])
         .current_dir(&workspace)
+        .env_remove("NEXTEST_PROFILE")
         .status()?;
     assert!(test.success(), "schema generator tests failed: {test}");
 

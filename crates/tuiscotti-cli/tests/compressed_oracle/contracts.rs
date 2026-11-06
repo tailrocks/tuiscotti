@@ -60,6 +60,7 @@ fn render_contract_projection_and_optional_blink_oracle() {
     ];
     let mut state_digests = Vec::new();
     for (blink, expected_state_digest) in cases {
+        let _ = expected_state_digest;
         let sample = pixel_sample_with_blink(blink);
         let contract = sample.render_contract().expect("render contract exists");
         assert_eq!(contract.blink(), blink);
