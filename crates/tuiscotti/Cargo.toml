@@ -9,6 +9,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+exclude = ["tests/benches/*.png"]
 
 [dependencies]
 # Pure-view execution. Live sessions, input, locators, waits, capture,
