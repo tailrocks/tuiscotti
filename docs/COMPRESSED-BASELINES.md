@@ -314,9 +314,9 @@ Approve each binary candidate into a separate, empty staging baseline root using
 `ApprovalStore::accept` or `tuiscotti accept` with the candidate's exact digest and
 `missing` as the expected baseline. Acceptance retains its workstation-only CI
 refusal, mandatory re-render verification and atomic single-file write. It MUST
-NOT modify the old baseline root. The operator then replaces the old JSON files
-with the approved `.tui.pb` files as an explicit repository change, after all
-required samples are reviewed. This repository change is not an atomic whole-tree
+NOT modify the old baseline root. After all required samples are reviewed, the operator installs each approved
+candidate into the destination root through acceptance, verifies its exact bytes,
+and removes superseded JSON files as an explicit repository change. This repository change is not an atomic whole-tree
 operation and MUST NOT be presented as one. Preserve the old Git revision for
 rollback, and do not claim that its receipts approve the new bytes.
 

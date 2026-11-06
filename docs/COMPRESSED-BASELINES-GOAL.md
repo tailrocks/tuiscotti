@@ -204,7 +204,7 @@ generated configuration. Assign Luna low to release evidence and exact version
 edits, Luna medium/high to ordinary dependency compatibility fixes, and Terra
 medium only to breaking cross-module or toolchain issues beyond that scope.
 Sol reviews substantive dependency risks with the relevant design or final gate.
-Apply and validate the updates before implementation benchmarks so the measurements use the versions that will ship. If a required
+Apply and validate the updates before implementation benchmarks so the measurements use the versions that will ship. Before replacing the persistence format, rerun or recapture the behavior oracle on the updated dependency graph and compare it with the original oracle. Investigate any dependency-induced change separately from format changes. If a required
 update cannot be completed, report the blocker and leave the goal incomplete
 unless the user explicitly changes the requirement.
 
