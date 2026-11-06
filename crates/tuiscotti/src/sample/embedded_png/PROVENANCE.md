@@ -14,8 +14,10 @@ The source was copied from the local Cargo registry archives, with SHA-256 diges
 Changes from upstream include source-module path qualification for embedding; making
 all upstream public items crate-private; disabling optional `unstable` and benchmark-only
 code paths; adapting one test-only `rng.gen` call to edition-2024 raw-identifier syntax;
-and replacing the boxed row-transform closures and fdeflate primary-table boxes with
-closed inline enums/arrays. The PNG streaming decoder and fdeflate Huffman table growth
+updating test-only random sampling for rand 0.10's `random`/`random_range` methods and
+`RngExt` trait (keeping `Rng` for the encoder's generic bound); and replacing the boxed
+row-transform closures and fdeflate primary-table boxes with closed inline enums/arrays.
+The PNG streaming decoder and fdeflate Huffman table growth
 also use checked, fallible exact reservations and carry allocation failures as typed
 decoder errors. PNG encoder and metadata-writing implementations are compiled only in
 unit-test builds; the shipped embedded module retains decoder behavior only. The

@@ -8,7 +8,7 @@ fn checked<T, E: Debug>(result: Result<T, E>) -> io::Result<T> {
 use crate::sample::embedded_png::fdeflate::tables::{LENGTH_TO_LEN_EXTRA, LENGTH_TO_SYMBOL};
 
 use super::*;
-use rand::Rng;
+use rand::RngExt;
 
 fn roundtrip(data: &[u8]) -> Result<(), Box<dyn Error>> {
     let compressed = crate::sample::embedded_png::fdeflate::compress_to_vec(data)?;

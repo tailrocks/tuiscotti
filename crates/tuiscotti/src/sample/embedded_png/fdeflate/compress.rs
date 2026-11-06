@@ -267,7 +267,7 @@ pub(crate) fn compress_to_vec(input: &[u8]) -> io::Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::Rng;
+    use rand::RngExt;
 
     fn roundtrip(data: &[u8]) -> io::Result<()> {
         let compressed = compress_to_vec(data)?;

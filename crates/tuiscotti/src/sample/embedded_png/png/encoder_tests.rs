@@ -7,7 +7,7 @@ use super::*;
 use crate::sample::embedded_png::png::Decoder;
 
 use io::BufReader;
-use rand::{Rng, rng};
+use rand::{Rng, RngExt, rng};
 use std::cmp;
 use std::fs::File;
 use std::io::Cursor;

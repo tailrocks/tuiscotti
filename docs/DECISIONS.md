@@ -394,3 +394,23 @@ corpora, not for arbitrary future samples; pixel-gated legacy samples were not
 present in that inventory. The audit did not convert or approve baselines.
 The local evidence archive is `.audit/benchmark-evidence/legacy-cap-results-20261106.tar.gz`
 (SHA-256 `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`).
+
+## 19. Stable direct dependency refresh and pixel round-trip parity
+
+The workspace lock now selects [cc 1.11.1](https://crates.io/crates/cc/1.11.1),
+[crc32fast 1.5.4](https://crates.io/crates/crc32fast/1.5.4),
+[flate2 1.1.11](https://crates.io/crates/flate2/1.1.11),
+[rand 0.10.3](https://crates.io/crates/rand/0.10.3), and
+[toml 1.2.0](https://crates.io/crates/toml/1.2.0). Test-only random sampling
+uses rand 0.10's `RngExt`; the standalone schema generator pins toml 1.2.0.
+
+The current dependency snapshot passed exact round-trip parity for 20 frozen
+captures on native macOS arm64: 10 state-only and 10 state-and-pixels. The
+independent verifier passed 140 checks, including state digests, PNG bytes and
+decoded RGBA hashes, against archived captures and preserved outputs. The
+normal/build dependency graph matched byte-for-byte between the workspace and
+audit harness (137 package names). This evidence does not cover x86, fresh
+terminal rendering, or cross-platform determinism. No captures or baselines
+were written. The local report and reproduction artifacts are at
+`/private/tmp/tuiscotti-roundtrip-pixel-current-head-b0276ae-deps/REPORT.md`;
+they are not present in a fresh clone.
