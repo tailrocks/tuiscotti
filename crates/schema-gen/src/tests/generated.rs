@@ -24,7 +24,11 @@ fn generated_module_compiles_and_fields_are_canonical() {
     source.push_str(&recording_handler(&policy));
     fs::write(&temp, source).expect("write compile probe");
     let result = Command::new("rustc")
-        .args(["--edition=2024", "--cfg=test", "--crate-name=schema_gen_valid"])
+        .args([
+            "--edition=2024",
+            "--cfg=test",
+            "--crate-name=schema_gen_valid",
+        ])
         .arg(&temp)
         .arg("-o")
         .arg(&output)
@@ -183,7 +187,10 @@ fn adding_a_field_to_empty_message_requires_mapper_update() {
         "mapper compiled after a generated message gained an unhandled field"
     );
     let stderr = String::from_utf8_lossy(&result.stderr);
-    assert!(stderr.contains("not all trait items implemented"), "{stderr}");
+    assert!(
+        stderr.contains("not all trait items implemented"),
+        "{stderr}"
+    );
 }
 
 #[test]
@@ -219,8 +226,5 @@ fn mapping_constraint_hook_omission_fails_compilation() {
         "mapping constraint hook omission compiled"
     );
     let stderr = String::from_utf8_lossy(&result.stderr);
-    assert!(
-        stderr.contains("upstream_snapshot_invariants"),
-        "{stderr}"
-    );
+    assert!(stderr.contains("upstream_snapshot_invariants"), "{stderr}");
 }

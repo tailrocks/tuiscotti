@@ -206,7 +206,10 @@ fn scalar_type(
         "bytes" => "&'a [u8]".to_owned(),
         "enum" => field.type_name.clone().ok_or("enum lacks type name")?,
         "message" => {
-            let child = field.type_name.as_deref().ok_or("message lacks type name")?;
+            let child = field
+                .type_name
+                .as_deref()
+                .ok_or("message lacks type name")?;
             if messages[child].fields.is_empty() {
                 format!("Validated{child}")
             } else {

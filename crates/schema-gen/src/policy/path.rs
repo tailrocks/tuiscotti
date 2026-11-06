@@ -125,8 +125,16 @@ mod tests {
         FieldDescriptorProto {
             name: Some(name.to_owned()),
             number: Some(number),
-            label: Some(if repeated { Label::Repeated as i32 } else { Label::Optional as i32 }),
-            r#type: Some(if child.is_some() { Type::Message as i32 } else { Type::String as i32 }),
+            label: Some(if repeated {
+                Label::Repeated as i32
+            } else {
+                Label::Optional as i32
+            }),
+            r#type: Some(if child.is_some() {
+                Type::Message as i32
+            } else {
+                Type::String as i32
+            }),
             type_name: child.map(str::to_owned),
             ..FieldDescriptorProto::default()
         }
@@ -153,7 +161,10 @@ mod tests {
 
     #[test]
     fn rejects_cycles() {
-        let sample = message("Sample", vec![field("next", 1, Some(".private.Sample"), false)]);
+        let sample = message(
+            "Sample",
+            vec![field("next", 1, Some(".private.Sample"), false)],
+        );
         assert!(prove(vec![sample]).is_err_and(|e| e.contains("cycle")));
     }
 
@@ -161,9 +172,16 @@ mod tests {
     fn rejects_six_field_paths() {
         let mut messages = Vec::new();
         for index in 0..6 {
-            let name = if index == 0 { "Sample".to_owned() } else { format!("M{index}") };
+            let name = if index == 0 {
+                "Sample".to_owned()
+            } else {
+                format!("M{index}")
+            };
             let child = (index < 5).then(|| format!(".private.M{}", index + 1));
-            messages.push(message(&name, vec![field("next", 1, child.as_deref(), false)]));
+            messages.push(message(
+                &name,
+                vec![field("next", 1, child.as_deref(), false)],
+            ));
         }
         assert!(prove(messages).is_err_and(|e| e.contains("five fields")));
     }

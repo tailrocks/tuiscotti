@@ -48,8 +48,11 @@ pub(super) fn render_writer(
                 emit_value(&mut body, fp, "value", fp.tag, 8)?;
                 body.push_str("    }\n");
             } else if fp.cardinality == "repeated" {
-                writeln!(body, "    let values = adapter.{accessor}();\n    for value in values {{")
-                    .map_err(|_| "failed to format generated source".to_owned())?;
+                writeln!(
+                    body,
+                    "    let values = adapter.{accessor}();\n    for value in values {{"
+                )
+                .map_err(|_| "failed to format generated source".to_owned())?;
                 emit_value(&mut body, fp, "value", fp.tag, 8)?;
                 body.push_str("    }\n");
             } else if fp.presence == "optional" {

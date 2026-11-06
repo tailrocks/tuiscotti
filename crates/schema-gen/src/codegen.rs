@@ -6,13 +6,11 @@ pub(super) fn snake(s: &str) -> String {
     let mut out = String::new();
     let chars: Vec<_> = s.chars().collect();
     for (i, &c) in chars.iter().enumerate() {
-        let previous_is_lower_or_digit = i > 0
-            && (chars[i - 1].is_ascii_lowercase() || chars[i - 1].is_ascii_digit());
+        let previous_is_lower_or_digit =
+            i > 0 && (chars[i - 1].is_ascii_lowercase() || chars[i - 1].is_ascii_digit());
         let acronym_ends = i > 0
             && c.is_ascii_uppercase()
-            && chars
-                .get(i + 1)
-                .is_some_and(|next| next.is_ascii_lowercase())
+            && chars.get(i + 1).is_some_and(char::is_ascii_lowercase)
             && chars[i - 1].is_ascii_uppercase();
         if c.is_ascii_uppercase() && (previous_is_lower_or_digit || acronym_ends) {
             out.push('_');
@@ -95,7 +93,10 @@ pub(super) fn handler_type(
         "enum" => field.type_name.as_deref().unwrap_or("i32").to_owned(),
         "message" => {
             let child = field.type_name.as_deref().unwrap_or("Message");
-            if messages.get(child).is_some_and(|message| message.fields.is_empty()) {
+            if messages
+                .get(child)
+                .is_some_and(|message| message.fields.is_empty())
+            {
                 format!("Validated{child}")
             } else {
                 format!("Validated{child}<'a>")

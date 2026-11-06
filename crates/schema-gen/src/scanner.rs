@@ -31,19 +31,27 @@ pub(super) fn render_scanner(policy: &Policy) -> Result<BTreeMap<String, Vec<u8>
             .map(|value| value.number)
             .collect::<Vec<_>>();
         accepted_values.sort_unstable();
-        enum_groups
-            .entry(accepted_values)
-            .or_default()
-            .push(name);
+        enum_groups.entry(accepted_values).or_default().push(name);
     }
     for (accepted_values, names) in enum_groups {
-        let accepted = if accepted_values.windows(2).all(|pair| pair[1] == pair[0] + 1) {
+        let accepted = if accepted_values
+            .windows(2)
+            .all(|pair| pair[1] == pair[0] + 1)
+        {
             match (accepted_values.first(), accepted_values.last()) {
-                (Some(first), Some(last)) if first < last => format!("{}..={last}", first),
-                _ => accepted_values.iter().map(ToString::to_string).collect::<Vec<_>>().join(" | "),
+                (Some(first), Some(last)) if first < last => format!("{first}..={last}"),
+                _ => accepted_values
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" | "),
             }
         } else {
-            accepted_values.iter().map(ToString::to_string).collect::<Vec<_>>().join(" | ")
+            accepted_values
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" | ")
         };
         let names = names
             .iter()
