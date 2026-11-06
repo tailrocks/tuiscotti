@@ -495,7 +495,7 @@ Save the candidate bytes once; re-validate them on later checks.
 
 # fn `save_expected`
 
-Save the compared baseline bytes (`expected.tui.json`); never read a
+Save the compared baseline bytes (`expected.tui.pb`); never read a
 newer baseline during later reporting, never overwrite another
 digest's evidence.
 
