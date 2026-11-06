@@ -35,7 +35,7 @@ fn encode_with_limit(
             detail: "invalid container output limit",
         });
     }
-    let mut output = reserved_output(file_limit)?;
+    let mut output = reserved_output()?;
     let mut context = encoder_context(level, message_len)?;
     #[expect(
         clippy::large_stack_arrays,
@@ -77,15 +77,11 @@ fn encode_with_limit(
     finish_header(output, payload_size, message_len)
 }
 
-fn reserved_output(file_limit: usize) -> Result<Vec<u8>, EncodeError> {
+fn reserved_output() -> Result<Vec<u8>, EncodeError> {
     let mut output = Vec::new();
-    let requested = u64::try_from(file_limit).map_err(|_| EncodeError::Limit {
-        resource: "addressable container bytes",
-        claimed: None,
-        limit: MAX_INPUT,
-    })?;
+    let requested = u64::try_from(HEADER_LEN).unwrap_or(u64::MAX);
     output
-        .try_reserve_exact(file_limit)
+        .try_reserve_exact(HEADER_LEN)
         .map_err(|source| EncodeError::Allocation {
             site: "encoded container",
             requested,
@@ -167,6 +163,15 @@ fn encode_step(
             limit: u64::try_from(file_limit).unwrap_or(u64::MAX),
         });
     }
+    let required = output
+        .len()
+        .checked_add(produced)
+        .ok_or(EncodeError::Limit {
+            resource: "encoded sample bytes",
+            claimed: None,
+            limit: u64::try_from(file_limit).unwrap_or(u64::MAX),
+        })?;
+    reserve_output(output, required, file_limit)?;
     output.extend_from_slice(&scratch[..produced]);
     if input.pos == previous
         && produced == 0
@@ -177,4 +182,65 @@ fn encode_step(
         });
     }
     Ok(hint)
+}
+
+fn reserve_output(
+    output: &mut Vec<u8>,
+    required: usize,
+    file_limit: usize,
+) -> Result<(), EncodeError> {
+    if required > file_limit {
+        return Err(EncodeError::Limit {
+            resource: "encoded sample bytes",
+            claimed: u64::try_from(required).ok(),
+            limit: u64::try_from(file_limit).unwrap_or(u64::MAX),
+        });
+    }
+    if required <= output.capacity() {
+        return Ok(());
+    }
+
+    let doubled_capacity = output.capacity().saturating_mul(2);
+    let target = required.max(doubled_capacity).min(file_limit);
+    let additional = target.saturating_sub(output.len());
+    let requested = u64::try_from(target).unwrap_or(u64::MAX);
+    output
+        .try_reserve_exact(additional)
+        .map_err(|source| EncodeError::Allocation {
+            site: "encoded container",
+            requested,
+            source,
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tiny_container_starts_with_a_small_allocation() {
+        let output = reserved_output().expect("header allocation should succeed");
+
+        assert_eq!(output.len(), HEADER_LEN);
+        assert!(output.capacity() < 1024);
+    }
+
+    #[test]
+    fn encoded_container_respects_exact_output_limit() {
+        let message = b"tiny sample";
+        let encoded = encode_with_limit(message, 3, 256).expect("sample should fit");
+
+        assert_eq!(encoded.len(), 56);
+        assert_eq!(
+            encode_with_limit(message, 3, encoded.len()).expect("exact limit should fit"),
+            encoded
+        );
+        assert!(matches!(
+            encode_with_limit(message, 3, encoded.len() - 1),
+            Err(EncodeError::Limit {
+                resource: "encoded sample bytes",
+                ..
+            })
+        ));
+    }
 }
