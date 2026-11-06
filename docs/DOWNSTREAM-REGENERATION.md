@@ -14,13 +14,13 @@ gh pr view 2 -R tailrocks/terminal-components-baseline --json headRefOid,state,m
 gh pr view 1264 -R jackin-project/jackin --json headRefOid,state,mergeStateStatus
 ```
 
-The read-only recheck returned TCB main `7f385611fba0f8d4a77bb02e0a991ad660b48746`, TCB PR #2 `60b5fb2762d91a3549bd4ac63b1d77d534ee53d2` (open, dirty), and Jackin PR #1264 `480ba8faab70e87d9c276da6ebd3985c8f92c258` (open, blocked). Treat these as dated evidence, not current refs. Record the full SHA returned by a new recheck before every run.
+The initial read-only recheck returned TCB main `7f385611fba0f8d4a77bb02e0a991ad660b48746`, TCB PR #2 `60b5fb2762d91a3549bd4ac63b1d77d534ee53d2` (open, dirty), and the then-current Jackin PR #1264 head `480ba8faab70e87d9c276da6ebd3985c8f92c258` (open, blocked). The Jackin SHA is historical and superseded by the later tested head `27ec25ec0aa180af9bf075660af5cbf55dccefc3` recorded below. These are dated evidence, not current refs. Record the full SHA returned by a new recheck before every run.
 
 | Target | Baseline ownership and current pins at the checked head | Inventory and verified capture status |
 |---|---|---|
-| TCB main | Owns `tests/functional/baselines`. Tuiscotti lib and CLI are pinned at `d8d54155947f6303a41dfd6079b53c0abc16f29a`; `tuiscotti-tui-test` is `=0.2.1`. | 101 active functional JSON samples. The tree also had one showcase sample and 55 other `.tui.json` files; audit those by role and preserve unrelated JSON. macOS capture produced 101 of 101 active functional candidates, plus one unexpected ID (`showcase/buttons/held`). This is one platform's producer run, not full cross-platform coverage. |
-| TCB PR #2 | Owns active and frozen baseline trees. Tuiscotti lib is renamed `tuiscotti-latest` at `d8d54155947f6303a41dfd6079b53c0abc16f29a`; `tui-test` is `=0.2.1`. Approval uses `scripts/accept-baseline.py`. | 109 active functional JSON samples, 1,868 frozen `pre_refactor` records, one showcase path, and eight coverage-fixture sentinels. Partitioned macOS capture found 104 of 109 active candidates. Five active IDs remain unresolved; see the table below. Historical records, receipts, sentinels, and unrelated JSON are not candidates for replacement. |
-| Jackin PR #1264 | Owns no sample files. Its identity suite reads `functional` baselines from its separate TCB pin, `a901c275055091810ae0d0ac30ec5fc09ce595d9`. It pins Tuiscotti `0.4.0` at `d8d54155947f6303a41dfd6079b53c0abc16f29a` and `tuiscotti-tui-test =0.2.1`. | Identity source at the checked Jackin head names 55 distinct visual IDs. The recorded single-sample smoke captured `functional/jackin_launch_reconnect`; the other 54 remain uncaptured. Full identity coverage and the `.tui.pb` migration are not verified. Regenerate in the chosen TCB baseline source, then update Jackin's identity path and mutation checks. Do not copy samples into Jackin. |
+| TCB main | Owns `tests/functional/baselines`. The dated checked head is `7f385611fba0f8d4a77bb02e0a991ad660b48746`; the exact-source rehearsal used Tuiscotti `59704edfff6a6676e8833f190dcc43dccc528329`. | Corrected inventory has 102 tracked producer IDs: 101 with one candidate and one (`functional/showcase_page_diff`) with two timestamp-different candidates; none missing. The formerly unexpected `showcase/buttons/held` is a tracked ID. All 117 producer tests passed across 12 normal-assertion groups. This is candidate-generation evidence, not visual approval; see evidence notes below. |
+| TCB PR #2 | Owns active and frozen baseline trees. Dated checked head: `60b5fb2762d91a3549bd4ac63b1d77d534ee53d2`; approval wrapper is `scripts/accept-baseline.py`. | The integrated rehearsal used a 105-fixture temporary composite and passed 93 selected visual producer tests; this was not the full producer set and omitted nested `showcase/buttons/held`. That ID was captured separately and its focused producer assertion passed 1/1. The five legacy ID disposition cases remain unresolved. These evidence sets were not combined or approved. |
+| Jackin PR #1264 | Owns no sample files. The live PR head checked for the latest identity rerun is `27ec25ec0aa180af9bf075660af5cbf55dccefc3`; its identity suite reads `functional` baselines from TCB. | A local binary-migration overlay with reviewed local Tuiscotti/TCB dependencies passed 47 identity tests and checked all 55 scratch fixtures against archived candidates. The published PR remains JSON-based and the fixtures remain unapproved. The result does not establish full E2E coverage or approval. |
 
 Native Linux and other required OS and architecture suffix lanes are **not verified**. The old JSON inventories are review provenance only. A `.tui.json` file does not satisfy a `.tui.pb` check.
 
@@ -82,7 +82,7 @@ if !outcome.is_pass() && std::env::var_os("TUISCOTTI_CAPTURE_ONLY").is_some() {
 assert!(outcome.is_pass(), "visual mismatch for {test_id}: {outcome:?}");
 ```
 
-In TCB main, apply it to `tests/functional/support.rs::App::visual`. In PR #2, apply it to both `App::visual` and `App::compare_frame`. Before the full capture, migrate the two fixtures that failed the initial run. For `g02_harness::harness_changed_baseline_fails`, save a valid temporary `Sample::state("functional/harness_changed_screen", locator_screen(), Observation::empty())` as `functional/harness_changed_screen.tui.pb`; require `MismatchReason::State` and changed fields `cols` and `rows`, never `Missing`. Compare the active baseline tree's per-path digest map before and after. For `g05_reference_session_receipt_records_identity`, derive the expected evidence root from `TUISCOTTI_CAPTURE_ROOT` when set and otherwise retain the existing `target/functional` default; continue asserting the evidence path is outside baselines. These fixture fixes passed their focused two-test check in a disposable copy, but the full suite remains incomplete. Keep the existing cursor-only fast path. Also add an opt-in `TUISCOTTI_CAPTURE_ROOT` override to the evidence-root helper. Main's `evidence_root()` returns `PathBuf::from(root)` when the variable is set. PR #2's `evidence_directory()` returns `PathBuf::from(root).join(format!("{name}-{}-{nanos}-{seq}", std::process::id()))` when set. Otherwise, each helper keeps its existing default. The exact path behavior was smoke-tested in the disposable copies described in the audit draft.
+In TCB main, apply it to `tests/functional/support.rs::App::visual`. In PR #2, apply it to both `App::visual` and `App::compare_frame`. Before the initial capture attempt, migrate the two fixtures that failed that run. For `g02_harness::harness_changed_baseline_fails`, save a valid temporary `Sample::state("functional/harness_changed_screen", locator_screen(), Observation::empty())` as `functional/harness_changed_screen.tui.pb`; require `MismatchReason::State` and changed fields `cols` and `rows`, never `Missing`. Compare the active baseline tree's per-path digest map before and after. For `g05_reference_session_receipt_records_identity`, derive the expected evidence root from `TUISCOTTI_CAPTURE_ROOT` when set and otherwise retain the existing `target/functional` default; continue asserting the evidence path is outside baselines. These fixture fixes passed their focused two-test check in a disposable copy. This statement concerns the earlier broad capture attempt only; the separate final-source TCB rehearsal later passed 117 producer tests in bounded validation groups, as summarized below. Keep the existing cursor-only fast path. Also add an opt-in `TUISCOTTI_CAPTURE_ROOT` override to the evidence-root helper. Main's `evidence_root()` returns `PathBuf::from(root)` when the variable is set. PR #2's `evidence_directory()` returns `PathBuf::from(root).join(format!("{name}-{}-{nanos}-{seq}", std::process::id()))` when set. Otherwise, each helper keeps its existing default. The exact path behavior was smoke-tested in the disposable copies described in the audit draft.
 
 This override changes the evidence location and the visual mismatch assertion only. PTY startup, interactions, semantic assertions, sample serialization, and evidence writes still run. Capture-only suppresses a failed visual assertion, so a successful Nextest exit does not prove candidate coverage or approval.
 
@@ -108,7 +108,7 @@ printf '%s\n' "$capture_status" >run-evidence/functional-capture.exit
 
 This is the narrowed producer target. The broader `--workspace --test functional` selection fails target selection because `jackin-console` requires feature `demo`. A 230-second timeout is a hard bound, not a runtime estimate. Preserve logs and candidate evidence after any failure or timeout.
 
-The verified macOS run completed 117 of 117 tests and yielded 101 `CAPTURED`, one `UNEXPECTED`, zero `MISSING`, and zero `AMBIGUOUS` active functional IDs. Repeat the capture on every required supported OS and architecture. Preserve the test-ID grammar and the `state-and-pixels` platform suffix rules in [SNAPSHOTS.md](SNAPSHOTS.md).
+An earlier macOS capture reported 101 `CAPTURED` and one `UNEXPECTED` ID, but its tracked-ID scan omitted the nested showcase fixture and its source was not the final `59704ed` rehearsal source. Use the corrected 102-ID reconciliation and final-source producer validation in the evidence notes below for current counts. Repeat capture on every required supported OS and architecture. Preserve the test-ID grammar and the `state-and-pixels` platform suffix rules in [SNAPSHOTS.md](SNAPSHOTS.md).
 
 ## Capture TCB PR #2
 
@@ -146,13 +146,19 @@ TUISCOTTI_CAPTURE_ROOT="$root" MISE_CI=1 TUISCOTTI_CAPTURE_ONLY=1 timeout 230 mb
 capture_status=$?
 set -e
 printf '%s\n' "$capture_status" > "$root/nextest.exit"
+root="$PWD/run-evidence/active-visual"; if [ -e "$root" ] || [ -L "$root" ]; then exit 2; fi; mkdir -p "$root"
+set +e
+TUISCOTTI_CAPTURE_ROOT="$root" MISE_CI=1 TUISCOTTI_CAPTURE_ONLY=1 timeout 230 mbx nextest run --offline --workspace --test functional --no-tests fail -E 'test(/^visual::/)' --no-capture > "$root/nextest.log" 2>&1
+capture_status=$?
+set -e
+printf '%s\n' "$capture_status" > "$root/nextest.exit"
 ```
 
-The recorded partition runs completed showcase 59/59, holla 11/11, tablepro 11/11, jackin 10/10, and lifecycle 2/2. They yielded 104 candidates for 109 active IDs. Five old IDs still lack candidates. Some other candidate IDs differ from the old names; do not equate, rename, delete, or approve those entries automatically.
+The earlier five partition runs completed showcase 59/59, holla 11/11, tablepro 11/11, jackin 10/10, and lifecycle 2/2. They yielded 104 candidates for 110 tracked active IDs: 109 functional IDs plus nested `showcase/buttons/held`. The 93-test integrated validation covered selected producer tests against a 105-fixture temporary composite; it omitted `visual::showcase_held_button_matches_frozen_tuiscotti_baseline` and did not establish complete active-ID coverage. A later isolated run captured that held-button candidate and passed its focused producer assertion 1/1. These are 93 + 1 checks from separate runs, not one combined validation. The five legacy ID disposition cases remain unresolved. Keep the bounded `visual::` partition above for future reruns and full-root reconciliation. Across the current evidence there are 106 fixture files (105 in the old composite plus one held candidate), but they have not been assembled or validated as a single set. None is approved. Some captured IDs differ from old names; do not equate, rename, delete, or approve those entries automatically.
 
 ### Inventory and preserve candidates
 
-For a single TCB main run, reconcile captured `sample.tui.pb` files against only the active functional JSON inventory. Set `EVIDENCE_ROOT` to that run's capture root and `ARTIFACT_MARKER=artifacts`. Set `OUT` to a new path outside the active baseline root. The following script copies only unambiguous active IDs and records missing, duplicate, or out-of-scope IDs. It does not decode or approve samples. For PR #2, run the five partitions above and use the multi-root reconciliation below instead.
+For a single TCB main run, reconcile captured `sample.tui.pb` files against every recursively tracked fixture under the active baseline root, including nested paths such as `showcase/buttons/held`. Set `EVIDENCE_ROOT` to that run's capture root and `ARTIFACT_MARKER=artifacts`. Set `OUT` to a new path outside the active baseline root. The script copies only unambiguous tracked IDs and records missing, duplicate, or untracked IDs. It does not decode or approve samples. For PR #2, run all six partitions above and use the multi-root reconciliation below instead; that inventory excludes frozen `pre_refactor` records.
 
 ```sh
 : "${EVIDENCE_ROOT:?set isolated capture root}"
@@ -161,18 +167,28 @@ export ACTIVE="${ACTIVE:-tests/functional/baselines}"
 export OUT="${OUT:-$PWD/run-evidence/candidates}"
 export EVIDENCE_ROOT ARTIFACT_MARKER
 python3 - <<'PY'
-import hashlib, os, shutil
+import hashlib, os, shutil, subprocess
 from pathlib import Path
 
 active = Path(os.environ["ACTIVE"])
-functional = active / "functional"
 out = Path(os.environ["OUT"])
 root = Path(os.environ["EVIDENCE_ROOT"])
 marker = os.environ["ARTIFACT_MARKER"]
 if out.exists() or out.is_symlink():
     raise SystemExit(f"candidate output already exists: {out}")
 out.mkdir(parents=True, exist_ok=True)
-expected = {p.relative_to(active).as_posix()[:-len(".tui.json")] for p in functional.rglob("*.tui.json")}
+tracked = subprocess.check_output(["git", "ls-files", "-z", "--", active.as_posix()]).split(b"\0")
+expected = set()
+for raw_path in tracked:
+    if not raw_path:
+        continue
+    path = Path(os.fsdecode(raw_path))
+    if path.suffixes[-2:] != [".tui", ".json"]:
+        continue
+    relative = path.relative_to(active)
+    if "pre_refactor" in relative.parts:
+        continue
+    expected.add(relative.as_posix()[:-len(".tui.json")])
 found = {}
 for sample in root.rglob("sample.tui.pb") if root.exists() else ():
     parts = sample.relative_to(root).parts
@@ -208,22 +224,33 @@ with (out / "inventory.tsv").open("w") as f:
 PY
 ```
 
-For PR #2, reconcile all five partition roots together. The script checks the binary magic, preserves every raw sample, and copies only one distinct digest for an expected active functional ID. Set `OUT` to a new absent destination if you rerun it.
+For PR #2, reconcile all six partition roots together from the PR checkout root. The script checks the binary magic and copies only one distinct digest for a tracked active sample ID; frozen `pre_refactor` fixtures are excluded. Raw candidates remain in the input roots. Set `OUT` to a new absent destination if you rerun it.
 
 ```sh
 cd /path/to/fresh/tcb-pr-2
 OUT="$PWD/run-evidence/active-candidates-reconciled"
 export OUT
 python3 - <<'PY'
-import hashlib, os, shutil
+import hashlib, os, shutil, subprocess
 from pathlib import Path
 active = Path('tests/functional/baselines')
-roots = [Path('run-evidence') / f'active-{n}' for n in ('showcase', 'holla', 'tablepro', 'jackin', 'lifecycle')]
+roots = [Path('run-evidence') / f'active-{n}' for n in ('showcase', 'holla', 'tablepro', 'jackin', 'lifecycle', 'visual')]
 out = Path(os.environ['OUT'])
 if out.exists() or out.is_symlink():
     raise SystemExit(f'refusing existing output: {out}')
 out.mkdir(parents=True)
-expected = {p.relative_to(active).as_posix()[:-len('.tui.json')] for p in (active / 'functional').rglob('*.tui.json')}
+tracked = subprocess.check_output(['git', 'ls-files', '-z', '--', active.as_posix()]).split(b'\0')
+expected = set()
+for raw_path in tracked:
+    if not raw_path:
+        continue
+    path = Path(os.fsdecode(raw_path))
+    if path.suffixes[-2:] != ['.tui', '.json']:
+        continue
+    relative = path.relative_to(active)
+    if 'pre_refactor' in relative.parts:
+        continue
+    expected.add(relative.as_posix()[:-len('.tui.json')])
 found = {}
 for root in roots:
     for sample in root.rglob('sample.tui.pb'):
@@ -264,17 +291,18 @@ awk -F '\t' 'NR>1 { n[$1]++ } END { for (s in n) print s, n[s] }' "$OUT/inventor
 
 Read every `MISSING`, `AMBIGUOUS`, and `UNEXPECTED` row. Do not claim full capture until every expected active ID has exactly one candidate and all expected producer tests complete on every required platform. Keep the raw artifact roots and logs. For PR #2, do not treat the `pre_refactor` JSON tree as active candidates.
 
-For PR #2, the five unresolved ID pairs are:
+In the prior five-partition composite, these six tracked active IDs lacked candidates. The nested showcase ID has since been captured in a separate evidence run; its candidate still requires human review. The five legacy ID changes remain unresolved and require disposition:
 
-| Existing active ID without a candidate | Current captured ID | Producer test |
+| Tracked active ID without a candidate | Current captured ID | Producer test |
 |---|---|---|
 | `functional/jackin_launch_failure` | `functional/jackin_launch_failed` | `jackin_cockpit_launch_failure_acknowledges` |
 | `functional/jackin_manager_stop_dialog` | `functional/jackin_stop_instance_dialog` | `jackin_manager_stop_cancel_then_confirm` |
 | `functional/jackin_settings_leave` | `functional/jackin_settings_dirty_leave` | `jackin_settings_unsaved_leave_cancel_then_discard` |
 | `functional/showcase_keyboard_activation` | `functional/showcase_keyboard_run_task` | `showcase_keyboard_activates_focused_run_task` |
-| `functional/tablepro_query_error_recovery` | `functional/tablepro_query_recovered` | `tablepro_query_select_results_and_error_recovery` |
+| `functional/tablepro_query_error_recovery` | `functional/tablepro_query_syntax_error` | `tablepro_query_select_results_and_error_recovery` |
+| `showcase/buttons/held` | separately captured as `showcase/buttons/held.tui.pb` (not in the composite; review required) | `visual::showcase_held_button_matches_frozen_tuiscotti_baseline` |
 
-Preserve all five old files and all new candidates while the human migration owner reviews them. The captured states differ materially from the old states. The checked PR #2 dispositions list these as superseded, but that record is evidence for review, not authorization to rename or delete. The migration owner must decide whether to adopt the dispositions.
+Preserve all five legacy files and all new candidates while the human migration owner reviews them. The separately captured held-button candidate also remains unapproved. For TablePro, `functional/tablepro_query_syntax_error` captures the unrecovered error checkpoint and `functional/tablepro_query_recovered` remains a separate checkpoint after the corrected query; do not map the old error ID to the recovery sample. The captured states differ materially from the old states. The checked PR #2 dispositions list these as superseded, but that record is evidence for review, not authorization to rename or delete. The migration owner must decide whether to adopt the dispositions.
 
 Before PR #2 approval, refresh and validate its reference manifest against the actual capture source, current lockfile, comparator, and merged Tuiscotti SHA. Its existing wrapper receipts would otherwise contain misleading provenance. Run `python3 scripts/accept-baseline.py --help` and follow the wrapper's current interface. Keep receipts outside the baseline root. Update `scripts/check-refactor-coverage.py` and its tests to count `.tui.pb` IDs while keeping receipt and metadata JSON distinct. Use the current workflow invocation for production checker arguments; the draft does not provide a complete current invocation. Do not treat `python3 scripts/check-refactor-coverage.py --fixtures scripts/coverage-fixtures` as the production coverage run.
 
@@ -299,7 +327,7 @@ Run `"$TUISCOTTI_CLI" check` against each staged candidate and staged baseline r
 
 Jackin consumes TCB's selected `functional` baseline root. It does not own or receive a copy of those samples. Decide explicitly which TCB revision Jackin will consume. If Jackin keeps the checked `a901c275055091810ae0d0ac30ec5fc09ce595d9` source pin, generate and approve against that revision. If it adopts another approved TCB revision, update the pin in a separate downstream change and generate against that exact revision.
 
-Update `crates/jackin-testkit/tests/identity/baseline.rs` and `coverage.rs` to recognize `.tui.pb`. Replace the raw-JSON color mutation with a valid temporary binary sample and preserve the changed-cell assertion. Keep the journey-to-visual-ID checks, approved-file inventory, and four no-file scenarios. Run the identity coverage test after the selected TCB baseline root has staged `.tui.pb` files. The recorded one-sample `functional/jackin_launch_reconnect` smoke is not full Jackin coverage. At the checked Jackin head, 54 of its 55 distinct visual IDs remain uncaptured. Do not report Jackin coverage complete until all required IDs have reviewed binary files and the identity tests pass.
+Update `crates/jackin-testkit/tests/identity/baseline.rs` and `coverage.rs` to recognize `.tui.pb`. Replace the raw-JSON color mutation with a valid temporary binary sample and preserve the changed-cell assertion. Keep the journey-to-visual-ID checks, approved-file inventory, and four no-file scenarios. Run the identity coverage test after the selected TCB baseline root has staged `.tui.pb` files. The latest local overlay rehearsal generated and matched scratch candidates for all 55 distinct IDs and passed 47 identity tests, but this does not validate the published JSON-based PR or approve samples. Do not report the downstream migration complete until reviewed binary files are installed through the approval path and the full required test gates pass.
 
 ## Promote and roll back
 
@@ -309,6 +337,16 @@ If a promoted downstream change needs rollback, revert that downstream commit so
 
 ## Evidence and limits
 
-The dated evidence above came from disposable macOS worktrees. Fresh downstream head queries were repeated read-only on 2026-11-06, but no fresh-head capture was run while preparing this portable document. It did not modify a downstream branch, active baseline, published pin, or PR. The single-sample local accepts in the older mechanics smoke were assistant-run staging actions, not the required explicit human approval. No complete PR #2 rehearsal passed: the full command timed out, 104 of 109 candidates were reconciled, five IDs remain unresolved, and the PR #2 coverage checker has not been migrated to `.tui.pb`. Jackin's full identity coverage and all required cross-platform lanes remain **not verified**. Native Linux remains **not verified**.
+The dated evidence in this runbook is local rehearsal evidence from disposable worktrees and overlays. It did not change a downstream PR head, published dependency pin, or active baseline. Candidate generation, fixture comparison, and passing tests do not imply visual review, approval, or permission to promote any sample. All generated candidate sets remain unapproved.
+
+The final-source TCB main run used Tuiscotti `59704edfff6a6676e8833f190dcc43dccc528329` and passed 117 distinct producer tests. Its corrected inventory is 102 tracked IDs (101 single-candidate IDs and one two-candidate ambiguity), with no missing IDs. The two `functional/showcase_page_diff` candidates differ only in capture timestamp according to the prior state/render comparison; because that comparator result comes from a separate rehearsal, treat equivalence as a caveat and retain both for review. The old source-mismatched rehearsal at Tuiscotti `d31900993b533ad4758848c261b5f4c5b2eb1cee` and earlier `818b2ebfd94cfea669a6603b79cb96532db9b282` rehearsal are not evidence for the final `59704ed` source.
+
+PR #2's final integrated checkpoint added a distinct TablePro syntax-error checkpoint while retaining recovery coverage. Its 93/93 validation used 105 unapproved temporary fixtures, with capture-only unset; those 93 selected visual tests do not represent all active producers. Six tracked active IDs were absent from that composite, including nested `showcase/buttons/held`; the held ID now has a separate fresh candidate and focused 1/1 assertion, while the five old IDs remain unmatched and require disposition. The separate held result does not complete or replace the multi-root coverage run. The full production coverage gate remains failing due to blocked rows and missing receipts/baselines. Jackin's latest 47/47 identity run was on PR head `27ec25e` with a local migration overlay; its archived candidate matching and passing identity tests are local evidence, not evidence that the published PR has migrated or that any candidate was approved.
+
+The held-button ID was captured afterward in a separate isolated worktree at TCB checkpoint `6ee587e601c2a69f3540da3924720b2863d19d7b`, using Tuiscotti source `59704edfff6a6676e8833f190dcc43dccc528329`. The fresh producer emitted candidate `captured/functional/showcase/buttons/held.tui.pb` with SHA-256 `f75af1e12d8eddfe59126d504587105f354118615ea5d5c1c6c031de95cdcbbc`. The focused `visual::showcase_held_button_matches_frozen_tuiscotti_baseline` assertion passed 1/1 with capture-only unset against the staged disposable fixture `fixtures/showcase/buttons/held.tui.pb`; the candidate decoded with the expected ID and passed the CLI staged-sample check. The producer's initial missing-baseline capture command exited 100 as expected while emitting the candidate; this is not a failed focused assertion. The earlier 93/93 run and this 1/1 check are separate runs. Evidence handoff: `/private/tmp/tcb-pr2-held-capture-20261106-evidence/README.md`, SHA-256 `e0d9349e9667a6be265ab8dda008a8888091a0ea2fab971ed13c280b26fa8085`. This one held candidate is additional to the older 105-fixture composite; the evidence represents 106 fixture artifacts across separate sets, not a single assembled or fully validated set. The original active baseline tree was unchanged and no acceptance or approval command ran.
+
+The locally prepared PR #2 work is based on PR head `60b5fb2762d91a3549bd4ac63b1d77d534ee53d2`; its Holla formatting checkpoint is signed commit `6ee587e601c2a69f3540da3924720b2863d19d7b`, which is local evidence and is not represented as the current remote PR head. Jackin preparation belongs to local branch `codex/jackin-pr1264-binary-identity`, based on live PR head `27ec25ec0aa180af9bf075660af5cbf55dccefc3`, ending at `5b7f8232bef4ae372f915b26ea61a0f955bbfb26`. These local branch/checkpoint identities do not transfer ownership of the downstream branches or imply a push, merge, approval, or promotion.
+
+The 117-test TCB result is a producer rehearsal on the recorded native arm64 environment, not validation of all required OS/architecture suffix lanes. Native Linux and other required platform lanes remain **not verified**. Full PR #2 production coverage, human review, and approval remain outstanding. See the local review index and evidence bundles for provenance; their temporary source paths and overlays are not portable inputs.
 
 The reviewed local audit draft preserves the validated capture-only source patch, exact partition results, artifact-root smoke, and failure analysis. Treat that draft and its temporary paths as local evidence, not as portable inputs or prerequisites for these post-merge steps.
