@@ -1,6 +1,6 @@
 [package]
 name = "tuiscotti"
-version = "0.4.0"
+version = "0.4.1"
 description = "Rust TUI visual-regression toolkit: pure-view capture, versioned samples, frozen checks, approval, reports"
 readme = "README.md"
 keywords = ["tui", "ratatui", "snapshot-testing", "visual-regression", "terminal"]
