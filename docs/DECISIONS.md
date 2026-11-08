@@ -395,6 +395,25 @@ present in that inventory. The audit did not convert or approve baselines.
 The local evidence archive is `.audit/benchmark-evidence/legacy-cap-results-20261106.tar.gz`
 (SHA-256 `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`).
 
+The CLI follow-up measured merged Tuiscotti commit
+`6d01628170de8bed3f00f52713f3a510b782e41e` (the then-main commit) in five full
+check passes and five full valid-accept passes over the 20 paired benchmark
+captures (10 state and 10 state-and-pixels). All 100 checks and all 100 accepts
+passed. Maximum child RSS was 58,736,640 bytes for check and 171,540,480 bytes
+for accept; median full-pass wall times were 0.598698 s and 1.946359 s
+respectively. Accepts wrote only byte-identical files in a disposable baseline
+tree with `CI` unset. This closes those CLI feasibility measurements for the
+20 captures; it is not a full downstream-corpus result or a build from the
+current main head. The evidence bundle and limitations are recorded in
+[the level 22 benchmark record](benchmarks/zstd-level-22-provisional.md).
+
+A separate actual TCB mainline history measurement spans the merged binary
+migration and one subsequent PB baseline update. It records real full-history
+and thin-pack sizes, but the latter commit also adds protected historical-root
+baselines, acceptance receipts and test material. It is not a baseline-only
+Git cost or a JSON-versus-PB comparison for equivalent updates. See
+[the TCB mainline history record](benchmarks/real-tcb-mainline-history.md).
+
 ## 19. Stable direct dependency refresh and pixel round-trip parity
 
 The workspace lock now selects [cc 1.11.1](https://crates.io/crates/cc/1.11.1),
