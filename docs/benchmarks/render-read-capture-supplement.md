@@ -26,6 +26,12 @@ This is not a build from current main `8d2bd88`.
 - The 2,055 successful PNGs total 381,590,165 bytes. Every output existed and
   its SHA-256 matched its per-sample record. Input manifests before and after
   the run match.
+
+A post-run source-binding check verified the TCB checkout was clean at the
+stated commit. For all 2,117 PB paths, the Git blob object ID and working-tree
+SHA-256 matched the commit tree, the pre/post manifests, and the raw render
+record; recorded file sizes also matched. The verifier and per-path results
+are included in the evidence archive.
 - Observed pass wall time was 260.15 s; the maximum observed child wall time
   was 0.75 s and maximum observed child RSS was 137,478,144 bytes.
 
@@ -78,8 +84,8 @@ the measurement does not establish source equivalence to current main.
 The compact archive
 [`tuiscotti-arm64-render-capture-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-arm64-render-capture-20261108.tar.gz)
 (SHA-256
-`dfa80a2fdf1791e07ee02a44e7f2ae53c4ca4766535fd0ab9bc801cd8bad978c`)
-contains per-PB render results and input manifests, render runner and command logs,
+`32e5baf7101baaa13b8c882edc7415f372742421c7564231ad09e53b63a31812`)
+contains per-PB render results and input manifests, a Git-blob binding check, render runner and command logs,
 capture sampler and raw samples, per-call timing records, selected-test
 actions, binary identities, source patch/hashes, tool versions, environment,
 and baseline manifests. It excludes binaries, rendered PNG files, and

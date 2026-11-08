@@ -16,7 +16,7 @@ linked from `docs/benchmarks/`.
   results plus one selected functional capture-timing run with raw sampled
   process RSS, source/input identities, and baseline manifests. It excludes
   rendered PNGs, checkpoint payloads, and binaries. SHA-256:
-  `dfa80a2fdf1791e07ee02a44e7f2ae53c4ca4766535fd0ab9bc801cd8bad978c`.
+  `32e5baf7101baaa13b8c882edc7415f372742421c7564231ad09e53b63a31812`.
 
 The archives are retained evidence, not product inputs. The first contains
 research replay helpers; no standalone research executable sources are added

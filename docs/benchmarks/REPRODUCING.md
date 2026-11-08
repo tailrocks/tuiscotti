@@ -165,8 +165,8 @@ records a serial render-read pass over all 2,117 committed TCB PB paths and a
 separate three-test capture-timing sample. Its compact archive,
 [`tuiscotti-arm64-render-capture-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-arm64-render-capture-20261108.tar.gz)
 (SHA-256
-`dfa80a2fdf1791e07ee02a44e7f2ae53c4ca4766535fd0ab9bc801cd8bad978c`),
-contains per-sample render results, input hashes, runner logs, capture timing
+`32e5baf7101baaa13b8c882edc7415f372742421c7564231ad09e53b63a31812`),
+contains per-sample render results, input hashes and Git-blob verification, runner logs, capture timing
 records, raw timestamped RSS samples, source identities, and baseline
 manifests. It excludes rendered PNGs, checkpoint payloads, and binaries.
 
