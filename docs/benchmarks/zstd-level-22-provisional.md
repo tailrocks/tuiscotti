@@ -226,3 +226,15 @@ whole-commit pack is not a baseline-only result. The history still has only one
 ordinary PB update after migration and does not establish repeated PB update
 costs or a JSON-versus-PB comparison for equivalent updates. Details are in
 [Actual TCB mainline Git history observations](real-tcb-mainline-history.md).
+
+## Full-corpus render-read and capture sample
+
+A separate exact-commit render-read pass attempted all 2,117 PB paths in TCB
+commit `534e0ff5af75b840d93038dd02ece0839cf4f71b`. It returned 2,055
+successful PNG renders and 62 explicit errors: eight malformed coverage
+fixtures and 54 otherwise valid samples that the pinned font could not render
+because required glyphs were missing. A selected three-test capture timing
+sample is also preserved. See the [render-read and capture supplement](render-read-capture-supplement.md)
+for code-point and stratum counts, source identities, observed-resource
+limits, raw data, and remaining requirements. These measurements do not
+change the provisional status or establish current-main equivalence.

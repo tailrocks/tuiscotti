@@ -12,6 +12,11 @@ linked from `docs/benchmarks/`.
   logs, summaries and checksums. It excludes sample binaries and pack outputs.
   SHA-256:
   `517d1ae7053b7cc1e32483f0d727d0cead7186cc97153b7d977254ede6e4f97a`.
+- `tuiscotti-arm64-render-capture-20261108.tar.gz` — full TCB PB render-read
+  results plus one selected functional capture-timing run with raw sampled
+  process RSS, source/input identities, and baseline manifests. It excludes
+  rendered PNGs, checkpoint payloads, and binaries. SHA-256:
+  `dfa80a2fdf1791e07ee02a44e7f2ae53c4ca4766535fd0ab9bc801cd8bad978c`.
 
 The archives are retained evidence, not product inputs. The first contains
 research replay helpers; no standalone research executable sources are added
