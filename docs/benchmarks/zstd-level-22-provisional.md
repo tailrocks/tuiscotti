@@ -185,3 +185,44 @@ checksums are local untracked evidence in the original workspace under
 a fresh clone. Reproduction depends on that evidence, source prefix
 `60b5fb2762d91a3549bd4ac63b1d77d534ee53d2`, the exact captured inputs, and the
 recorded Git version and repack flags.
+
+## CLI check and acceptance follow-up
+
+A release CLI built from merged Tuiscotti commit
+`6d01628170de8bed3f00f52713f3a510b782e41e` checked the same 20 preserved
+real captures: 10 `state` and 10 `state-and-pixels`. Five sequential full
+passes ran 20 CLI `check` processes each against byte-identical disposable
+baselines. All 100 checks passed. Full-pass wall time had a median of
+0.598698 s (range 0.575313–0.612106 s); maximum child RSS was 58,736,640
+bytes. The artifact root remained empty and input hashes were unchanged.
+
+Five more full passes ran 20 valid CLI `accept` operations each. `CI` was
+unset, the baseline and candidate were byte-identical before each accept, and
+every accepted file remained byte-identical to its candidate in the disposable
+baseline root. All 100 accepts passed. Full-pass wall time had a median of
+1.946359 s (range 1.809100–2.029665 s); maximum child RSS was 171,540,480
+bytes.
+
+Both follow-ups ran on native macOS 27.2, arm64 (Mac17,6, 18 logical CPUs),
+with Rust 1.99.1 and MBX 1.29.2. They are workflow feasibility observations,
+not codec rankings. The measured Tuiscotti commit was the then-main head;
+current main has since advanced. The check and accept measurements cover the 20
+paired benchmark captures, not the entire downstream inventory. They do not
+measure report generation over realistic mismatch evidence, capture costs,
+Git update histories, native Linux, or cross-platform behavior. The raw
+evidence bundle is
+[`tuiscotti-main-cli-check-accept-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-main-cli-check-accept-20261108.tar.gz)
+(SHA-256 `49800930f1b851f367e88268ffe02804399bb19daeaeb44d263bdd98d420763a`).
+It contains sample inputs, five-pass raw CLI outputs and process timing
+records, harnesses, summaries and host/source record.
+
+## Actual TCB mainline Git history follow-up
+
+A two-transition history slice from the real TCB mainline is recorded. It
+contains one JSON-to-PB migration and one subsequent PB baseline update, with
+full-history and one-commit thin-pack sizes. The later PR2 commit includes
+large protected historical-root test baselines and receipt material, so its
+whole-commit pack is not a baseline-only result. The history still has only one
+ordinary PB update after migration and does not establish repeated PB update
+costs or a JSON-versus-PB comparison for equivalent updates. Details are in
+[Actual TCB mainline Git history observations](real-tcb-mainline-history.md).

@@ -122,3 +122,37 @@ reproduction requires external pinned reference applications and worktrees.
 No native Linux or cross-platform determinism result is available. Benchmark
 replay does not establish behavior on Linux or independently recapture the
 applications.
+
+## CLI check and acceptance follow-up
+
+The archive
+[`tuiscotti-main-cli-check-accept-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-main-cli-check-accept-20261108.tar.gz)
+(SHA-256
+`49800930f1b851f367e88268ffe02804399bb19daeaeb44d263bdd98d420763a`)
+preserves 20 exact level-22 sample containers, five full `check` passes, five
+full valid `accept` passes, and raw JSON/time output for every invocation. The
+release CLI was built from merged Tuiscotti commit
+`6d01628170de8bed3f00f52713f3a510b782e41e` with
+`MBX_GC_AUTO=false cargo build --release --locked --offline -p tuiscotti-cli`;
+its SHA-256 is
+`4c39bc547a0444e5b41d3ac9f5ddb2aaddcb7b9dca30913d5771208b2a15712c`.
+That measured commit was the then-main head. The repository main head has since
+advanced; this record does not claim a build from the current head. The archive
+README describes the workload and scope.
+
+This follow-up closes the 20-capture CLI check and valid-accept feasibility
+measurements for native macOS arm64. It does not establish the full downstream
+corpus, real approval review, report or capture timing, Git migration history,
+Linux behavior, or cross-platform determinism. The harness records process
+launches and JSON verification as part of each full-pass wall time.
+
+## Actual TCB Git history evidence
+
+[The mainline Git history record](real-tcb-mainline-history.md) gives exact
+TCB commits, selected current functional-root tree sizes, repack settings,
+full-history pack sizes, one-commit thin-pack sizes, and scope limits. The
+metadata archive
+[`tuiscotti-mainline-git-history-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-mainline-git-history-20261108.tar.gz)
+contains command and tree/object records; it omits sample and pack binaries.
+The actual mainline has only one post-migration PB baseline update commit, so
+these data do not satisfy the repeated equivalent update-history comparison.
