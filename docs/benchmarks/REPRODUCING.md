@@ -157,6 +157,23 @@ contains command and tree/object records; it omits sample and pack binaries.
 The actual mainline has only one post-migration PB baseline update commit, so
 these data do not satisfy the repeated equivalent update-history comparison.
 
+## Paired historical field comparisons
+
+The [paired sample field comparison](paired-field-comparison.md) records
+1,868 protected historical-root JSON/PB pairs, a separate 161-pair format
+migration, and 20 archived state/pixel pairs. The package
+[`tuiscotti-paired-field-oracle-20261109.tar.gz`](../../benchmark-evidence/tuiscotti-paired-field-oracle-20261109.tar.gz)
+(SHA-256
+`e0619d68da8a6ddeef57bd5dd3c27d30b766ca108cb859e75878febcafcaa51d`)
+contains both workers' source and lockfiles, per-pair comparison rows and
+manifests, the 20 archived JSON/PB inputs, six old-reader mutation controls,
+and the replay commands. It excludes compiled executables and full TCB Git
+repositories; the TCB manifests bind to public commit trees and blob IDs.
+The 51 unequal historical state digests are differences between captured
+samples that need separate investigation; they are not by themselves evidence
+of a codec regression. The original comparator argv was not retained, so the package
+labels its commands as replay instructions rather than original invocations.
+
 ## Full-corpus render-read and selected capture sample
 
 The

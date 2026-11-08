@@ -39,6 +39,8 @@ The selected current functional roots counted here are `tests/functional/baselin
 
 The migration commit changes the active tree from 161 JSON files to 161 PB files. The next commit modifies 87 active PB files and adds 18, for a net active-tree increase of 42,532 bytes. The tree byte counts describe committed files; they do not establish logical equivalence between old and new sample contents.
 
+Full typed field comparisons for the exact 161-sample migration cohort and a separate 1,868-sample historical-root cohort are recorded in [paired historical sample field comparisons](paired-field-comparison.md). Those reader results do not change the scope of the whole-commit Git pack measurements below.
+
 The `534e0ff` commit also adds 1,868 protected historical-root PBs under `tests/functional/baselines/pre_refactor/` (4,962,965 checkout bytes), 416 acceptance-receipt files (60,574,883 checkout bytes), and extensive test/reference-app material. These historical-root PBs are tracked test baselines with live consumers: `tests/functional/support.rs::baseline_root` routes `pre_refactor/` IDs to that tree, and `tests/functional/cases/j01_refresh.rs` constructs such IDs. They are separate from the selected current functional roots counted above; some historical-root samples are exercised by tests. The whole commit changes 3,044 paths (352,748 insertions, 1,539 deletions). The 1,868 paths are additions in this commit. They materially contribute to its 36.9 MB incoming pack, so that number is the actual PR commit cost and must not be presented as the isolated Git cost of the selected current functional-root update.
 
 ## Limits and missing inputs

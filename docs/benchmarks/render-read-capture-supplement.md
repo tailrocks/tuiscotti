@@ -113,8 +113,17 @@ and baseline manifests. It excludes binaries and rendered PNG files, and omits 4
 measurement host; replay requires the referenced TCB source checkout and CLI
 binary.
 
-This supplement does not provide full-corpus paired JSON/PB measurements,
-per-stratum paired codec runs, five repetitions, encode/decode CPU or RSS,
-full-corpus capture resource cost, native Linux results, or a repeated
-same-logical-update Git history sequence. It does not establish the chosen
-Zstandard level as final.
+The separate [paired historical field comparison](paired-field-comparison.md)
+adds 1,868 protected historical-root pairs, 161 migration pairs, and 20
+archived state/pixel pairs. Those cohorts do not exhaust the 2,117 PB corpus
+and do not include new-reader field-mutation controls. Fifty-one historical
+pairs have unequal state digests; the comparison does not establish whether
+those differences arose from capture changes or serialization.
+
+The combined evidence still lacks per-stratum paired runs across the required
+codec matrix, repeated full-corpus encode/decode wall and CPU measurements,
+peak RSS for that workload, full-corpus capture resource cost, native Linux
+results, and a repeated same-logical-update Git history sequence. The
+independent inventory also records 73 missing sidecars and 74 receipt gaps;
+neither this supplement nor the paired comparison resolves them. The selected
+Zstandard level remains provisional.
