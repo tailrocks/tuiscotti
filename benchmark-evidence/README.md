@@ -16,7 +16,7 @@ linked from `docs/benchmarks/`.
   results plus two selected functional capture runs. The later run binds the
   full source diff and functional test executable SHA-256 before/after, and
   retains session identities and raw sampled process RSS. It excludes rendered
-  PNGs and binaries, and omits 40 checkpoint JSON/text payloads (19,820,379 uncompressed bytes). SHA-256: `3185dff7465cccc242d01e91fd71ec9b6e8a5d115a6a434276c3d5c9b620f724`.
+  PNGs and binaries, and omits 40 checkpoint JSON/text payloads (19,820,379 uncompressed bytes). SHA-256: `e9296579e7f523a6cab17786cca02c3c0c67691f28b065625571944c066efcd9`.
 
 The archives are retained evidence, not product inputs. The first contains
 research replay helpers; no standalone research executable sources are added

@@ -10,10 +10,17 @@ satisfy the complete requirements in
 One serial CLI `render --out` pass attempted all 2,117 committed `.tui.pb`
 paths from TCB commit
 `534e0ff5af75b840d93038dd02ece0839cf4f71b`. The source checkout was read
-only. The CLI binary was built from Tuiscotti PR head
-`52cbf592c950eef5afa89816ff071bcc0d2842ce`, SHA-256
+only. The CLI executable SHA-256 was
 `4c39bc547a0444e5b41d3ac9f5ddb2aaddcb7b9dca30913d5771208b2a15712c`.
-This is not a build from current main `8d2bd88`.
+That exact hash matches the build record in the companion
+[`CLI check and accept archive`](../../benchmark-evidence/tuiscotti-main-cli-check-accept-20261108.tar.gz)
+(SHA-256 `49800930f1b851f367e88268ffe02804399bb19daeaeb44d263bdd98d420763a`):
+its `evidence-bundle/source-and-host.txt` records source commit
+`6d01628170de8bed3f00f52713f3a510b782e41e`, this executable hash, and the
+locked release build command. The prior attribution to Tuiscotti PR head
+`52cbf592c950eef5afa89816ff071bcc0d2842ce` is withdrawn because no build-time
+record linked the render executable to that commit. The CLI is not attributed
+to current main `8d2bd88`.
 
 - 2,055 renders succeeded; 62 returned errors.
 - Eight deliberately truncated coverage fixtures returned
@@ -83,8 +90,11 @@ guaranteed maxima.
 The post-run SHA-256 check covered 1,990 baseline PB files and matched the
 pre-run manifest. The run used the clone's trusted Mise configuration with
 `mise exec -- mbx nextest`, an isolated MBX cache and target root, and
-`MBX_GC_AUTO=0` plus `MBX_SESSION_GC_AUTO=0`; the exact invocation,
-environment and MBX settings output are archived. Session metadata records
+`MBX_GC_AUTO=0` plus `MBX_SESSION_GC_AUTO=0`. The exact argv, working
+directory, explicit environment overrides, and MBX settings output are
+archived. The runner inherited its launcher environment, which was not saved;
+those values cannot be reconstructed. This is a raw single-run observation,
+not an exact-environment replay or a controlled cross-run comparison. Session metadata records
 the Tuiscotti comparator dependency revision as
 `92ef2d9ee082b35f68e066c5129fedbf07675a80`; the measurement does not establish
 source equivalence to current main. An earlier exploratory capture run is
@@ -95,7 +105,7 @@ also preserved separately in the archive but is not used for these figures.
 The compact archive
 [`tuiscotti-arm64-render-capture-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-arm64-render-capture-20261108.tar.gz)
 (SHA-256
-`3185dff7465cccc242d01e91fd71ec9b6e8a5d115a6a434276c3d5c9b620f724`)
+`e9296579e7f523a6cab17786cca02c3c0c67691f28b065625571944c066efcd9`)
 contains per-PB render results and input manifests, a Git-blob binding check, render runner and command logs,
 both capture runs, including the source-bound rerun's full Git status/diff, functional test executable SHA-256 before/after,
 per-session app identities, raw samples, per-call timing, actions, settings,
