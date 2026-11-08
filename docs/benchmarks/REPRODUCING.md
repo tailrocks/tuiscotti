@@ -156,3 +156,27 @@ metadata archive
 contains command and tree/object records; it omits sample and pack binaries.
 The actual mainline has only one post-migration PB baseline update commit, so
 these data do not satisfy the repeated equivalent update-history comparison.
+
+## Full-corpus render-read and selected capture sample
+
+The
+[`render-read and capture supplement`](render-read-capture-supplement.md)
+records a serial render-read pass over all 2,117 committed TCB PB paths and a
+separate three-test capture-timing sample. Its compact archive,
+[`tuiscotti-arm64-render-capture-20261108.tar.gz`](../../benchmark-evidence/tuiscotti-arm64-render-capture-20261108.tar.gz)
+(SHA-256
+`e9296579e7f523a6cab17786cca02c3c0c67691f28b065625571944c066efcd9`),
+contains per-sample render results, input hashes and Git-blob verification, runner logs, capture timing
+records, raw timestamped RSS samples, the CLI binary SHA and a reference to its companion source/build
+record, capture source identities, and baseline manifests. The
+capture environment file lists explicit overrides only; inherited launcher
+environment values were not retained. It excludes rendered PNGs and binaries, and omits 40 checkpoint JSON/text payload files (19,820,379 uncompressed bytes).
+
+The render pass attempted 2,117 files: 2,055 succeeded, eight deliberately
+truncated fixtures returned `INVALID_SAMPLE`, and 54 valid samples returned
+fail-closed `MISSING_GLYPH` errors. The 54 are broken down by code point in
+the supplement; they were not omitted. The sample run preserves normal
+functional frozen checks but modifies the disposable test-support source to
+time `capture_snapshot`. Neither workload establishes full paired
+JSON/Protobuf results, complete capture cost, or completion of the
+multi-revision Git-history requirement.
