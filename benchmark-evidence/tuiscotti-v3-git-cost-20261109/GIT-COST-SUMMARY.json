@@ -1,0 +1,54 @@
+{
+  "archive_bytes": 70891144,
+  "archive_path": "/private/tmp/tuiscotti-compression-evidence-slim-20261109/output/tuiscotti-compression-evidence-slim-v3-20261109.tar.zst",
+  "archive_sha256": "f1c1f947cf60228cba5592f92ac67aec626cfebad823829089f48962805d05b6",
+  "baseline_empty": {
+    "empty_config_equal_to_packed": true,
+    "objects": 0,
+    "packs": 0,
+    "size_pack_kib": 0
+  },
+  "blob_content_sha256_verified": true,
+  "blob_oid_sha1": "3a1f0470196c2bb161c3c54e52b76e9735c86027",
+  "blob_type": "blob",
+  "blob_uncompressed_bytes": 70891144,
+  "command": "git --git-dir=<packed-db> repack -a -d -f --window=0 --depth=0 --keep-unreachable",
+  "git_version": "git version 2.54.0 (Apple Git-157)",
+  "notes": [
+    "Only the archive blob was written; no commit or tree objects were created. `--keep-unreachable` let repack include the lone loose blob without a ref.",
+    "Git repo-local config is identical between empty baseline and packed database; complete normalized config files are retained.",
+    "The pack is nearly the original archive size because the .tar.zst is already compressed. Pack+idx+rev physical size is reported; Git 2.54.0 `count-objects -v` size-pack is in KiB and accounts for the pack plus index, but not the reverse index.",
+    "This is a local Git 2.54.0 packing measurement, not a prediction of GitHub server-side storage or transfer."
+  ],
+  "overhead": {
+    "pack_index_and_reverse_index_bytes": 1156,
+    "pack_over_blob_bytes": 7029,
+    "total_physical_bytes_over_archive": 8185
+  },
+  "packed": {
+    "count_objects_size_pack_kib": 69237,
+    "delta_objects": 0,
+    "index_bytes": 1100,
+    "index_file": "pack-65821cab38bba37b5620fa2570c0329573b87531.idx",
+    "index_sha256": "ffbb9d217c808e5356a609a7adfc1a62a07c29da2a2a8d043ff6c5b773fc89a5",
+    "objects_in_pack": 1,
+    "pack_bytes": 70898173,
+    "pack_count": 1,
+    "pack_file": "pack-65821cab38bba37b5620fa2570c0329573b87531.pack",
+    "pack_sha256": "4f65845ffb932fa9d34fba905d442d336c16463dffc838842d139fbb39949f6b",
+    "physical_pack_and_indexes_bytes": 70899329,
+    "reverse_index_bytes": 56,
+    "reverse_index_file": "pack-65821cab38bba37b5620fa2570c0329573b87531.rev",
+    "reverse_index_sha256": "e3414fa5f2b57581aa3ade2530abb6c12ff80fb49ebd3740984fa04fd8b1b290"
+  },
+  "repack_observed_seconds": 2.66,
+  "repack_time_l_maximum_rss_bytes": 149864448,
+  "scope": "Incremental Git object storage for exactly one archive blob in a disposable bare object database; not a codec or real-history benchmark.",
+  "settings": {
+    "core.compression": 6,
+    "pack.compression": 6,
+    "pack.depth": 0,
+    "pack.window": 0,
+    "repack.writeBitmaps": false
+  }
+}
