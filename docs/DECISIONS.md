@@ -436,6 +436,23 @@ fallback or alternate runner. Keep the hosted profile on `ubuntu-26.04` and
 the scale-set profile on its configured Ubuntu 26.04 runner, and review all
 generated workflow runner declarations after regeneration.
 
-The generated `State seal` workflow has passed local generation comparison
-and workflow lint, but it has not run from a protected-main push. Its cache
-production and sealing path is therefore not yet verified at runtime.
+Protected-main run [42595554573](https://github.com/tailrocks/tuiscotti/actions/runs/42595554573)
+completed with an overall `success` conclusion, but its `State producer`
+job [129087406972](https://github.com/tailrocks/tuiscotti/actions/runs/42595554573/job/129087406972)
+failed with `task_not_in_plan_for_job`. Its state payload publication steps
+were skipped, as was the `State seal / root` job
+[129087705705](https://github.com/tailrocks/tuiscotti/actions/runs/42595554573/job/129087705705).
+The overall workflow conclusion does not verify cache production or sealing.
+
+Velnor Actions PR [#561](https://github.com/tailrocks/velnor-new/pull/561)
+merged the producer-execution fix as
+[f724e78](https://github.com/tailrocks/velnor-new/commit/f724e78ca617ecd7d06515c07d2753de1f05e2ce).
+The pinned stable [Velnor 0.1.78 release](https://github.com/tailrocks/velnor-new/releases/tag/v0.1.78)
+was built from `ff0f3ce3e7f87c172dbfc3b4ff9640f82c5a6905`; GitHub's
+[commit comparison](https://github.com/tailrocks/velnor-new/compare/ff0f3ce3e7f87c172dbfc3b4ff9640f82c5a6905...f724e78ca617ecd7d06515c07d2753de1f05e2ce)
+places the fix after that release. The fix is therefore absent from the
+latest stable generator. Keep the state-seal path unresolved until a stable
+release containing the fix is published and its manifest and assets are
+verified. Do not pin an unpublished or unverified generator build, and do
+not publish a Tuiscotti package release on the assumption that this path
+works.
