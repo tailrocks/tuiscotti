@@ -262,3 +262,15 @@ benchmark page gives extraction and checksum commands. Executables and full
 source trees are omitted, and the effective environment and complete immutable
 build dependency closure were not recorded, so the archive does not establish a
 byte-identical rebuild.
+
+## Public-writer replay at main 14e5e015
+
+The [public-writer follow-up](current-main-public-writer-replay.md) preserves five
+arm64 passes over all 2,109 valid files from the 2,117-file TCB PB tree and the
+original 20 state/pixel files, plus separate rejection controls for the eight
+invalid fixtures. The [6,485,560-byte archive](../../benchmark-evidence/tuiscotti-public-writer-main-replay-20261109.tar.zst)
+has SHA-256 `9c00c526a770327120bbfe840a81cf2cf5064ec0007fc7cbd8d818c06ebfa62d`.
+It includes the exact measured helper executable, complete inputs and results,
+source/build records, verifier and guarded native replay helper. Full compiler
+and dependency environments are omitted; no bit-identical source rebuild or
+final level-22 decision is claimed. Follow the record and extracted README.
