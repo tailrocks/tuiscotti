@@ -36,6 +36,16 @@ linked from `docs/benchmarks/`.
   outputs; executables and full source trees are omitted, and it does not claim
   a byte-identical rebuild. SHA-256:
   `a5b0e432f55d39fc2d74a7be6826826bcfa8d7ae23f2752516b10e825f1a6305`.
+- The [interleaved pixel codec results](../docs/benchmarks/interleaved-pixel-codecs.md)
+  cover 15 codec settings on ten native macOS arm64 pixel samples across five
+  passes. The [matrix archive](../docs/benchmarks/evidence/interleaved-pixel-codecs-20261109.tar.zst)
+  is 30,550,663 bytes (SHA-256
+  `31808a14ca18831064ada5cc5fcd3ca0ecc4f4a40b9d65c5964916409afd6830`). Its
+  separate [same-snapshot pixel evidence archive](../docs/benchmarks/evidence/same-snapshot-pixel-10scenario-20261109.tar.zst)
+  is 37,801,078 bytes (SHA-256
+  `f5706b93f30f92bb62cf59c37f6d127b01c607d44ca921ac59d97260ac80cf11`).
+  Together they add 68,351,741 bytes to checkout distribution. This is file
+  size, not a Git pack measurement.
 
 The archives are retained evidence, not product inputs. Some include research
 replay helpers; no standalone research executable sources are added to the
