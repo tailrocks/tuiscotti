@@ -103,8 +103,21 @@ whole-commit pack measurements; they are not an equivalent JSON-versus-PB
 update sequence. Render-read and selected capture observations are recorded
 in the [render-read/capture supplement](render-read-capture-supplement.md).
 
-Separate baseline inventory records 73 missing sidecars and 74 receipt gaps;
-these comparisons neither re-audit nor resolve them. The available pairs do
+Receipt evidence does not support a single aggregate “gap” count. The
+inherited TCB main receipt index lists 17 accepted baselines
+([index](https://github.com/tailrocks/terminal-components-baseline/blob/534e0ff5af75b840d93038dd02ece0839cf4f71b/docs/testing/acceptance-receipts/inherited-main-20261108/baselines.tsv),
+[receipt records](https://github.com/tailrocks/terminal-components-baseline/blob/534e0ff5af75b840d93038dd02ece0839cf4f71b/docs/testing/acceptance-receipts/inherited-main-20261108/receipts.jsonl)).
+TCB [PR #7](https://github.com/tailrocks/terminal-components-baseline/pull/7)
+is merged at `b3034308cbc7c0b99f7dcc598ffdf3949c736124`; it adds 57 Jackin
+receipts. Its [README](https://github.com/tailrocks/terminal-components-baseline/blob/b3034308cbc7c0b99f7dcc598ffdf3949c736124/docs/testing/acceptance-receipts/jackin-main-20261107/README.md)
+and [manifest](https://github.com/tailrocks/terminal-components-baseline/blob/b3034308cbc7c0b99f7dcc598ffdf3949c736124/docs/testing/acceptance-receipts/jackin-main-20261107/manifest.json)
+record receipt and baseline hashes and report independent verification
+against tracked baseline bytes at `534e0ff`. The earlier claim of 74 receipt
+gaps did not account for these 17 inherited entries and 57 validated
+receipts, and did not establish 74 missing receipts. The earlier claim of 73
+missing sidecars has no traceable source inventory and remains unverified;
+this evidence does not establish a missing-sidecar count. These comparisons
+neither re-audit nor resolve that inventory. The available pairs do
 not exhaust the 2,117 PB corpus, do not establish current-main recapture
 equivalence for the 51 changed historical samples, and do not add Linux or
 cross-platform evidence. Level 22 therefore remains provisional.
