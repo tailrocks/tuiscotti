@@ -47,6 +47,13 @@ linked from `docs/benchmarks/`.
   Together they add 68,351,741 bytes to checkout distribution. This is file
   size, not a Git pack measurement.
 
+- The [public-writer replay](../docs/benchmarks/current-main-public-writer-replay.md)
+  records five native arm64 runs of all 2,109 valid TCB PB files and the original
+  20 state/pixel benchmark files against main `14e5e015`. Its
+  [archive](tuiscotti-public-writer-main-replay-20261109.tar.zst) is 6,485,560 bytes,
+  SHA-256 `9c00c526a770327120bbfe840a81cf2cf5064ec0007fc7cbd8d818c06ebfa62d`.
+  This is distribution file size, not a Git pack measurement.
+
 The archives are retained evidence, not product inputs. Some include research
 replay helpers; no standalone research executable sources are added to the
 repository tree. See the linked benchmark records for measurement scope and
