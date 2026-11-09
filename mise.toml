@@ -1,5 +1,7 @@
 [tools]
-mr-boxington = "1.21.1"
+gh = "2.103.3"
+shellcheck = "0.11.0"
+mr-boxington = "1.29.2"
 rust = { version = "1.99.1", profile = "minimal", components = [
   "clippy",
   "rustfmt",
@@ -7,8 +9,8 @@ rust = { version = "1.99.1", profile = "minimal", components = [
   "aarch64-unknown-linux-gnu",
   "x86_64-unknown-linux-gnu",
 ], mr_boxington = true }
-"github:asamarts/alint" = "0.15.2"
-"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.148"
+"github:asamarts/alint" = "0.21.0"
+"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.151"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
 
 [settings]
@@ -41,7 +43,7 @@ run = [
 description = "Pty-free negative guard: tuiscotti has no DIRECT portable-pty/alacritty_terminal/termpane dep (they stay permitted as upstream-transitive via tui-test-rs), and the pure-view path starts no child process or device"
 run = [
   "cargo nextest run --locked -p tuiscotti-cli --test functional -E 'test(=invalid_input)'",
-  'grep -rE "Command::new|Stdio::|openpty|/dev/(pts|tty|ptmx)|std::process::Command" crates/tuiscotti/src/view.rs && exit 1 || true',
+  'grep -rE "Command::new|Stdio::|openpty|/dev/(pts|tty|ptmx)|std::process::Command" crates/tuiscotti/src/view.rs crates/tuiscotti/src/view && exit 1 || true',
 ]
 
 [tasks.ci-deny]

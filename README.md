@@ -1,159 +1,42 @@
-# tuiscotti — offline visual-regression workflow for Ratatui views
+# Ten-scenario same-snapshot pixel control
 
-tuiscotti is for Rust developers who render terminal UI with Ratatui
-and want cell-exact regression gates on what the user would see.
-It covers the offline half of visual testing: capture a view,
-freeze it as a versioned sample, compare it against an approved
-baseline, review differences, and approve new baselines explicitly.
-Live terminal work (child processes, PTY sessions, input, locators,
-waits, capture, rendering, pixel comparison) belongs to upstream
-`tui-test`; application tests call `tui_test::Session` directly.
-tuiscotti never spawns a process and never opens a terminal.
+This evidence records ten fresh live native macOS arm64 captures selected by `input/scenarios-10.json` (SHA-256 `f07a3d2c643c5633b81221e1bf407eded40b847808656829f9e42c33ecec9924`). For each capture, the pinned old and new public Tuiscotti `Sample` writers and readers consumed that one exact TerminalSnapshot JSON. All ten captures and all ten comparisons succeeded. The independent audit verifies complete typed projection equality per scenario, including metadata, render contract, PNG bytes, and decoded RGBA bytes. No baselines were accepted or written.
 
-## Supported workflow
+Sources and artifacts are pinned in `provenance/`:
 
-```text
-capture -> sample -> check -> inspect -> accept -> recheck
-```
+- TCB commit `60b5fb2762d91a3549bd4ac63b1d77d534ee53d2`, tree `ab75046874d68a3d954dc2b50f440243fc81c14e`.
+- Old Tuiscotti commit `d8d54155947f6303a41dfd6079b53c0abc16f29a`; new Tuiscotti commit `92ef2d9ee082b35f68e066c5129fedbf07675a80`.
+- Exact scenario source manifest, arm64 TCB reference executable SHA-256 and Git blob identities, old/new writer/reader executable identities, source hashes, prior build records and logs, and the two Seatbelt profiles.
+- Per-scenario capture commands and input hashes are under `capture/provenance/`; stdout/stderr are under `logs/capture/`. Raw snapshots are under `capture/snapshots/`.
+- Per-scenario paired samples, full reader projections, pair manifests, success markers, source/executable hashes, commands and logs are under `compare-runs/`, `compare/provenance/`, and `logs/compare/`.
+- `audit/ten-scenario-audit.json` and `.tsv` contain the independent full-field, metadata, render-contract, PNG and RGBA checks with per-scenario hashes. The audit also checks each fresh Tuiscotti old-writer pixel sample against the old producer output and the metadata-free projections/image hashes against the preserved original old records in `reference/original-old-records/`.
 
-1. **capture** — render the production Ratatui view in-process with
-   `tuiscotti::view::capture_view` (no shell, no child, no PTY).
-2. **sample** — bind the snapshot as a versioned sample
-   (`tuiscotti.sample.v1`) with `Sample::with_pixels` or
-   `Sample::state`.
-3. **check** — run `tuiscotti check --sample <file>
-   --baselines <dir> --artifacts <dir>` (or `FrozenStore::check`).
-   A pass exits 0. A missing baseline reports `missing`; a changed
-   sample reports `different` with a typed reason. Both exit 1 and
-   write candidate evidence into the artifact root. Baselines are
-   never written by a check.
-4. **inspect** — read the candidate evidence: `tuiscotti render
-   --sample <file> --out <file.png|html>` and `tuiscotti report
-   --artifacts <dir> --out <file.html>`.
-5. **accept** — approve one candidate with both digests:
-   `tuiscotti accept --candidate <file> --candidate-sha256 <sha>
-   --expect-baseline <sha|missing> --baselines <dir>`. Approval
-   re-renders image samples through the upstream renderer and
-   installs the baseline atomically, or rejects with a typed code
-   and writes nothing. Approval refuses before any write when the
-   `CI` variable is set, in any form; there is no bless flag and no
-   override. See [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md).
-6. **recheck** — run the check again; it passes against the new
-   baseline.
+The producer used the exact TCB commit's tracked aarch64 reference binaries for Showcase, TablePro, Holla, and Jackin. Their hashes match the archived prior capture records for every scenario. Their captures have fresh metadata; equality is asserted between old and new readers for each newly captured snapshot. The old archived records are used only as an additional check of metadata-free snapshot projection, PNG and RGBA digests.
 
-A changed sample never self-heals: only an explicit `accept` with
-matching digests changes a baseline.
+## Capture and driver note
 
-## Library and CLI capabilities
+The PTY capture profile allows writes only under this scratch root, `/dev/null`, and the PTY/TTY endpoints; it denies network access. The comparison profile allows writes only under this scratch root and `/dev/null`; it also denies network access. The old/new writer and reader executables were copied from the previously reviewed build outputs only after their expected SHA-256 values matched. No Cargo, mise, Rustup, or shared cache commands were run for this capture.
 
-Two crates, one offline binary:
+All ten capture subprocesses exited successfully and wrote complete records and snapshots. The first outer driver then hit a `TypeError` during its final summary aggregation after those runs had completed. The exact executed driver source and exception are preserved at `capture/capture_all.executed.py` and `logs/capture-driver-summary-error.txt`; `scripts/summarize_captures.py` aggregated the saved results to 10/10 successes. `scripts/capture_all.py` contains the corrected count expression for a fresh run. This post-capture aggregation error did not alter any snapshot, sample, binary, or per-scenario result record.
 
-| Crate | Provides |
-|---|---|
-| `tuiscotti` | Pure-view capture (`view`), versioned samples (`sample`), frozen checks (`check`), explicit approval (`approve`), offline rendering (`render`), static reports (`report`), one pinned render profile (`render_profile`), one typed error (`error`) |
-| `tuiscotti-cli` | Offline binary `tuiscotti` with exactly four commands: `check`, `accept`, `render`, `report` |
+## Check the evidence
 
-The full Rust surface is listed in [docs/API.md](docs/API.md).
-The command grammar is transcribed in
-[docs/CLI.md](docs/CLI.md).
-
-## Relation to `tui-test`
-
-Upstream `tui-test` (`tui-test-rs`) owns launching terminal
-sessions, sending input, locators, waits, live capture, rendering,
-and pixel comparison. Application test code uses its Rust API
-(`tui_test::Session`) directly; tuiscotti does not wrap or
-re-export it. tuiscotti consumes upstream snapshots
-(`TerminalSnapshot`), converts Ratatui views into them, and runs
-the offline compare-and-approve workflow on the result. The
-dependency is the `tuiscotti-tui-test 0.2.1` registry release
-(renamed fork carrying the required snapshot and offline-render
-APIs; lib name `tui_test`); see
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[docs/LIMITATIONS.md](docs/LIMITATIONS.md). How the two sides split
-is summarized in [docs/COMPARISON.md](docs/COMPARISON.md).
-
-## Install and run today
-
-Requires Rust 1.99.1 (`rust-toolchain.toml`; `cargo` on PATH may be
-a cache shim, behavior is identical).
+From this directory, verify every preserved file except the manifest and the outer marker:
 
 ```sh
-cargo fetch --locked        # warm the registry for offline builds
-cargo build --locked --offline
-cargo nextest run --workspace --locked --offline   # full suite
+shasum -a 256 -c SHA256SUMS
 ```
 
-Use the CLI from the workspace build:
+`RUN_SUCCESS` contains the SHA-256 of `SHA256SUMS`; verify it with:
 
 ```sh
-cargo run -q -p tuiscotti-cli --locked --offline -- \
-  check --sample <file> --baselines <dir> --artifacts <dir>
+printf '%s  %s\n' "$(cat RUN_SUCCESS)" SHA256SUMS | shasum -a 256 -c
 ```
 
-Pure-view test in your own crate (needs `tuiscotti` plus
-`ratatui 0.30`):
+The run summaries bind the original scenario manifest. To rerun the independent audit on this completed tree:
 
-```rust
-use ratatui::widgets::Paragraph;
-use tuiscotti::check::FrozenStore;
-use tuiscotti::render_profile::{PROFILE_NAME, platform_key, resolve_profile};
-use tuiscotti::sample::{Observation, Sample};
-use tuiscotti::view::{ViewSettings, capture_view};
-
-let snapshot = capture_view(80, 24, &ViewSettings::builtin(), |frame| {
-    frame.render_widget(Paragraph::new("hello"), frame.area());
-})?;
-let profile = resolve_profile(PROFILE_NAME)?;
-let sample = Sample::with_pixels(
-    &format!("views/hello/pixels-{}", platform_key()),
-    &snapshot,
-    Observation::empty(),
-    profile,
-)?;
-let root = tempfile::tempdir()?;
-let store = FrozenStore::new(
-    &root.path().join("baselines"),
-    &root.path().join("artifacts"),
-)?;
-assert!(!store.check(&sample.to_bytes()?)?.is_pass());
+```sh
+/usr/bin/python3 scripts/audit_all.py
 ```
 
-The `functional` suite in `crates/tuiscotti-cli/tests/` drives the
-real binary through check, accept, render, and report end to end.
-The maintained example in `crates/tuiscotti/examples/hello.rs`
-renders one production-style view and saves it as a versioned
-sample (`cargo run -p tuiscotti --example hello -- <out.tui.json>
-[--pixels]`); the full first run is walked through in
-[docs/FIRST-SUCCESS.md](docs/FIRST-SUCCESS.md).
-
-## Offline means offline
-
-`check`, `accept`, `render`, and `report` never spawn a child, open
-a terminal device, or touch the network. Samples are read from
-files with bounded reads (64 MiB). "Transitive dependencies" is a
-different statement: the build closure includes
-`tuiscotti-tui-test` and its registry dependencies (PTY, font, image
-crates), because the offline renderer and the snapshot model live
-there. Those crates execute only when application test code opens a
-live session or when approval re-renders an image sample; the four
-CLI commands themselves perform no live work.
-
-## Docs
-
-- [docs/FIRST-SUCCESS.md](docs/FIRST-SUCCESS.md) — first-success tutorial with observed outputs
-- [docs/SNAPSHOTS.md](docs/SNAPSHOTS.md) — sample, check, and approval semantics
-- [docs/CLI.md](docs/CLI.md) — command reference
-- [docs/API.md](docs/API.md) — Rust API surface
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — crates, dependencies, data flow
-- [docs/LIMITATIONS.md](docs/LIMITATIONS.md) — fonts, platform limits, unsupported features
-- [docs/COMPARISON.md](docs/COMPARISON.md) — how tuiscotti and upstream `tui-test` split the work
-- [docs/TESTING.md](docs/TESTING.md) — test suite and CI wiring
-- [docs/MIGRATION.md](docs/MIGRATION.md) — upgrade notes: renames, layout, schemas, removed surfaces
-- [docs/migration/](docs/migration/) — full change history (superseded designs, review records)
-
-## Contributing and license
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for build, test, and doc
-rules. Apache-2.0 — see [LICENSE](LICENSE). Bundled fonts keep
-their own licenses under `crates/tuiscotti/fonts/`.
+This is a correctness control for these ten scenarios on one macOS arm64 host. It is not a timing benchmark, a full corpus claim, a cross-platform claim, or a baseline approval.

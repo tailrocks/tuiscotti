@@ -10,9 +10,6 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[lib]
-test = false
-
 [dependencies]
 # Pure-view execution. Live sessions, input, locators, waits, capture,
 # rendering, and comparison all come from the `tuiscotti-tui-test` snapshot
@@ -21,18 +18,32 @@ test = false
 # approval, and report workflow around it. No PTY, renderer, engine, or
 # approval-adapter dependency remains downstream.
 tuiscotti-tui-test = { version = "0.2.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
-# D02 sample format: canonical JSON, digests, PNG decoding for evidence.
+# D02 sample format: Protobuf payloads, digests, PNG decoding for evidence.
 base64.workspace = true
 # D04 approval locking: OS file locks on the stable lock file.
 fs2.workspace = true
 image.workspace = true
+bitflags.workspace = true
+crc32fast.workspace = true
+flate2.workspace = true
+simd-adler32.workspace = true
+zstd-safe.workspace = true
+zstd-sys.workspace = true
 ratatui.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 
+[build-dependencies]
+cc = "1"
+
 [dev-dependencies]
 base64.workspace = true
+approx.workspace = true
+byteorder.workspace = true
+glob.workspace = true
+miniz_oxide.workspace = true
+rand.workspace = true
 # D04 cross-process lock tests hold the same stable lock file through `fs2`.
 fs2.workspace = true
 image.workspace = true

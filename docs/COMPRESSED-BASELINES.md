@@ -1,5 +1,7 @@
 # Compressed Protobuf baselines
 
+> **Status:** Historical pre-implementation specification. The binary format is now implemented; this document preserves the original settled requirements and open questions as a record, not as the current status report. Follow the current storage contract in [SNAPSHOTS.md](SNAPSHOTS.md), the implementation decision in [DECISIONS.md](DECISIONS.md#18-binary-sample-persistence-zstandard-level-22-provisional), the measured, still-provisional results in [the level 22 benchmark record](benchmarks/zstd-level-22-provisional.md), and the [downstream regeneration runbook](DOWNSTREAM-REGENERATION.md). Native Linux remains **not verified**.
+
 ## Status and scope
 
 This is a specification for future implementation. The shipping format is still

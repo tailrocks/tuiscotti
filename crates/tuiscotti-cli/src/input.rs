@@ -7,15 +7,22 @@ use tuiscotti::sample::MAX_SAMPLE_FILE_BYTES;
 
 #[derive(Debug)]
 pub(crate) enum ReadFailure {
-    TooLarge { bytes: u64 },
-    Io { source: std::io::Error },
+    TooLarge {
+        bytes: u64,
+    },
+    Io {
+        source: std::io::Error,
+    },
+    Allocation {
+        source: std::collections::TryReserveError,
+    },
 }
 
 impl ReadFailure {
     #[must_use]
     pub(crate) fn code(&self) -> &'static str {
         match self {
-            Self::TooLarge { .. } => "RESOURCE_LIMIT",
+            Self::TooLarge { .. } | Self::Allocation { .. } => "RESOURCE_LIMIT",
             Self::Io { .. } => "IO",
         }
     }
@@ -28,20 +35,34 @@ impl ReadFailure {
                 path.display()
             ),
             Self::Io { source } => format!("cannot read sample {}: {source}", path.display()),
+            Self::Allocation { source } => format!("cannot allocate sample input buffer: {source}"),
         }
     }
 }
 
 pub(crate) fn read_sample_bytes(path: &Path) -> Result<Vec<u8>, ReadFailure> {
-    let file = fs::File::open(path).map_err(|source| ReadFailure::Io { source })?;
-    let mut bounded = file.take(MAX_SAMPLE_FILE_BYTES + 1);
+    let mut file = fs::File::open(path).map_err(|source| ReadFailure::Io { source })?;
+    let capacity =
+        usize::try_from(MAX_SAMPLE_FILE_BYTES + 1).map_err(|_| ReadFailure::TooLarge {
+            bytes: MAX_SAMPLE_FILE_BYTES + 1,
+        })?;
     let mut bytes = Vec::new();
-    bounded
-        .read_to_end(&mut bytes)
-        .map_err(|source| ReadFailure::Io { source })?;
-    let len = u64::try_from(bytes.len()).map_err(|_| ReadFailure::TooLarge { bytes: u64::MAX })?;
-    if len > MAX_SAMPLE_FILE_BYTES {
-        return Err(ReadFailure::TooLarge { bytes: len });
+    bytes
+        .try_reserve_exact(capacity)
+        .map_err(|source| ReadFailure::Allocation { source })?;
+    bytes.resize(capacity, 0);
+    let mut used = 0;
+    while used < capacity {
+        match file.read(&mut bytes[used..]) {
+            Ok(0) => break,
+            Ok(n) => used += n,
+            Err(source) if source.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(source) => return Err(ReadFailure::Io { source }),
+        }
     }
+    if used == capacity {
+        return Err(ReadFailure::TooLarge { bytes: used as u64 });
+    }
+    bytes.truncate(used);
     Ok(bytes)
 }
