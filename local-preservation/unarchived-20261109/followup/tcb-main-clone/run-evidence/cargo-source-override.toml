@@ -1,0 +1,2 @@
+[patch."https://github.com/tailrocks/tuiscotti"]
+tuiscotti = { path = "/private/tmp/tuiscotti-goal-current-20261106/crates/tuiscotti" }

@@ -1,0 +1,28 @@
+    Finished `test` profile [unoptimized] target(s) in 0.33s
+────────────
+ Nextest run ID fda9f0f6-8e4f-4679-aeab-35412a7675de with nextest profile: default
+    Starting 1 test across 1 binary (46 tests skipped)
+       START [         ] (1/1) jackin-testkit::identity coverage::every_approved_file_is_compared_by_one_journey
+
+running 1 test
+
+thread 'coverage::every_approved_file_is_compared_by_one_journey' (679146647) panicked at crates/jackin-testkit/tests/identity/coverage.rs:104:5:
+assertion `left == right` failed
+  left: {"functional/jackin_account_form_pending", "functional/jackin_account_remove", "functional/jackin_close_pane_codex", "functional/jackin_close_pane_shell", "functional/jackin_close_tab", "functional/jackin_docker_no_engine", "functional/jackin_docker_setting", "functional/jackin_doctor", "functional/jackin_editor_discard", "functional/jackin_first_use_empty", "functional/jackin_fixed_account_disable_refused", "functional/jackin_fixed_account_edit_env", "functional/jackin_fixed_account_form", "functional/jackin_fixed_account_form_1password", "functional/jackin_fixed_account_form_env", "functional/jackin_fixed_account_form_pending", "functional/jackin_fixed_account_form_refused", "functional/jackin_fixed_account_menu", "functional/jackin_fixed_browser_read_only", "functional/jackin_fixed_browser_url", "functional/jackin_fixed_browser_url_refused", "functional/jackin_fixed_editor_accounts", "functional/jackin_fixed_editor_general", "functional/jackin_fixed_editor_general_refused", "functional/jackin_fixed_editor_project", "functional/jackin_fixed_env_form", "functional/jackin_fixed_file_menu_export", "functional/jackin_fixed_launch_picker", "functional/jackin_fixed_palette_export", "functional/jackin_fixed_settings_agents", "functional/jackin_fixed_settings_commits", "functional/jackin_fixed_settings_env", "functional/jackin_fixed_settings_mounts", "functional/jackin_fixed_settings_trust", "functional/jackin_fixed_wizard_destination", "functional/jackin_fixed_wizard_workdir", "functional/jackin_help_ownership", "functional/jackin_launch_env_prompt", "functional/jackin_launch_failure", "functional/jackin_launch_openshell", "functional/jackin_launch_reconnect", "functional/jackin_manager_stop_dialog", "functional/jackin_pane_attaching", "functional/jackin_pane_detached", "functional/jackin_pane_exited", "functional/jackin_pane_failed", "functional/jackin_pane_info_title", "functional/jackin_pane_pending", "functional/jackin_pane_viewing", "functional/jackin_paste_confirm", "functional/jackin_role_binding", "functional/jackin_role_editor", "functional/jackin_role_not_allowed", "functional/jackin_settings_leave", "functional/jackin_workspace_save"}
+ right: {"functional/jackin_launch_reconnect"}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test coverage::every_approved_file_is_compared_by_one_journey ... FAILED
+
+failures:
+
+failures:
+    coverage::every_approved_file_is_compared_by_one_journey
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 46 filtered out; finished in 0.40s
+
+        FAIL [   0.411s] (1/1) jackin-testkit::identity coverage::every_approved_file_is_compared_by_one_journey
+  Cancelling due to test failure
+────────────
+     Summary [   0.413s] 1 test run: 0 passed, 1 failed, 46 skipped
+        FAIL [   0.411s] (1/1) jackin-testkit::identity coverage::every_approved_file_is_compared_by_one_journey
+error: test run failed

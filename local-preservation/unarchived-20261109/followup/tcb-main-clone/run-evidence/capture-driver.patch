@@ -1,0 +1,25 @@
+diff --git a/tests/functional/support.rs b/tests/functional/support.rs
+index 9c3510c..54a2557 100644
+--- a/tests/functional/support.rs
++++ b/tests/functional/support.rs
+@@ -12,6 +12,9 @@ use tui_test::{
+ const TIMEOUT: Duration = Duration::from_secs(10);
+ 
+ fn evidence_root() -> PathBuf {
++    if let Some(root) = std::env::var_os("TUISCOTTI_CAPTURE_ROOT") {
++        return PathBuf::from(root);
++    }
+     PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+         .parent()
+         .expect("the target directory holds the tmp directory")
+@@ -183,6 +186,10 @@ impl App {
+         let outcome = store
+             .check(&sample.to_bytes().expect("serialize Tuiscotti sample"))
+             .expect("run Tuiscotti frozen check");
++        if !outcome.is_pass() && std::env::var_os("TUISCOTTI_CAPTURE_ONLY").is_some() {
++            self.log(format!("capture-only {test_id}: {outcome:?}"));
++            return;
++        }
+         assert!(
+             outcome.is_pass(),
+             "visual mismatch for {test_id}: {outcome:?}"

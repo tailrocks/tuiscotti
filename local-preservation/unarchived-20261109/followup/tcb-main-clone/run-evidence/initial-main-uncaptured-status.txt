@@ -1,0 +1,1 @@
+The initial main attempt ran without the disposable capture-only helper patch. Its final log contains `error: test run failed`; the shell exited before recording the command status. This is retained as a misconfigured attempt, not counted as the reviewed capture-only run.

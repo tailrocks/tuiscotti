@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Alexey Zhokhov
+# SPDX-License-Identifier: Apache-2.0
+
+[net]
+retry = 10
+
+[registries.crates-io]
+protocol = "sparse"
+
+[build]
+dep-info-basedir = "."
+
+[alias]
+xtask = "run --quiet --locked --package jackin-xtask --"
+
+[patch."https://github.com/tailrocks/terminal-components-baseline"]
+junie-tui = { path = "/private/tmp/tuiscotti-jackin-pb-migration-rehearsal-20261106/tcb" }
+jackin-console = { path = "/private/tmp/tuiscotti-jackin-pb-migration-rehearsal-20261106/tcb/apps/jackin" }
+
+[patch."https://github.com/tailrocks/tuiscotti"]
+tuiscotti = { path = "/private/tmp/tuiscotti-goal-current-20261106/crates/tuiscotti" }

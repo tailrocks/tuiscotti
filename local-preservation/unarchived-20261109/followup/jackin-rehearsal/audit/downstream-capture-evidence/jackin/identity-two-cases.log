@@ -1,0 +1,26 @@
+    Finished `test` profile [unoptimized] target(s) in 0.33s
+────────────
+ Nextest run ID de5765a1-e1d9-40fd-ac05-42c6994b1f7b with nextest profile: default
+    Starting 2 tests across 1 binary (45 tests skipped)
+       START [         ] (1/2) jackin-testkit::identity coverage::a_one_cell_colour_change_fails_the_journey_check
+
+running 1 test
+
+thread 'coverage::a_one_cell_colour_change_fails_the_journey_check' (679141245) panicked at crates/jackin-testkit/tests/identity/app.rs:236:13:
+functional/jackin_launch_reconnect differs from the approved jackin-preview baseline: 1 changed cells [ReportedCell { col: 0, row: 0, fields: ["fg"], actual_text: " ", baseline_text: " " }], fields [], report /Users/donbeave/Library/Caches/mbx/targets/v1/01b196c21106efb456e87dd1046dc7e5f8abbc3bbe9810fea0923bf260d2f162/tmp/identity/functional/jackin_launch_reconnect/5ceed76d707763d1688f9478760783e510f663ce30d69f5feb125007294c47a8/checks/c280b78cacd832fa75b1f149daf73faee817226964518b05481ebda0a81eb5c1/report.html
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test coverage::a_one_cell_colour_change_fails_the_journey_check - should panic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 3.49s
+
+        PASS [   3.508s] (1/2) jackin-testkit::identity coverage::a_one_cell_colour_change_fails_the_journey_check
+       START [         ] (2/2) jackin-testkit::identity coverage::an_unchanged_approved_copy_passes_the_journey_check
+
+running 1 test
+test coverage::an_unchanged_approved_copy_passes_the_journey_check ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 46 filtered out; finished in 2.52s
+
+        PASS [   2.540s] (2/2) jackin-testkit::identity coverage::an_unchanged_approved_copy_passes_the_journey_check
+────────────
+     Summary [   6.050s] 2 tests run: 2 passed, 45 skipped
