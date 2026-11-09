@@ -36,6 +36,13 @@ linked from `docs/benchmarks/`.
   outputs; executables and full source trees are omitted, and it does not claim
   a byte-identical rebuild. SHA-256:
   `a5b0e432f55d39fc2d74a7be6826826bcfa8d7ae23f2752516b10e825f1a6305`.
+- `tuiscotti-reconstructed-pixel-render-20261109.tar.gz` — compact repeatable
+  render supplement for the `ea8`/`bdc` snapshots already in the selected-history
+  archive above. It contains the helper, PNG outputs, hashes, and pinned tool
+  records; it references rather than duplicates the historical capture files.
+  The [candidate report and disposable-checkout replay](../docs/benchmarks/real-pixel-render-history-candidate.md)
+  state the reconstructed-render scope and limitations. SHA-256:
+  `beba0945840b2c66fe5d6f502becb020c88284659db3dbc98ea9f6cd2c1ebd7a`.
 - The [interleaved pixel codec results](../docs/benchmarks/interleaved-pixel-codecs.md)
   cover 15 codec settings on ten native macOS arm64 pixel samples across five
   passes. The [matrix archive](../docs/benchmarks/evidence/interleaved-pixel-codecs-20261109.tar.zst)

@@ -263,6 +263,13 @@ source trees are omitted, and the effective environment and complete immutable
 build dependency closure were not recorded, so the archive does not establish a
 byte-identical rebuild.
 
+The [reconstructed historical pixel render candidate](real-pixel-render-history-candidate.md)
+uses two snapshots already preserved in that archive and reports the matching
+pinned-profile render hashes and pixel delta. Its compact render supplement
+and disposable-checkout replay block are linked from that candidate page. The
+result is a reconstructed render, not a stored historical pixel-gate capture;
+it does not establish a palette-table update.
+
 ## Public-writer replay at main 14e5e015
 
 The [public-writer follow-up](current-main-public-writer-replay.md) preserves five
