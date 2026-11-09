@@ -12,7 +12,7 @@ The archive [`tuiscotti-pixel-same-snapshot-evidence-20261109.tar.gz`](../../ben
 
 ```sh
 shasum -a 256 benchmark-evidence/tuiscotti-pixel-same-snapshot-evidence-20261109.tar.gz
-evidence_dir=$(mktemp -d /private/tmp/tuiscotti-pixel-XXXXXX)
+evidence_dir=$(mktemp -d "${TMPDIR:-/tmp}/tuiscotti-pixel.XXXXXX")
 tar -xzf benchmark-evidence/tuiscotti-pixel-same-snapshot-evidence-20261109.tar.gz \
   -C "$evidence_dir"
 cd "$evidence_dir/tuiscotti-pixel-control-evidence-20261109"
