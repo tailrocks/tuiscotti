@@ -414,22 +414,10 @@ baselines, acceptance receipts and test material. It is not a baseline-only
 Git cost or a JSON-versus-PB comparison for equivalent updates. See
 [the TCB mainline history record](benchmarks/real-tcb-mainline-history.md).
 
-## 19. Stable direct dependency refresh and pixel round-trip parity
+## 19. Dependency refresh and prior pixel round-trip evidence
 
-The workspace lock now selects [cc 1.11.1](https://crates.io/crates/cc/1.11.1),
-[crc32fast 1.5.4](https://crates.io/crates/crc32fast/1.5.4),
-[flate2 1.1.11](https://crates.io/crates/flate2/1.1.11),
-[rand 0.10.3](https://crates.io/crates/rand/0.10.3), and
-[toml 1.2.0](https://crates.io/crates/toml/1.2.0). Test-only random sampling
-uses rand 0.10's `RngExt`; the standalone schema generator pins toml 1.2.0.
+The pixel round-trip replay used an isolated source snapshot based on commit `b0276ae7b99792d13d2abbd77bfd4fd6633f904f`, plus captured working diff SHA-256 `ffd7ca554fc19dcab0d95e045472378251052b3ec92dc4236d0b570345a9b972` (snapshot tree `a2021ba123bd0eef0b1d20a63e237b541f1c0d63`). These are the recorded replay identities. The snapshot's `Cargo.toml`, `Cargo.lock`, `crates/schema-gen/Cargo.toml`, and `crates/schema-gen/Cargo.lock` SHA-256 values are respectively `983e16c3fa426fb6aa1c7d7a3540bd01c17a3e6736000c8e7578a80f6781b2fc`, `8224ecf03f296a5bba1e79474e56ca664eded69b530bc79670d7e4857e61707a`, `97dc7bb4671e11d0584cb42c5f6f4fa5ef3af157b6cf13b0aa83074bb0eea381`, and `a5dab25a21e903d3dcd87653a8fb5a640840178ce2119919774b9145de0e2a59`. These four hashes also match the files at commit `503ace94a8303b94d55ba9d90965d86b76353a52`; the replay source itself remains the distinct recorded `b0276ae`-based snapshot. That graph selected [toml 1.2.0](https://crates.io/crates/toml/1.2.0), and the standalone schema generator pinned toml 1.2.0. Test-only random sampling used rand 0.10's `RngExt`. The old manifest directly requested miniz_oxide 0.8, though its lock also contained 0.9.1 transitively.
 
-The current dependency snapshot passed exact round-trip parity for 20 frozen
-captures on native macOS arm64: 10 state-only and 10 state-and-pixels. The
-independent verifier passed 140 checks, including state digests, PNG bytes and
-decoded RGBA hashes, against archived captures and preserved outputs. The
-normal/build dependency graph matched byte-for-byte between the workspace and
-audit harness (137 package names). This evidence does not cover x86, fresh
-terminal rendering, or cross-platform determinism. No captures or baselines
-were written. The local report and reproduction artifacts are at
-`/private/tmp/tuiscotti-roundtrip-pixel-current-head-b0276ae-deps/REPORT.md`;
-they are not present in a fresh clone.
+On that exact replay snapshot and aligned audit-harness lock, exact round-trip parity passed for 20 frozen captures on native macOS arm64: 10 state-only and 10 state-and-pixels. The independent verifier passed 140 checks, including state digests, PNG bytes and decoded RGBA hashes, against archived captures and preserved outputs. The normal/build dependency graph matched byte-for-byte between the workspace and audit harness (137 package names). This is evidence for the recorded replay snapshot and dependency graph; it does not establish parity or dependency-graph identity after the refresh. It also does not cover x86, fresh terminal rendering, or cross-platform determinism. No captures or baselines were written. The local report and reproduction artifacts are at `/private/tmp/tuiscotti-roundtrip-pixel-current-head-b0276ae-deps/REPORT.md`; they are not present in a fresh clone.
+
+The dependency refresh changes the workspace toml resolution to 1.2.1 and changes the direct miniz_oxide requirement to 0.9, locked at 0.9.1; `crates/schema-gen/Cargo.toml` pins toml exactly to 1.2.1. The pinned alint tool is 0.22.0. The historical pixel results above have not been rerun against this refreshed graph.
