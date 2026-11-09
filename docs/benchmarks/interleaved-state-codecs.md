@@ -66,7 +66,9 @@ For Zstandard 22, per-treatment medians across five passes were:
 | JSON | 340.970 s (277.074–458.629 s) | 0.422 s (0.359–0.464 s) | 353.605 s (287.187–471.949 s) | 177,897,472 bytes |
 | Protobuf | 87.286 s (68.888–120.061 s) | 0.242 s (0.207–0.254 s) | 96.868 s (77.344–133.639 s) | 72,597,504 bytes |
 
-The aggregate includes medians, minimums, maximums, nearest-rank p95, and median absolute deviations for five observations. With only five observations, p95 is the maximum and is not a stable tail estimate. Encode/decode timings sum per-file codec calls and exclude reads, hashing, and writes. Treatment wall includes orchestration and output writes. RSS is a maximum process high-water observation across batches, not a hard cap, per-codec allocation measure, or guarantee that memory stayed below a threshold; RSS polling is sampled.
+The aggregate includes medians, minimums, maximums, nearest-rank p95, and median absolute deviations for five observations. With only five observations, p95 is the maximum and is not a stable tail estimate. Encode/decode timings sum per-file codec calls and exclude reads, hashing, and writes. Treatment wall includes orchestration and output writes. These codec-call timings are not end-to-end check, accept, capture, render, or report timings.
+
+For Zstandard, the matrix measured one-shot `ZSTD_compress2` encoding. The shipping writer uses pledged 64 KiB streaming compression, so the recorded encode times are not shipping-writer latency. All 1,872 state writer frames matched byte-for-byte with the one-shot outputs, which supports the stated output-size equivalence but does not make the timing APIs equivalent. RSS is a maximum process high-water observation across batches, not a hard cap, per-codec allocation measure, or guarantee that memory stayed below a threshold; RSS polling is sampled.
 
 ## Scope and decision status
 
