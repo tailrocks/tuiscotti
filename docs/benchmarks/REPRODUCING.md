@@ -228,6 +228,22 @@ contains binary build records, and the exact public Git source commit/tree IDs
 must be fetched and checked for rebuild. This is a single-scenario correctness
 result, not a corpus-wide, dependency-change, timing, or cross-platform result.
 
+## Ten-scenario interleaved pixel codec matrix
+
+The [interleaved pixel codec results](interleaved-pixel-codecs.md) record 15
+codec settings over five passes on ten decoded pixel samples. The
+[matrix archive](evidence/interleaved-pixel-codecs-20261109.tar.zst) preserves
+all five raw passes, the aggregate, the failed one-shot writer-frame audit,
+and replay instructions. It is 30,550,663 bytes with SHA-256
+`31808a14ca18831064ada5cc5fcd3ca0ecc4f4a40b9d65c5964916409afd6830`.
+
+The separate [same-snapshot pixel evidence archive](evidence/same-snapshot-pixel-10scenario-20261109.tar.zst)
+preserves the ten captures, paired decoded projections, and exact reference
+and helper executables. It is 37,801,078 bytes with SHA-256
+`f5706b93f30f92bb62cf59c37f6d127b01c607d44ca921ac59d97260ac80cf11`. The two
+archive files total 68,351,741 bytes of checkout distribution overhead. This
+is their combined file size, not a Git pack measurement.
+
 ## Same-capture selected history
 
 [The same-capture selected history experiment](same-capture-selected-history.md)
