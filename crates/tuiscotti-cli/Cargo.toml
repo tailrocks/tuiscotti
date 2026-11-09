@@ -1,6 +1,6 @@
 [package]
 name = "tuiscotti-cli"
-version = "0.4.0"
+version = "0.4.1"
 description = "Offline CLI for tuiscotti visual snapshots: check, accept, render, report"
 readme = "README.md"
 keywords = ["tui", "ratatui", "snapshot-testing", "visual-regression", "terminal"]
@@ -24,7 +24,7 @@ doc = false
 # (check, accept, render, report) never start an application or open a
 # terminal device. State-only render replays the pinned renderer through
 # the `tuiscotti-tui-test` API.
-tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
+tuiscotti = { version = "0.4.1", path = "../tuiscotti" }
 tuiscotti-tui-test = { version = "0.2.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 clap.workspace = true
@@ -36,7 +36,7 @@ serde_json.workspace = true
 prost = "=0.14.4"
 prost-types = "=0.14.4"
 protoc-bin-vendored = "=3.3.0"
-tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
+tuiscotti = { version = "0.4.1", path = "../tuiscotti" }
 tuiscotti-tui-test = { version = "0.2.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }
 base64.workspace = true
 flate2.workspace = true
