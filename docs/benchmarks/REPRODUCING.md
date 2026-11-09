@@ -197,3 +197,37 @@ functional frozen checks but modifies the disposable test-support source to
 time `capture_snapshot`. Neither workload establishes full paired
 JSON/Protobuf results, complete capture cost, or completion of the
 multi-revision Git-history requirement.
+
+## Same-snapshot pixel control
+
+[The same-snapshot pixel control](same-snapshot-pixel-control.md) records one
+fresh macOS arm64 Showcase capture compared through old/new Tuiscotti writers
+and readers, with four mutation controls. Its archive is
+[`tuiscotti-pixel-same-snapshot-evidence-20261109.tar.gz`](../../benchmark-evidence/tuiscotti-pixel-same-snapshot-evidence-20261109.tar.gz)
+(SHA-256
+`40e5f96c0a997aa41ba65da76b99f803937d0f65ab8acb3b470d7de63af34192`). Verify
+the archive with `shasum -a 256`, extract it, then run
+`python3 publication/verify-evidence.py` from the extracted root. The package
+omits six compiled executables and the Tuiscotti source tarballs; the ledger
+contains binary build records, and the exact public Git source commit/tree IDs
+must be fetched and checked for rebuild. This is a single-scenario correctness
+result, not a corpus-wide, dependency-change, timing, or cross-platform result.
+
+## Same-capture selected history
+
+[The same-capture selected history experiment](same-capture-selected-history.md)
+compares reconstructed JSON and Protobuf Git histories over three selected
+logical paths using five fresh captures. One repack produced 16,870-byte JSON
+and 15,134-byte Protobuf packs (22 objects each). This is a single selected-path
+storage result, not a timing comparison, and it does not measure pixel or
+palette updates. The captures are reconstructed from fresh values; they are
+not the original captured values or full original commits.
+
+The archive
+[`tuiscotti-selected-history-evidence-20261109.tar.gz`](../../benchmark-evidence/tuiscotti-selected-history-evidence-20261109.tar.gz)
+has SHA-256
+`a5b0e432f55d39fc2d74a7be6826826bcfa8d7ae23f2752516b10e825f1a6305`. The
+benchmark page gives extraction and checksum commands. Executables and full
+source trees are omitted, and the effective environment and complete immutable
+build dependency closure were not recorded, so the archive does not establish a
+byte-identical rebuild.
