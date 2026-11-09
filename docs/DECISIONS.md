@@ -421,3 +421,21 @@ The pixel round-trip replay used an isolated source snapshot based on commit `b0
 On that exact replay snapshot and aligned audit-harness lock, exact round-trip parity passed for 20 frozen captures on native macOS arm64: 10 state-only and 10 state-and-pixels. The independent verifier passed 140 checks, including state digests, PNG bytes and decoded RGBA hashes, against archived captures and preserved outputs. The normal/build dependency graph matched byte-for-byte between the workspace and audit harness (137 package names). This is evidence for the recorded replay snapshot and dependency graph; it does not establish parity or dependency-graph identity after the refresh. It also does not cover x86, fresh terminal rendering, or cross-platform determinism. No captures or baselines were written. The local report and reproduction artifacts are at `/private/tmp/tuiscotti-roundtrip-pixel-current-head-b0276ae-deps/REPORT.md`; they are not present in a fresh clone.
 
 The dependency refresh changes the workspace toml resolution to 1.2.1 and changes the direct miniz_oxide requirement to 0.9, locked at 0.9.1; `crates/schema-gen/Cargo.toml` pins toml exactly to 1.2.1. The pinned alint tool is 0.22.0. The historical pixel results above have not been rerun against this refreshed graph.
+
+## 20. Velnor Actions 0.1.78 and the Ubuntu 26.04 runner floor
+
+The repository pins Velnor Actions 0.1.78 in
+`.velnor/release-manifest.json`. Generated workflow and action files must
+come from that release and `.velnor/config.toml`; do not hand-edit generated
+outputs. This release emits `.github/workflows/state-seal.yml` as a separate
+workflow triggered by pushes to `main`, alongside normal CI. It holds the
+source, state, and tool cache producer and seal jobs.
+
+Every Velnor job must use `ubuntu-26.04`; `ubuntu-24.04` is not an allowed
+fallback or alternate runner. Keep the hosted profile on `ubuntu-26.04` and
+the scale-set profile on its configured Ubuntu 26.04 runner, and review all
+generated workflow runner declarations after regeneration.
+
+The generated `State seal` workflow has passed local generation comparison
+and workflow lint, but it has not run from a protected-main push. Its cache
+production and sealing path is therefore not yet verified at runtime.
