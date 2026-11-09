@@ -392,8 +392,9 @@ streaming path, the independently reviewed conservative container bound is
 5,789,892 bytes, below the 64 MiB limit. This is evidence for those enumerated
 corpora, not for arbitrary future samples; pixel-gated legacy samples were not
 present in that inventory. The audit did not convert or approve baselines.
-The local evidence archive is `.audit/benchmark-evidence/legacy-cap-results-20261106.tar.gz`
-(SHA-256 `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`).
+The [legacy-cap evidence archive](../benchmark-evidence/legacy-cap-results-20261106.tar.gz)
+(SHA-256 `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`)
+preserves the manifests, per-sample bounds, validation results, and counter source.
 
 The CLI follow-up measured merged Tuiscotti commit
 `6d01628170de8bed3f00f52713f3a510b782e41e` (the then-main commit) in five full

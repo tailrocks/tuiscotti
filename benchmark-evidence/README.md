@@ -1,5 +1,11 @@
 # Compressed-baseline benchmark evidence
 
+- `legacy-cap-results-20261106.tar.gz` — raw manifests, per-sample bounds,
+  validation results, and counter source for the read-only 2,608-path legacy
+  corpus bound audit. It records 2,600 valid state samples and eight invalid
+  coverage fixtures; it does not convert or approve baselines. SHA-256:
+  `a618c6e81be9968b8b2a7680d36751feaeb87c97ce01a914cccbc9bf30f9e1a1`.
+
 These archives preserve reviewable evidence for the benchmark follow-ups
 linked from `docs/benchmarks/`.
 
