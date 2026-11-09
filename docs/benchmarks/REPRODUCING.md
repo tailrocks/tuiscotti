@@ -16,6 +16,19 @@ repository. The archived captures and raw inputs allow replay without
 rebuilding the reference applications; generating new captures still requires
 the pinned downstream reference applications/worktrees and producer programs.
 
+## Five-pass interleaved state-codec evidence
+
+The slim v3 archive is available at [`benchmark-evidence/tuiscotti-compression-evidence-slim-v3-20261109.tar.zst`](../../benchmark-evidence/tuiscotti-compression-evidence-slim-v3-20261109.tar.zst) (70,891,144 bytes; SHA-256 `f1c1f947cf60228cba5592f92ac67aec626cfebad823829089f48962805d05b6`). Verify and extract it from the repository root:
+
+```sh
+shasum -a 256 benchmark-evidence/tuiscotti-compression-evidence-slim-v3-20261109.tar.zst
+evidence_dir="$(mktemp -d "${TMPDIR:-/tmp}/tuiscotti-codecs.XXXXXX")"
+zstd -dc benchmark-evidence/tuiscotti-compression-evidence-slim-v3-20261109.tar.zst | \
+  tar -xf - -C "$evidence_dir"
+```
+
+The archive stores evidence as content-addressed objects. `BUNDLE-MANIFEST.json` lists the original roots and maps the aggregate to `aggregate/real-aggregate-01/aggregate.json` with its expected SHA-256. After extraction, follow `README.md` and `ARCHIVE-COMMANDS.md`; `archive-tools/restore_bundle.py` restores all listed files into two separate chosen subtrees and verifies object hashes. The original root prefixes are `/private/tmp/tuiscotti-interleaved-aggregate-design-20261109` and `/Users/donbeave/Projects/tailrocks/tuiscotti-benchmark-closure-20261108/paired-oracle-20261108/fresh-capture-prototype/coverage-run`; the manifest also contains the standalone source `/private/tmp/build_tuiscotti_archive.py`. These are provenance strings, not durable paths. The record's restore example maps the prefixes to fresh output roots and maps the standalone file explicitly. The full restore may require substantial disk space. The archive README also documents byte-verified reconstruction of the 4,500 omitted worker logs. This slim archive omits 280,800 derived compressed payloads, while preserving their hashes, and 273 unpaired `p03` JSON plus 273 snapshot-transport files; the `p03` artifacts are not reconstructible. Some archived source and command records may contain original absolute paths. The archive supports inspection of preserved inputs, measurements, and aggregate records; the omitted payload bytes are not available for direct inspection. The archive has a logical size of 70,891,144 bytes. An independent disposable bare Git 2.54.0 (Apple Git-157) database containing only that blob measured a 70,898,173-byte pack and 70,899,329 bytes for pack plus index and reverse index. This local measurement is not a GitHub server estimate or a sample-storage measure; its complete summary and commands are linked from the [state-codec evidence record](interleaved-state-codecs.md). The level-22 decision remains provisional as described in [the state-codec evidence record](interleaved-state-codecs.md).
+
 ## Verify and extract
 
 Run from the repository root in the same workspace where the archive is

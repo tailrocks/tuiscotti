@@ -1,0 +1,3 @@
+3a1f0470196c2bb161c3c54e52b76e9735c86027 blob   70891144 70898141 12
+non delta: 1 object
+/private/tmp/tuiscotti-v3-git-cost-20261109.git/objects/pack/pack-65821cab38bba37b5620fa2570c0329573b87531.pack: ok

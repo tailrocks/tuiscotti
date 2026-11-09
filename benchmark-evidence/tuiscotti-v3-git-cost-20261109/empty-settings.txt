@@ -1,0 +1,10 @@
+core.bare=true
+core.compression=6
+core.filemode=true
+core.ignorecase=true
+core.precomposeunicode=true
+core.repositoryformatversion=0
+pack.compression=6
+pack.depth=0
+pack.window=0
+repack.writebitmaps=false
