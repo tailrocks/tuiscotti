@@ -33,8 +33,8 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-prost = "=0.14.4"
-prost-types = "=0.14.4"
+prost = "=0.14.6"
+prost-types = "=0.14.6"
 protoc-bin-vendored = "=3.3.0"
 tuiscotti = { version = "0.4.0", path = "../tuiscotti" }
 tuiscotti-tui-test = { version = "0.2.1", features = ["recording-raster", "recording-font-jetbrains-mono-styles"] }

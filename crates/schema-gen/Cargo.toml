@@ -42,8 +42,8 @@ allow_attributes_without_reason = "deny"
 allow_attributes = "warn"
 
 [dependencies]
-prost = "=0.14.4"
-prost-types = "=0.14.4"
+prost = "=0.14.6"
+prost-types = "=0.14.6"
 protoc-bin-vendored = "=3.3.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 toml = "=1.2.1"
