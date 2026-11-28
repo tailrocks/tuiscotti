@@ -1,6 +1,7 @@
 [tools]
 gh = "2.103.3"
 shellcheck = "0.11.0"
+jactionlint = "2.4.0"
 mr-boxington = "1.29.2"
 rust = { version = "1.99.1", profile = "minimal", components = [
   "clippy",
@@ -12,6 +13,14 @@ rust = { version = "1.99.1", profile = "minimal", components = [
 "github:asamarts/alint" = "0.22.0"
 "aqua:nextest-rs/nextest/cargo-nextest" = "0.9.151"
 "github:EmbarkStudios/cargo-deny" = "0.20.2"
+# velnor-gen writes the CI workflows. Linux takes the release asset. The
+# release has no macOS asset, so macOS builds the same commit from source.
+# The version here must equal the version in .velnor/rust-ci.lock. `matching`
+# (not a glob `asset_pattern`) keeps the asset choice arch-aware: a glob locks
+# the x86_64 archive into the linux-arm64 slots of mise.lock.
+# Bump both with `velnor-gen pin-helper <version>`.
+"github:tailrocks/velnor-new" = { version = "tools-v0.1.116", matching = "velnor-gen", os = ["linux"] }
+"cargo:https://github.com/tailrocks/velnor-new" = { version = "rev:5e3c38d6eca734106e0f2b0e677f9191be26c012", crate = "velnor-gen", os = ["macos"] }
 
 [settings]
 cargo.binstall = true
@@ -63,3 +72,7 @@ run = [
   "cargo check --workspace --locked --all-targets --all-features",
   "cargo nextest run --workspace --locked --all-features",
 ]
+
+[tasks.ci-generated]
+description = "Fail when a generated workflow differs from velnor-gen output"
+run = "velnor-gen --root . check"

@@ -1,0 +1,27 @@
+# Generator input for velnor-gen. Run `velnor-gen --root . generate` after a change.
+# Verification runs on the Velnor scale set. A pull request from a fork runs on
+# the GitHub-hosted fork_runner instead.
+runner = "ubuntu-26.04-scale-set"
+hosted = false
+fork_runner = "ubuntu-26.04"
+required_check = "Required"
+default_branch = "main"
+docs = "always"
+# crates/schema-gen is its own Cargo workspace and is not built by CI.
+exclude = ["crates/schema-gen/Cargo.toml"]
+
+# The schema generator and the sample wire format feed the CLI schema tests.
+[[inputs]]
+glob = "crates/schema-gen/**"
+packages = ["tuiscotti-cli"]
+
+[[inputs]]
+glob = "crates/tuiscotti/src/sample/wire/**"
+packages = ["tuiscotti-cli"]
+
+[[lint]]
+kind = "jactionlint"
+config = ".github/jactionlint.yaml"
+
+[[lint]]
+kind = "generated-check"

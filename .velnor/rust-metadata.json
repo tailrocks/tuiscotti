@@ -1,0 +1,418 @@
+{
+  "roots": {
+    "Cargo.toml": {
+      "target_dir": "target",
+      "members": [
+        {
+          "name": "tuiscotti",
+          "version": "0.4.0",
+          "manifest": "crates/tuiscotti/Cargo.toml",
+          "dependencies": [
+            {
+              "name": "base64",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "bitflags",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "crc32fast",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "flate2",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "fs2",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "image",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "png",
+                "gif"
+              ]
+            },
+            {
+              "name": "ratatui",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "underline-color"
+              ]
+            },
+            {
+              "name": "serde",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "derive"
+              ]
+            },
+            {
+              "name": "serde_json",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "sha2",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "simd-adler32",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "tuiscotti-tui-test",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "recording-raster",
+                "recording-font-jetbrains-mono-styles"
+              ]
+            },
+            {
+              "name": "zstd-safe",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "std"
+              ]
+            },
+            {
+              "name": "zstd-sys",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "vendored"
+              ]
+            },
+            {
+              "name": "approx",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "base64",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "byteorder",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "fs2",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "glob",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "image",
+              "kind": "dev",
+              "manifest": null,
+              "features": [
+                "png",
+                "gif"
+              ]
+            },
+            {
+              "name": "miniz_oxide",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "rand",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "ratatui",
+              "kind": "dev",
+              "manifest": null,
+              "features": [
+                "underline-color"
+              ]
+            },
+            {
+              "name": "serde_json",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "sha2",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "tempfile",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "cc",
+              "kind": "build",
+              "manifest": null
+            }
+          ],
+          "targets": [
+            {
+              "name": "tuiscotti",
+              "kinds": [
+                "lib"
+              ],
+              "tests": true,
+              "doctest": true,
+              "source": "crates/tuiscotti/src/lib.rs",
+              "requires_features": false
+            },
+            {
+              "name": "hello",
+              "kinds": [
+                "example"
+              ],
+              "tests": false,
+              "doctest": false,
+              "source": "crates/tuiscotti/examples/hello.rs",
+              "requires_features": false
+            },
+            {
+              "name": "build-script-build",
+              "kinds": [
+                "build-script"
+              ],
+              "tests": false,
+              "doctest": false,
+              "source": "crates/tuiscotti/build.rs",
+              "requires_features": false
+            }
+          ]
+        },
+        {
+          "name": "tuiscotti-cli",
+          "version": "0.4.0",
+          "manifest": "crates/tuiscotti-cli/Cargo.toml",
+          "dependencies": [
+            {
+              "name": "base64",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "clap",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "derive"
+              ]
+            },
+            {
+              "name": "image",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "png",
+                "gif"
+              ]
+            },
+            {
+              "name": "serde",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "derive"
+              ]
+            },
+            {
+              "name": "serde_json",
+              "kind": "normal",
+              "manifest": null
+            },
+            {
+              "name": "tuiscotti",
+              "kind": "normal",
+              "manifest": "crates/tuiscotti/Cargo.toml"
+            },
+            {
+              "name": "tuiscotti-tui-test",
+              "kind": "normal",
+              "manifest": null,
+              "features": [
+                "recording-raster",
+                "recording-font-jetbrains-mono-styles"
+              ]
+            },
+            {
+              "name": "base64",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "flate2",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "image",
+              "kind": "dev",
+              "manifest": null,
+              "features": [
+                "png",
+                "gif"
+              ]
+            },
+            {
+              "name": "prost",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "prost-types",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "protoc-bin-vendored",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "ratatui",
+              "kind": "dev",
+              "manifest": null,
+              "features": [
+                "underline-color"
+              ]
+            },
+            {
+              "name": "serde_json",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "sha2",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "tempfile",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "toml",
+              "kind": "dev",
+              "manifest": null
+            },
+            {
+              "name": "tuiscotti",
+              "kind": "dev",
+              "manifest": "crates/tuiscotti/Cargo.toml"
+            },
+            {
+              "name": "tuiscotti-tui-test",
+              "kind": "dev",
+              "manifest": null,
+              "features": [
+                "recording-raster",
+                "recording-font-jetbrains-mono-styles"
+              ]
+            },
+            {
+              "name": "zstd-safe",
+              "kind": "dev",
+              "manifest": null,
+              "features": [
+                "std"
+              ]
+            }
+          ],
+          "targets": [
+            {
+              "name": "tuiscotti",
+              "kinds": [
+                "bin"
+              ],
+              "tests": true,
+              "doctest": false,
+              "source": "crates/tuiscotti-cli/src/main.rs",
+              "requires_features": false
+            },
+            {
+              "name": "compressed_binary",
+              "kinds": [
+                "test"
+              ],
+              "tests": true,
+              "doctest": false,
+              "source": "crates/tuiscotti-cli/tests/compressed_binary.rs",
+              "requires_features": false
+            },
+            {
+              "name": "compressed_oracle",
+              "kinds": [
+                "test"
+              ],
+              "tests": true,
+              "doctest": false,
+              "source": "crates/tuiscotti-cli/tests/compressed_oracle.rs",
+              "requires_features": false
+            },
+            {
+              "name": "functional",
+              "kinds": [
+                "test"
+              ],
+              "tests": true,
+              "doctest": false,
+              "source": "crates/tuiscotti-cli/tests/functional.rs",
+              "requires_features": false
+            },
+            {
+              "name": "repository_policy",
+              "kinds": [
+                "test"
+              ],
+              "tests": true,
+              "doctest": false,
+              "source": "crates/tuiscotti-cli/tests/repository_policy.rs",
+              "requires_features": false
+            },
+            {
+              "name": "schema_generator",
+              "kinds": [
+                "test"
+              ],
+              "tests": true,
+              "doctest": false,
+              "source": "crates/tuiscotti-cli/tests/schema_generator.rs",
+              "requires_features": false
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "manifests": {
+    "Cargo.toml": "6408d86b440726d1a0ce8eed5c565d1426dc27e31ed22cb0d1fd23a54e4f3e53",
+    "crates/tuiscotti-cli/Cargo.toml": "399f01e5105b82be8dd7dfec87e0ca7a6a36756c1cd6ac491dfbb8c769490cbf",
+    "crates/tuiscotti/Cargo.toml": "ad8c92276a8f5f8659f680974047f9e914d81536a2e0be0c9740be3b9d131f57"
+  },
+  "layout": "a17836e4ee43deef9b255da1be91868ffad2bb808a0ee7816c7dfd89219cfa8f"
+}
