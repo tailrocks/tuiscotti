@@ -2,7 +2,6 @@
 gh = "2.103.3"
 shellcheck = "0.11.0"
 jactionlint = "2.4.0"
-"aqua:release-plz/release-plz" = "0.4.3"
 mr-boxington = "1.29.2"
 rust = { version = "1.99.1", profile = "minimal", components = [
   "clippy",
