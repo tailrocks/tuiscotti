@@ -42,16 +42,22 @@ Workspace lints forbid `unwrap_used`, `expect_used`, `panic!`,
 
 CI is generated (see below); each lane has a local equivalent.
 
-| Local command | CI lane (`rust-*` jobs, default + `no-default`) |
+| Local command | CI step (job `rust` unless noted) |
 |---|---|
 | `cargo fmt --all -- --check` | Format |
-| `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` | Clippy |
-| `cargo nextest run --workspace --locked --offline` (`--profile ci` in CI) | Nextest (library and CLI suites) |
+| `cargo clippy --workspace --all-targets --locked --offline -- -D warnings` | Lint (clippy) |
+| `cargo nextest run --workspace --locked --offline` (`--profile ci` in CI) | Test (nextest, library and CLI suites) |
 | `cargo test --doc -p tuiscotti --locked --offline` | Doctests (2 doc tests in `crates/tuiscotti/docs/view.md`) |
 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked` | Documentation |
+| `mise run ci-deny` | Dependency policy (job `policy`) |
 
-CI additionally runs `jactionlint`, `plan`, and the `required` merge
-gate. Runners need no system fonts: rendering replays vendored bytes
+The `rust` job starts with a `velnor-ci plan` step that picks the
+packages and tests to run; the `lint-jactionlint` and
+`lint-generated-check` jobs and the `required` merge gate run beside
+it. The workspace defines no cargo features, so the default run covers
+the `ci-no-default` task, which stays a local-only check.
+
+Runners need no system fonts: rendering replays vendored bytes
 from `crates/tuiscotti/fonts/`.
 
 ## What the dependency guard actually proves
